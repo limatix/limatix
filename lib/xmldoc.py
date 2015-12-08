@@ -2175,8 +2175,8 @@ class xmldoc(object):
         return None
 
 
-    def children(self,context,tag,namespaces=None,noprovenanceupdate=False):
-        """Find context children specified by tag. Return list
+    def children(self,context,tag=None,namespaces=None,noprovenanceupdate=False):
+        """Find context children specified by tag or all children. Return list
         """
         
         self.element_in_doc(context)
@@ -2189,24 +2189,38 @@ class xmldoc(object):
             usenamespaces=self.namespaces
             pass
 
-        if ":" in tag: # colon in tag name means this is in a namespace
-            # apply namespace from nsmap
-            colonoffset=tag.find(':')
-            namespaceuri=usenamespaces[tag[:colonoffset]]
-            clarktag="{%s}%s" % (namespaceuri,tag[(colonoffset+1):])
+        if tag is not None:
+            if ":" in tag: # colon in tag name means this is in a namespace
+                # apply namespace from nsmap
+                colonoffset=tag.find(':')
+                namespaceuri=usenamespaces[tag[:colonoffset]]
+                clarktag="{%s}%s" % (namespaceuri,tag[(colonoffset+1):])
+                pass
+            else : 
+                clarktag=tag
+                pass
+            
+            children=[]
+            for child in context.iterchildren():
+                if child.tag==clarktag:
+                    if not noprovenanceupdate:
+                        provenance.elementaccessed(self.filename,self.doc,child)
+                        pass
+                    children.append(child)
+                    pass
+                pass
             pass
-        else : 
-            clarktag=tag
-            pass
-
-        children=[]
-        for child in context.iterchildren():
-            if child.tag==clarktag:
+        else:
+            # tag is none
+            children=[]
+            for child in context.iterchildren():
                 if not noprovenanceupdate:
                     provenance.elementaccessed(self.filename,self.doc,child)
                     pass
                 children.append(child)
+                pass
             pass
+        
         return children
         
     
@@ -2874,23 +2888,23 @@ class xmldoc(object):
     
         return clarktag==element.tag
 
-    def tostring(self,element=None):
+    def tostring(self,element=None,pretty_print=False):
         # Convert to unicode string... see also tobytes()
 
         self.element_in_doc(element)
 
         # Serialize entire document or tree within one element to a string
         if element is None:
-            return etree.tostring(self.doc,encoding='utf-8').decode("utf-8")
+            return etree.tostring(self.doc,encoding='utf-8',pretty_print=pretty_print).decode("utf-8")
         else : 
             # !!! Should we mark the provenance of the entire tree under this? 
             provenance.elementaccessed(self.filename,self.doc,element)
-            return etree.tostring(element,encoding='utf-8').decode("utf-8")
+            return etree.tostring(element,encoding='utf-8',pretty_print=pretty_print).decode("utf-8")
 
         pass
 
 
-    def tobytes(self,element=None,encoding='utf-8'):
+    def tobytes(self,element=None,encoding='utf-8',pretty_print=False):
         # Convert to utf-8 bytes
         # can specify encoding=None to generate ascii (and use entities
         # for higher characters)
@@ -2899,11 +2913,11 @@ class xmldoc(object):
 
         # Serialize entire document or tree within one element to a string
         if element is None:
-            return etree.tostring(self.doc,encoding=encoding)
+            return etree.tostring(self.doc,encoding=encoding,pretty_print=pretty_print)
         else : 
             # !!! Should we mark the provenance of the entire tree under this? 
             provenance.elementaccessed(self.filename,self.doc,element)
-            return etree.tostring(element,encoding=encoding)
+            return etree.tostring(element,encoding=encoding,pretty_print=pretty_print)
 
         pass
 
