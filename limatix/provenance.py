@@ -9,6 +9,7 @@ import os.path
 import socket
 import datetime
 import subprocess
+import platform
 import getpass
 import threading
 import traceback
@@ -115,7 +116,13 @@ def determinehostname():
     
     if hostname is None or not '.' in hostname:
         # try running 'hostname --fqdn'
-        hostnameproc=subprocess.Popen(['hostname','--fqdn'],stdout=subprocess.PIPE)
+        if platform.system() == "Windows":
+            hostnameproc=subprocess.Popen(['hostname'],stdout=subprocess.PIPE)
+            pass
+        else:
+            hostnameproc=subprocess.Popen(['hostname','--fqdn'],stdout=subprocess.PIPE)
+            pass
+
         hostnamep=hostnameproc.communicate()[0].decode('utf-8').strip()
         if hostname is None:
             hostname=hostnamep
