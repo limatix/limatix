@@ -107,7 +107,7 @@
 	<pt:col select="kmlmap" type="href" label="KML overlay"/>
       </pt:sheet>
     </param>
-    <param name="prx_outfilenamexpath" select="'creston_jan2016_out.ods'"/>
+    <param name="prx_outfilename">creston_jan2016_out.ods</param>
     <script name="writespreadsheet.py"/>  <!-- finding script with name= attribute searches in the path for standard scripts -->
   </step>
 
