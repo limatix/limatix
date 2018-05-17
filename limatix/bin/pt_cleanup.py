@@ -347,6 +347,28 @@ def remove_step_output(xlpdocu,stepname):
     pass
 
 
+def cleanup_dest_find_files(desthref):
+    destpath=desthref.getpath()
+
+    filelist=[]
+    dirdict={} # Dictionary by directory href of parent directory href
+    for filename in os.listdir(destpath):
+        if os.path.isdir(os.path.join(destpath,filename)):
+            # Recurse into subdirectory
+            filehref = dc_value.hrefvalue(quote(filename+"/"),contexthref=desthref)
+
+            (subfilelist,subdirdict)=cleanup_dest_find_files(filehref)
+            filelist.extend(subfilelist)
+            dirdict.update(subdirdict)
+            dirdict[filehref]=desthref
+            pass
+        else:        
+            filehref = dc_value.hrefvalue(quote(filename),contexthref=desthref)
+            filelist.append((desthref,filehref))
+            pass
+        pass
+    return (filelist,dirdict)
+
 def cleanup_dest(input_files,desthref_set,href_set):
     canonpath_set=set([ canonicalize_path.canonicalize_path(href.getpath()) for href in href_set if href.isfile() ])
 
@@ -358,34 +380,65 @@ def cleanup_dest(input_files,desthref_set,href_set):
     for desthref in desthref_set:
         
         excess_files=[]
+        excess_dirs=[]
         
         destpath=desthref.getpath()
         assert(destpath.endswith('/') or destpath.endswith(os.path.sep))
+        (destfilelist,destdirdict)=cleanup_dest_find_files(desthref)
 
-        for filename in os.listdir(destpath):
-            if os.path.isdir(os.path.join(destpath,filename)):
-                continue # We don't currently recurse into subdirectories of dest
-            filehref = dc_value.hrefvalue(quote(filename),contexthref=desthref)
-            if filehref not in href_set:
+        referenceddestdirs=set([])
+        for (destdir,destfile) in destfilelist:
+            if destfile not in href_set:
                 # This is an excess file
                 # Check canonpath
-                assert(canonicalize_path.canonicalize_path(filehref.getpath()) not in canonpath_set)
-                assert(os.path.exists(filehref.getpath()))
-                excess_files.append(filehref.getpath())
+                assert(canonicalize_path.canonicalize_path(destfile.getpath()) not in canonpath_set)
+                assert(os.path.exists(destfile.getpath()))
+                excess_files.append(destfile.getpath())
+                pass
+            else: 
+                # This file is referenced
+                # implicit reference to its directory
+
+                # Store the ref to its directory 
+                # and traverse upward 
+                parentdir=destdir
+                while parentdir not in referenceddestdirs:
+                    referenceddestdirs.add(parentdir)
+                    if parentdir in destdirdict:
+                        parentdir=destdirdict[parentdir]
+                        pass
+                    pass
                 pass
             pass
+            
+        for destdir in destdirdict:
+            if destdir not in href_set and destdir not in referenceddestdirs:
+                # This is an excess directory
+                # Check canonpath
+                assert(canonicalize_path.canonicalize_path(destdir.getpath()) not in canonpath_set)
+                assert(os.path.exists(destdir.getpath()))
+                excess_dirs.append(destdir.getpath())
+                pass
+            
         print("Excess files in %s:" % (destpath))
         print("---------------------------------------------------------")
         for excess_file in excess_files:
             print(excess_file)
             pass
+        for excess_dir in excess_dirs:
+            print(excess_dir)
+            pass
         
-        if len(excess_files) > 0: 
+        if len(excess_files)+len(excess_dirs) > 0: 
             shoulddelete=raw_input("Answer \"YES\" to delete these files --> ")
             if shoulddelete.strip() == "YES":
                 print("Deleting files...")
                 for excess_file in excess_files:
                     os.remove(excess_file)
+                    pass
+
+                for excess_dir in excess_dirs:
+                    os.rmdir(excess_dir)
                     pass
                 
                 pass
