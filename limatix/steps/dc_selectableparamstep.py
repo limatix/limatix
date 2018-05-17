@@ -65,6 +65,11 @@ class dc_selectableparamstep(gtk.HBox):
                         gobject.PARAM_READWRITE), # flags
         }
     __proplist = ["paramname","labelmarkup","intermediate","description"]
+
+    __dcvalue_xml_properties={} # dictionary by property of dc_value class to be transmitted as a serialized  xmldoc
+    __dcvalue_href_properties=frozenset([]) # set of properties to be transmitted as an hrefvalue with the checklist context as contexthref
+
+    __nonparameter_elements=frozenset([]) # list non-parameter chx namespace elements of the <checkitem> tag here
     
     myprops=None
 
@@ -129,7 +134,7 @@ class dc_selectableparamstep(gtk.HBox):
             raise IndexError("Bad property name %s" % (property.name))
         pass
 
-    def do_get_property(self,property,value):
+    def do_get_property(self,property):
         return self.myprops[property.name]
     
     def dc_gui_init(self,guistate):
@@ -137,14 +142,18 @@ class dc_selectableparamstep(gtk.HBox):
         # super(dg_readout).__dc_gui_init(self,io)
         
         self.guistate=guistate
-        self.paramdb=self.guistate.paramdb
-
+        
         self.set_fixed()  # set to fixed value from xml file if appropriate prior to sub-widget initialization
         dc_initialize_widgets(self.gladeobjdict,guistate)
 
-
+        self.paramdb=guistate.paramdb
         self.changedcallback(None,None) #  update xml
-       
+
+        if self.myprops["paramname"] is None or self.myprops["paramname"]=="":
+            raise ValueError("dc_paramstep: <paramname> parameter not set or blank")
+
+        if self.myprops["paramname"] not in self.paramdb:
+            raise NameError("dc_paramstep: <paramname> parameter of \"%s\" not found in parameter database.\nDid you load the correct datacollect configuration (.dcc) file?" % (self.myprops["paramname"]))
         
         self.paramnotify=self.paramdb.addnotify(self.myprops["paramname"],self.changedcallback,pdb.param.NOTIFY_NEWVALUE)
 
@@ -236,8 +245,8 @@ class dc_selectableparamstep(gtk.HBox):
 
         self.changedcallback(None,None) # Go back into updating mode
 
+        self.update_xml() # clear out dc:<paramname> tag in xmlfile
         pass
-
 
     def isconsistent(self,inconsistentlist):
         consistent=True

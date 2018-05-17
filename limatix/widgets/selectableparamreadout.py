@@ -168,16 +168,18 @@ class selectableparamreadout(GtkComboBoxEntry,paramhandler):
             self.fixedvalue=fixedvalue       
             self.set_state(self.STATE_FIXED)
             self.changedinhibit=True
-            self.childntry.set_text(self.fixedvalue.format(fixeddisplayfmt))
+            if self.childntry is not None:
+                self.childntry.set_text(self.fixedvalue.format(fixeddisplayfmt))
             self.changedinhibit=False
             pass
 
         elif self.state==self.STATE_FIXED:
+            #import pdb; pdb.set_trace()
             # if our state is set as fixed but we are no longer fixed
             self.set_state(self.STATE_FOLLOWDG) # go into follower state
             # update readout according to current param value
-            self.newvalue(self.param,None)
-            
+            if self.paramdb is not None:
+                self.newvalue(self.param,None)
             pass
         pass
 
@@ -210,7 +212,8 @@ class selectableparamreadout(GtkComboBoxEntry,paramhandler):
         if self.state==self.STATE_ADJUSTING or self.state==self.STATE_WAITING or self.state==self.STATE_FIXED:
             return
         self.changedinhibit=True
-        self.childntry.set_text(param.dcvalue.format(param.displayfmt))
+        if self.childntry is not None:
+            self.childntry.set_text(param.dcvalue.format(param.displayfmt))
         self.changedinhibit=False
 
 
@@ -226,6 +229,10 @@ class selectableparamreadout(GtkComboBoxEntry,paramhandler):
             # print "not equal"
             pass
 
+        pass
+
+    def set_paramdb(self,paramdb):
+        self.paramdb=paramdb
         pass
     
     def dc_gui_init(self,guistate):
@@ -276,6 +283,9 @@ class selectableparamreadout(GtkComboBoxEntry,paramhandler):
 
 
     def sync_to_paramdb(self):
+        if self.paramdb is None: 
+            return 
+
         if self.myprops["paramname"] not in self.paramdb:
             raise ValueError("No parameter database entry for \"%s\". Does this file need to be viewed within datacollect, and are you using the correct .dcc file?" % (self.myprops["paramname"]))
         self.param=self.paramdb[self.myprops["paramname"]]
@@ -329,7 +339,13 @@ class selectableparamreadout(GtkComboBoxEntry,paramhandler):
                   "orange": "#ff8000"}
 
         if self.childntry is not None:
-            self.childntry.modify_base(STATE_NORMAL,gdk.color_parse(colormap[color]))
+            if hasattr(gtk,"StateType") and hasattr(gtk.StateType,"NORMAL"):
+                # gtk3
+                self.modify_base(gtk.StateType.NORMAL,gdk.color_parse(colormap[color]))
+                pass
+            else:
+                self.modify_base(gtk.STATE_NORMAL,gdk.color_parse(colormap[color]))
+                pass
             pass
         pass
         
