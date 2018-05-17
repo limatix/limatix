@@ -94,6 +94,24 @@ def addhandler(iohandlers):
     
     pass
 
+
+def savefilterpass(save_paramdict,ChanName):
+    if not "filter" in save_paramdict:
+        # no filter condition
+        return True
+ 
+    filter=save_paramdict["filter"]
+    for regexp in filter:
+        matchobj=re.match(regexp,ChanName)
+        if matchobj is not None:
+            if matchobj.group(0)==ChanName:
+                # full match
+                return False
+            pass
+        pass
+    # Fallthrough: OK to show this chan
+    return True
+
 class iochan(dgc_client):
     # extension of dg_comm client class
     # that tracks whether it is in use
@@ -199,7 +217,11 @@ class cmdiochan(iochan):
         self.readerthread.start()  # start is issued by the derived class after it finishes initializing
         pass
 
-    def performsave(self):
+    def performsave(self,save_function,save_paramdict):
+        
+        if save_function is not None:
+            save_function(self.pendingcom.savehref,save_extension,save_paramdict)
+            pass
 
         if self.pendingcom.save_extension=="set":
             # settings file
@@ -213,26 +235,43 @@ class cmdiochan(iochan):
             pass
         else:
             # assume .dgs
+
+            
+
             dgfh=dgf.creat(self.pendingcom.savehref.getpath())
             if dgfh is None:
                 raise IOError("Could not open dgs file \"%s\" for write." % (self.pendingcom.savehref.getpath()))
             (globalrevision,ChanList)=dgc.downloadwfmlist(self,False,True,True);
+
+            # only valid paramdict key is "filter"
+            save_paramdict_keys=list(save_paramdict.keys())
+            if any([save_paramdict_key != "filter" for save_paramdict_key in save_paramdict_keys]):
+                raise ValueError("Only key supported in save_paramdict is 'filter': Found keys: %s" % (str(save_paramdict_keys)))
+            
+
+            # support regular expression filters in save_paramdict
+            ChanFilteredList=[ Chan for Chan in ChanList if savefilterpass(save_paramdict,Chan[0]) ]
+            
             dgf.startchunk(dgfh,"SNAPSHOT");
             # provide empty metadata chunk
             EmptyMetadata={};
             dgf.writemetadata(dgfh,EmptyMetadata);
             
-            for Chan in ChanList :
+            for Chan in ChanFilteredList :
                 wfm=dgc.downloadwfmshm(self,Chan[0],Chan[1]);
                 wfm.wfmname=Chan[0];
                 dgf.writenamedwfm(dgfh,wfm);
                 
-                dgc.command(self,"WFM:UNLOCK %s %d" % (Chan[0],Chan[1]));
                 pass
             dgf.endchunk(dgfh); # SNAPSHOT
             dgf.close(dgfh);
             
+            # unlock all waveforms
+            for Chan in ChanList :
+                dgc.command(self,"WFM:UNLOCK %s %d" % (Chan[0],Chan[1]));
+                pass
             pass
+
         pass
 
     def readerthreadcode(self):
@@ -273,7 +312,7 @@ class cmdiochan(iochan):
                 # work on self.pendingcom                
                 if self.pendingcom.savehref is not None:
                     try: 
-                        self.performsave()
+                        self.performsave(self.pendingcom.save_function,self.pendingcom.save_paramdict)
 
                         # Serialize savehref as XML, store in res. 
                         # .... callback will convert back
@@ -289,7 +328,7 @@ class cmdiochan(iochan):
                         (exctype, excvalue) = sys.exc_info()[:2] 
                         
                         
-                        sys.stderr.write("dg_io: %s: %s performing save of URL \"%s\".\n" % (exctype.__name__,str(excvalue),self.pendingcom.savehref.geturl()))
+                        sys.stderr.write("dg_io: %s: %s performing save of URL \"%s\".\n" % (exctype.__name__,str(excvalue),self.pendingcom.savehref.absurl()))
                         traceback.print_exc()
 
                         self.retcode=600
@@ -458,11 +497,13 @@ class pendingcommand(object):
     querytype=None
     savehref=None    # savehref and save_extension are used ony for performsave()
     save_extension=None
+    save_function=None
+    save_paramdict=None
     
     cancelled=None           
                       
 
-    def __init__(self,ident,fullcommand,func,param,querytype,savehref=None,save_extension=None):
+    def __init__(self,ident,fullcommand,func,param,querytype,savehref=None,save_extension=None,save_function=None,save_paramdict=None):
         if ident is None:
             ident=id(self)
             pass
@@ -474,6 +515,8 @@ class pendingcommand(object):
         self.querytype=querytype
         self.savehref=savehref
         self.save_extension=save_extension
+        self.save_function=save_function
+        self.save_paramdict=save_paramdict
         pass
 
     def dispatch_callback(self,retcode,buf,res):
@@ -944,12 +987,12 @@ class io(object):
         pass
 
     # performsave like issuecommand but does a save dgs or save settings operation
-    def performsave(self,ident,savehref,save_extension,func,param):
+    def performsave(self,ident,savehref,save_extension,save_function,save_paramdict,func,param):
         if not self.commstarted:
             raise IOError("Attempting to save dataguzzler data as URL %s over link that has not been started" % (savehref))
 
         self.commcommandcondition.acquire() # acquire lock
-        newcommand=pendingcommand(ident,None,func,param,None,savehref=savehref,save_extension=save_extension)
+        newcommand=pendingcommand(ident,None,func,param,None,savehref=savehref,save_extension=save_extension,save_function=save_function,save_paramdict=save_paramdict)
 
         if ident is None:
             ident=id(newcommand)

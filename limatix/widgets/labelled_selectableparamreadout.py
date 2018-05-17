@@ -91,6 +91,11 @@ class labelled_selectableparamreadout(gtk.HBox):
             raise ValueError("Invalid property %s" % (property.name))
         pass
     
+
+    def set_paramdb(self,paramdb):
+        self.entry.set_paramdb(paramdb)
+        pass
+
     
     def dc_gui_init(self,guistate):
         self.entry.dc_gui_init(guistate)
