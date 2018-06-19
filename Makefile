@@ -119,6 +119,8 @@ dist:
 	$(MAKE) $(MFLAGS) commit
 	$(MAKE) $(MFLAGS) all
 	$(MAKE) $(MFLAGS) realclean
+	git checkout master
+	git merge --no-ff develop
 	git tag -f `cat VERSION`
 
 	tar -cvzf /tmp/realclean-limatix-`cat VERSION`.tar.gz $(DIST_FILES)
@@ -126,8 +128,10 @@ dist:
 	#tar $(PUBEXCLUDE) -cvzf /tmp/realclean-limatix-pub-`cat VERSION`.tar.gz $(DIST_FILES)
 
 	@for archive in  limatix-`cat VERSION`  ; do mkdir /tmp/$$archive ; tar -C /tmp/$$archive  -x -f /tmp/realclean-$$archive.tar.gz ; make -C /tmp/$$archive all ; make -C /tmp/$$archive distclean ; tar -C /tmp -c -v -z -f /home/sdh4/research/software/archives/$$archive.tar.gz $$archive ; ( cd /tmp; zip -r /home/sdh4/research/software/archives/$$archive.zip $$archive ) ;  done
+	git checkout develop
 
 	mv VERSION VERSIONtmp
 	awk -F . '{ print $$1 "." $$2 "." $$3+1 "-devel"}' <VERSIONtmp >VERSION  # increment version number and add trailing-devel
 	rm -f VERSIONtmp
 	rm -f VERSIONDATE
+	@echo "If everything worked, you should do a git push --all"
