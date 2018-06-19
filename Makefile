@@ -119,7 +119,7 @@ dist:
 	$(MAKE) $(MFLAGS) commit
 	$(MAKE) $(MFLAGS) all
 	$(MAKE) $(MFLAGS) realclean
-	hg tag -f `cat VERSION`
+	git tag -f `cat VERSION`
 
 	tar -cvzf /tmp/realclean-limatix-`cat VERSION`.tar.gz $(DIST_FILES)
 
