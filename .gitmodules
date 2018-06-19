@@ -1,0 +1,3 @@
+[submodule "canonicalize-path"]
+        path=limatix/canonicalize-path
+	# url =

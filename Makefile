@@ -5,7 +5,7 @@ include defs.mk
 DIST_FILES=.
 
 
-PUBEXCLUDE=--exclude .hg --exclude limatix/canonicalize_path/.hg  --exclude limatix/dc_lxml_treesync/.hg
+#PUBEXCLUDE=--exclude .hg --exclude limatix/canonicalize_path/.hg  --exclude limatix/dc_lxml_treesync/.hg
 
 
 PYSUBDIRS=widgets steps
@@ -106,8 +106,8 @@ checkwidgets:
 	( export PYTHONPATH=lib/:$$PYTHONPATH ;for i in widgets/*.py ; do $(PYCHECKER) --only --limit=30 $$i ; done )
 
 commit: realclean
-	hg addremove
-	hg commit
+	git add -A # hg addremove
+	git commit -a  # hg commit
 
 
 dist:
@@ -123,7 +123,7 @@ dist:
 
 	tar -cvzf /tmp/realclean-limatix-`cat VERSION`.tar.gz $(DIST_FILES)
 
-	tar $(PUBEXCLUDE) -cvzf /tmp/realclean-limatix-pub-`cat VERSION`.tar.gz $(DIST_FILES)
+	#tar $(PUBEXCLUDE) -cvzf /tmp/realclean-limatix-pub-`cat VERSION`.tar.gz $(DIST_FILES)
 
 	@for archive in  limatix-`cat VERSION` limatix-pub-`cat VERSION`  ; do mkdir /tmp/$$archive ; tar -C /tmp/$$archive  -x -f /tmp/realclean-$$archive.tar.gz ; make -C /tmp/$$archive all ; make -C /tmp/$$archive distclean ; tar -C /tmp -c -v -z -f /home/sdh4/research/software/archives/$$archive.tar.gz $$archive ; ( cd /tmp; zip -r /home/sdh4/research/software/archives/$$archive.zip $$archive ) ;  done
 
