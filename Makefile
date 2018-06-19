@@ -134,4 +134,5 @@ dist:
 	awk -F . '{ print $$1 "." $$2 "." $$3+1 "-devel"}' <VERSIONtmp >VERSION  # increment version number and add trailing-devel
 	rm -f VERSIONtmp
 	rm -f VERSIONDATE
+	git commit -a
 	@echo "If everything worked, you should do a git push --all"
