@@ -89,4 +89,14 @@ Getting Started
 See doc/LIMATIX.xhtml for quickstart documentation and
 examples. 
 
+Troubleshooting
+---------------
+If you run into errors in finding canonicalize_path and/or
+dc_lxml_treesync, that means you used an incomplete download.
+The Limatix repository includes these sub-repositories.
+When downloading from Github, always download the
+"limatix-<VERSION>.tar.gz" or "limatix-<VERSION>.zip"
+rather than the Github-generated "source code" archives,
+as the latter do not include the sub-repositories
+
 see README.txt for basic information on LIMATIX
