@@ -157,6 +157,7 @@ Flags:
   -f                  Operate only on the specified input files (multiple OK)
   -l                  Apply additional xpath filters (multiple OK)
   -i                  Use ipython interactive mode to execute script
+  --git-add           Stage changes to .prx and input files for commit
   --gtk3              Use GTK3 if gui elements required
   --steps             Don't do anything; just list available steps
   --files             Don't do anything; just list available files
@@ -247,6 +248,7 @@ def main(args=None):
     prxfile=positionals[0]
     prxfilehref=dcv.hrefvalue(prxfile,contexthref=dcv.hrefvalue("."))
 
+    
     
     # prxdoc is loaded into memory once, so we don't use locking on it. 
     prxdoc=xmldoc.xmldoc.loadhref(prxfilehref,nsmap=processtrak_common.prx_nsmap,readonly=True,use_locking=False,debug=True)  #!!!*** Should turn debug mode off eventually... it will speed things up

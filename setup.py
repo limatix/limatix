@@ -33,7 +33,8 @@ console_scripts=["datacollect2",
                  "processtrak",
                  "dc_ricohphoto",
                  "dc_xlg2dpd",
-                 "pt_cleanup"]
+                 "pt_cleanup",
+                 "limatix-git"]
 gui_scripts = []  # Could move graphical scrips into here to eliminate stdio window on Windows (where would error messages go?)
 
 console_scripts_entrypoints = [ "%s = limatix.bin.%s:main" % (script,script) for script in console_scripts ]

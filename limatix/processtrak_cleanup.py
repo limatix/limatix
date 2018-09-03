@@ -247,7 +247,7 @@ def add_to_traverse(infiles,pending,completed,newhref):
 
     
 
-def traverse_one(infiles,infileobj,pending,completed,dests,hrefs,recursive=False):
+def traverse_one(infiles,infileobj,pending,completed,dests,hrefs,recursive=False,include_processed=True):
     # go through infile, searching for links
 
 
@@ -267,7 +267,7 @@ def traverse_one(infiles,infileobj,pending,completed,dests,hrefs,recursive=False
             # .XLG file has implicit link to its .XLP file
             barefilename=infileobj.href.get_bare_unquoted_filename()
             (barename,ext)=posixpath.splitext(barefilename)
-            if ext==".xlg":
+            if ext==".xlg" and include_processed:
                 xlpfile=barename+".xlp"
                 xlphref=dc_value.hrefvalue(quote(xlpfile),contexthref=infileobj.href)
                 if hrefs is not None:
@@ -279,7 +279,7 @@ def traverse_one(infiles,infileobj,pending,completed,dests,hrefs,recursive=False
                 pass
             pass
         
-        if infileobj.ftype==infileobj.IFT_XLG or infileobj.ftype==infileobj.IFT_XLP:
+        if infileobj.ftype==infileobj.IFT_XLG or (infileobj.ftype==infileobj.IFT_XLP and include_processed):
             # XLG and XLP files can have dest references
             # and we are tracking those
             # print("got xlg or xlp. infileobj.href=%s" % (infileobj.href.humanurl()))
@@ -295,7 +295,7 @@ def traverse_one(infiles,infileobj,pending,completed,dests,hrefs,recursive=False
         if infileobj.ftype==infileobj.IFT_PRX:
             # .PRX file has implicit links to its input and output files
 
-            # ... We follow links to .xlp files whether or not the recursive flag is set
+            # ... We follow links to .xlp files whether or not the recursive flag is set as long as we are doing include_processed
             
             prx_inputfiles_with_hrefs=processtrak_common.getinputfiles(infileobj.xmldocu)
             prx_outputdict=processtrak_common.build_outputdict(infileobj.xmldocu,prx_inputfiles_with_hrefs)
@@ -303,22 +303,32 @@ def traverse_one(infiles,infileobj,pending,completed,dests,hrefs,recursive=False
             for prx_inputfile_href in prx_outputdict:
                 if hrefs is not None:
                     hrefs.add(prx_inputfile_href)
-                    hrefs.add(prx_outputdict[prx_inputfile_href].outputfilehref)
+                    if include_processed:
+                        hrefs.add(prx_outputdict[prx_inputfile_href].outputfilehref)
+                        pass
                     pass
                 
                 if recursive:
                     add_to_traverse(infiles,pending,completed,prx_inputfile_href)
                     pass
                 
-                # follow link to output whether or not recursive is set 
-                add_to_traverse(infiles,pending,completed,prx_outputdict[prx_inputfile_href].outputfilehref)
+                # follow link to output whether or not recursive is set
+                if include_processed:
+                    add_to_traverse(infiles,pending,completed,prx_outputdict[prx_inputfile_href].outputfilehref)
+                    pass
+                
                 pass
             pass
 
         # Now go through all explicit links if we need hrefs
-
-        if hrefs is not None or recursive: 
-            all_links=infileobj.xmldocu.xpath("//*[@xlink:href]")
+        #   ... unless we not including processed output and this is an .xlp file
+        if (hrefs is not None or recursive) and (include_processed or infileobj.ftype != infileobj.IFT_XLP):
+            if include_processed:
+                all_links=infileobj.xmldocu.xpath("//*[@xlink:href]")
+                pass
+            else:
+                all_links=infileobj.xmldocu.xpath("//*[not(self::prx:outputfile) and @xlink:href]",namespaces={"prx":"http://limatix.org/processtrak/processinginstructions"})
+                pass
 
             for link in all_links:
                 href=dc_value.hrefvalue.fromxml(infileobj.xmldocu,link)
@@ -342,7 +352,7 @@ def traverse_one(infiles,infileobj,pending,completed,dests,hrefs,recursive=False
     pass
 
 
-def traverse(infiles,infilehrefs=None,recursive=False,need_href_set=False):
+def traverse(infiles,infilehrefs=None,recursive=False,need_href_set=False,include_processed=True):
     # infiles is infiledict object, infilehrefs is list of hrefs
 
     
@@ -370,7 +380,7 @@ def traverse(infiles,infilehrefs=None,recursive=False,need_href_set=False):
     # print("traversepending(%s)" % ([str(infilehref) for infilehref in pending]))
     while len(pending) > 0:
         for href in list(pending):
-            traverse_one(infiles,infiles.all[href],pending,completed,dests,hrefs,recursive=recursive)
+            traverse_one(infiles,infiles.all[href],pending,completed,dests,hrefs,recursive=recursive,include_processed=include_processed)
             pass
         pass
 

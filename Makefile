@@ -137,3 +137,4 @@ dist:
 	rm -f VERSIONDATE
 	git commit -a
 	@echo "If everything worked, you should do a git push --all ; git push --tags"
+	@echo "Then on github define a new release... Include mention of downloading the built archives. Upload the saved archive as a "binary"
