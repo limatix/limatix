@@ -155,6 +155,11 @@ class inputfile(object):
             assert(hasattr(self,kwarg))
             setattr(self,kwarg,kwargs[kwarg])
             pass
+        if self.href is not None:
+            # Should be a reference to an input file, with
+            # fragment stripped
+            assert(not self.href.has_fragment())
+            pass
         pass
 
     @classmethod
@@ -302,19 +307,19 @@ def traverse_one(infiles,infileobj,pending,completed,dests,hrefs,recursive=False
 
             for prx_inputfile_href in prx_outputdict:
                 if hrefs is not None:
-                    hrefs.add(prx_inputfile_href)
+                    hrefs.add(prx_inputfile_href.fragless())
                     if include_processed:
-                        hrefs.add(prx_outputdict[prx_inputfile_href].outputfilehref)
+                        hrefs.add(prx_outputdict[prx_inputfile_href].outputfilehref.fragless())
                         pass
                     pass
                 
                 if recursive:
-                    add_to_traverse(infiles,pending,completed,prx_inputfile_href)
+                    add_to_traverse(infiles,pending,completed,prx_inputfile_href.fragless())
                     pass
                 
                 # follow link to output whether or not recursive is set
                 if include_processed:
-                    add_to_traverse(infiles,pending,completed,prx_outputdict[prx_inputfile_href].outputfilehref)
+                    add_to_traverse(infiles,pending,completed,prx_outputdict[prx_inputfile_href].outputfilehref.fragless())
                     pass
                 
                 pass
@@ -331,7 +336,7 @@ def traverse_one(infiles,infileobj,pending,completed,dests,hrefs,recursive=False
                 pass
 
             for link in all_links:
-                href=dc_value.hrefvalue.fromxml(infileobj.xmldocu,link)
+                href=dc_value.hrefvalue.fromxml(infileobj.xmldocu,link).fragless()
                 if hrefs is not None:
                     hrefs.add(href)
                     pass
@@ -383,7 +388,8 @@ def traverse(infiles,infilehrefs=None,recursive=False,need_href_set=False,includ
             traverse_one(infiles,infiles.all[href],pending,completed,dests,hrefs,recursive=recursive,include_processed=include_processed)
             pass
         pass
-
+    
+    # Completed is set of XML files, href are non XML (or non XLG, XLP, PRX, etc. cross-references)
     return (completed,dests,hrefs)
 
 

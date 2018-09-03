@@ -37,8 +37,8 @@ console_scripts=["datacollect2",
                  "limatix-git"]
 gui_scripts = []  # Could move graphical scrips into here to eliminate stdio window on Windows (where would error messages go?)
 
-console_scripts_entrypoints = [ "%s = limatix.bin.%s:main" % (script,script) for script in console_scripts ]
-gui_scripts_entrypoints = [ "%s = limatix.bin.%s:main" % (script,script) for script in gui_scripts ]
+console_scripts_entrypoints = [ "%s = limatix.bin.%s:main" % (script,script.replace("-","_")) for script in console_scripts ]
+gui_scripts_entrypoints = [ "%s = limatix.bin.%s:main" % (script,script.replace("-","_")) for script in gui_scripts ]
 
 canonicalize_path_config_files=["limatix/canonicalize_path/canonical_paths.conf.example","limatix/canonicalize_path/tag_index_paths.conf.example"]
 canonicalize_path_package_files=["canonical_paths.conf","tag_index_paths.conf"]

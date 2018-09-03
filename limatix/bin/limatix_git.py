@@ -1,13 +1,61 @@
 import sys
+import subprocess
 import os
 import os.path
 
 try:
+    # py2.x
+    from urllib import pathname2url
+    from urllib import url2pathname
+    from urllib import quote
+    from urllib import unquote
+    pass
+except ImportError:
+    # py3.x
+    from urllib.request import pathname2url
+    from urllib.request import url2pathname
+    from urllib.parse import quote
+    from urllib.parse import unquote
+    pass
+
+
+
+from limatix import dc_value
+
+from limatix import processtrak_cleanup
+
+
+
+try:
+    import git
     from git import Repo
     pass
 except ImportError:
     raise ImportError("GitPython must be installed in order to use limatix-git")
 
+
+def git_dir_context(repo):
+    rootpath = repo.git.rev_parse("--show-toplevel")
+    #cdup = repo.git.rev_parse("--show-cdup")  # gitpython --show-cdup doesn't work... do it with a pipe!
+    # (That's because gitpython interprets all files as being in
+    # the context of the rootpath)
+    cdup=subprocess.Popen(["git","rev-parse","--show-cdup"],stdout=subprocess.PIPE).communicate()[0].strip().decode('utf-8')
+    if len(cdup)==0:
+        cdup='.'
+        pass
+    if cdup.endswith(os.path.sep):
+        cdup=cdup[:-1]
+        pass
+
+    prefix=subprocess.Popen(["git","rev-parse","--show-prefix"],stdout=subprocess.PIPE).communicate()[0].strip().decode('utf-8')
+    if len(prefix)==0:
+        prefix='.'
+        pass
+    if prefix.endswith(os.path.sep):
+        prefix=prefix[:-1]
+        pass
+
+    return (rootpath,cdup,prefix)
 
 def add_usage():
     print("""Usage: %s add [-h] [-a] [--dry-run] <inputfiles...>
@@ -26,31 +74,38 @@ NOTE: This is intended for raw data, experiment logs, scripts and instructions,
 def get_unprocessed(input_file_hrefs):
     input_files=processtrak_cleanup.infiledicts.fromhreflist(input_file_hrefs)
 
-    (completed_set,desthref_set,href_set)=processtrak_cleanup.traverse(input_files,recursive=recursive,need_href_set=True,include_processed=False)
+    (completed_set,desthref_set,href_set)=processtrak_cleanup.traverse(input_files,recursive=True,need_href_set=True,include_processed=False)
 
-    allpaths = [ href.getpath() for href in href_set ]
-    xlppaths = [ path for path in addpaths if os.path.splitext()[1].lower()==".xlp" ]
-    unprocessedpaths = [ path for path in addpaths if os.path.splitext()[1].lower()!=".xlp" ]
+    allpaths_no_dest = [ href.getpath() for href in (completed_set | href_set)-desthref_set ]
+    xlppaths = [ path for path in allpaths_no_dest if os.path.splitext(path)[1].lower()==".xlp" ]
+    unprocessedpaths = [ path for path in allpaths_no_dest if os.path.splitext(path)[1].lower()!=".xlp" ]
 
     return (unprocessedpaths,xlppaths)
 
-def get_processed(input_file_hrefs):
-    input_files=processtrak_cleanup.infiledicts.fromhreflist(input_file_hrefs)
+def get_processed(input_file_hrefs_unprocessed,input_file_hrefs):
+    input_files_up=processtrak_cleanup.infiledicts.fromhreflist(input_file_hrefs_unprocessed)
 
 
     
-    (unprocessed_completed_set,unprocessed_desthref_set,unprocessed_href_set)=processtrak_cleanup.traverse(input_files,recursive=recursive,need_href_set=True,include_processed=False)
+    (unprocessed_completed_set,unprocessed_desthref_set,unprocessed_href_set)=processtrak_cleanup.traverse(input_files_up,recursive=True,need_href_set=True,include_processed=False)
 
-    (completed_set,desthref_set,href_set)=processtrak_cleanup.traverse(input_files,recursive=recursive,need_href_set=True,include_processed=True)
+    input_files_pr=processtrak_cleanup.infiledicts.fromhreflist(input_file_hrefs)
 
-    processed_href_set = href_set - unprocessed_href_set
+    (completed_set,desthref_set,href_set)=processtrak_cleanup.traverse(input_files_pr,recursive=True,need_href_set=True,include_processed=True)
+
+    import pdb
+    pdb.set_trace()
+    
+    processed_href_set = (completed_set | href_set) - (unprocessed_completed_set | unprocessed_href_set) - desthref_set
 
     processedpaths = [ href.getpath() for href in processed_href_set ]
 
+    #import pdb
+    #pdb.set_trace()
     return (processedpaths)
 
 def filename_is_xlg_prx_py(filename):
-    ext=os.path.splitext(filename).lower()
+    ext=os.path.splitext(filename)[1].lower()
     return ext==".xlg" or ext==".prx" or ext==".py"
 
 def find_recursive_xlg_prx_py(rootpath):
@@ -59,6 +114,7 @@ def find_recursive_xlg_prx_py(rootpath):
     for (dirpath,dirnames,filenames) in os.walk(rootpath):
         pathlist.extend([ os.path.join(dirpath,filename) for filename in filenames if filename_is_xlg_prx_py(filename) ])
         pass
+    
     return pathlist
         
 
@@ -75,7 +131,7 @@ def add(args):
         if arg=='-a':
             all=True
             pass
-        elif arg=='-h':
+        elif arg=='-h' or arg=="--help":
             add_usage()
             sys.exit(0)
         elif arg=="--dry-run":
@@ -86,26 +142,31 @@ def add(args):
         else:
             positionals.append(arg)
             pass
-        argc++
+        argc+=1
         pass
         
         
-    repo=Repo(prxfilehref.getpath(),search_parent_directories=True)
+    repo=Repo(".",search_parent_directories=True)
 
-    rootpath = repo.git.rev_parse("--show-toplevel")
+    (rootpath,cdup,prefix)=git_dir_context(repo)
+    
+    
 
     if "processed" in repo.active_branch.name:
         sys.stderr.write("Will not add raw input files/scripts/etc. to processed\nbranch.\nSwitch branches with \"git checkout\" first!\n")
         sys.exit(1)
         pass
 
-    to_consider=positionals
+    to_consider=[ os.path.join(prefix,positional) for positional in positionals ]
     
     if all:
-        to_consider += find_recursive_xlg_prx_py(rootpath)
+        autofound_files = find_recursive_xlg_prx_py(rootpath)
+
+        to_consider.extend(autofound_files)
+        
         pass
-    
-    input_file_hrefs=[ dc_value.hrefvalue(pathname2url(input_file_name),contexthref=dc_value.hrefvalue("./")) for input_file_name in to_consider ]
+
+    input_file_hrefs=[ dc_value.hrefvalue(pathname2url(input_file_name),contexthref=dc_value.hrefvalue(pathname2url(rootpath))) for input_file_name in to_consider ]
     (unprocessedpaths,xlppaths)=get_unprocessed(input_file_hrefs)
 
     print("Adding paths for commit:")
@@ -116,10 +177,14 @@ def add(args):
     if not dryrun:
         repo.git.add(unprocessedpaths)
         pass
-    print("Omitted processed output:")
-    for xlppath in xlppaths:
-        print("   %s" % (xlppath))
+
+    if len(xlppaths) > 0:
+        print("Omitted processed output:")
+        for xlppath in xlppaths:
+            print("   %s" % (xlppath))
+            pass
         pass
+    
     print("\nNow run \"git commit\"")
     pass
 
@@ -152,7 +217,7 @@ def add_processed(args):
         if arg=='-a':
             all=True
             pass
-        elif arg=='-h':
+        elif arg=='-h' or arg=="--help":
             add_processed_usage()
             sys.exit(0)
         elif arg=="--dry-run":
@@ -163,31 +228,38 @@ def add_processed(args):
         else:
             positionals.append(arg)
             pass
-        argc++
+        argc+=1
         pass
         
         
-    repo=Repo(prxfilehref.getpath(),search_parent_directories=True)
+    repo=Repo(".",search_parent_directories=True)
 
-    rootpath = repo.git.rev_parse("--show-toplevel")
+    (rootpath,cdup,prefix)=git_dir_context(repo)
 
-
-    to_consider=positionals
+    to_consider=[ os.path.join(prefix,positional) for positional in positionals ]
+    
+    autofound_files = find_recursive_xlg_prx_py(rootpath)
+    to_consider_unprocessed = to_consider + autofound_files
     
     if all:
-        to_consider += find_recursive_xlg_prx_py(rootpath)
+        to_consider.extend(autofound_files)
         pass
     
-    input_file_hrefs=[ dc_value.hrefvalue(pathname2url(input_file_name),contexthref=dc_value.hrefvalue("./")) for input_file_name in to_consider ]
-    (unprocessedpaths,xlppaths)=get_unprocessed(input_file_hrefs)
+    input_file_hrefs_unprocessed=[ dc_value.hrefvalue(pathname2url(input_file_name),contexthref=dc_value.hrefvalue(pathname2url(rootpath))) for input_file_name in to_consider_unprocessed ]
+
+    input_file_hrefs=[ dc_value.hrefvalue(pathname2url(input_file_name),contexthref=dc_value.hrefvalue(pathname2url(rootpath))) for input_file_name in to_consider ]
+    
+    (unprocessedpaths,xlppaths)=get_unprocessed(input_file_hrefs_unprocessed)
 
     # Check that all unprocessedpaths are unmodified
     unprocessedabspaths = [os.path.abspath(unprocessedpath) for unprocessedpath in unprocessedpaths ]
     if len(unprocessedabspaths) > 0:
+
         modified_unprocessed=repo.index.diff(None,paths=unprocessedabspaths)
         if len(modified_unprocessed) > 0:
             sys.stderr.write("Modifed raw input files present:\n")
-            for fname in modified_unprocessed.a_path:
+            for diff in modified_unprocessed:
+                fname=diff.a_path
                 sys.stderr.write("   %s\n" % (fname))
                 pass
             sys.stderr.write("\nAdd these to non-processed branch with limatix-git add;git commit\n")
@@ -210,13 +282,13 @@ def add_processed(args):
         unprocessed_byname = { }
         for unprocessed in unprocessedabspaths:
             unprocessed_fname=os.path.split(unprocessed)[1]
-            if not processed_fname in unprocessed_byname:
+            if not unprocessed_fname in unprocessed_byname:
                 unprocessed_byname[unprocessed_fname]=[]
                 pass
             unprocessed_byname[unprocessed_fname].append(unprocessed)
-            
+            pass
         # Find matches between the two
-        commonnames = ImmutableSet(untracked_byname.keys()).intersection(ImmutableSet(unprocessed_byname.keys()))
+        commonnames = frozenset(untracked_byname.keys()).intersection(frozenset(unprocessed_byname.keys()))
 
         untracked_unprocessed=[]
         for commonname in commonnames:
@@ -240,11 +312,11 @@ def add_processed(args):
         pass
     
     if not "processed" in repo.active_branch.name:
-        sys.stderr.write("Will not add processed output to\nbranch without \"processed\" in its name.\nCreate a new branch with \"git checkout -b\" to store\nprocessed output first!\n")
+        sys.stderr.write("Will not add processed output to\nbranch without \"processed\" in its name.\nSwitch to a different branch with \"git checkout\" or Create a\nnew branch with \"git checkout -b\" to store\nprocessed output first!\n")
         sys.exit(1)
         pass
 
-    processedpaths=get_processed(input_file_hrefs)
+    processedpaths=get_processed(input_file_hrefs_unprocessed,input_file_hrefs)
 
     print("Adding paths for commit:")
     for processedpath in processedpaths:
@@ -275,7 +347,7 @@ def init(args):
     while argc < len(args):
         arg=args[argc]
 
-        if arg=='-h':
+        if arg=='-h' or arg=="--help":
             init_usage()
             sys.exit(0)
         elif arg=="--dry-run":
@@ -286,7 +358,7 @@ def init(args):
         else:
             positionals.append(arg)
             pass
-        argc++
+        argc+=1
         pass
         
     if len(positionals) > 0:
@@ -300,7 +372,7 @@ def init(args):
         repo=Repo(".",search_parent_directories=True)
         pass
     except git.exc.InvalidGitRepositoryError:
-        existingrepo=False:
+        existingrepo=False
         pass
 
     if existingrepo:
@@ -337,6 +409,42 @@ Commands:
                      .gitignore
    add               Add input, data, and/or script files to repo
    add-processed     Add processed output to repo branch
+
+---
+
+Usual workflow: 
+   git init            # Create repository (master branch)
+   limatix-git add -a  # Stage raw data, manual files
+   git add ...         # Manually stage additional files
+   git commit          # Commit raw data and manual files to master
+   # Now develop processing scripts (.prx file, etc.) 
+   # During development keep commiting script changes with
+   limatix-git add -a 
+   # As your code gets mature, you can clean up the output trees
+   # with pt_cleanup -b -p -d <prxfile.prx>
+   # you should check provenance with 
+   pt_checkprovenance <explog.xlp>
+   # When keepable/publishable output is ready, stage it with
+   git checkout -b processed_XXXXX 
+   # where XXXXX represents the purpose (particular presentation, 
+   # paper, etc.) 
+   # Then 
+   limatix-git add-processed
+   # Make sure all files have been properly pulled in with
+   git status
+   # (if not, your processing scripts are probably failing to add 
+   # hrefs to the processed experiment log, and you should switch back
+   # to the data (master) branch and fix them and reprocess)
+   # Also you should verify that 
+   pt_cleanup -d <prxfile.prx>
+   # doesn't do anything 
+   # Once you are satisfied: 
+   git commit
+   # You can then switch back and forth between the clean tree
+   # and the processed output with git checkout. 
+   # Script development should generally go in the master branch, 
+   # but master should be kept clean from processed output
+
 """ % (sys.argv[0]))
     pass
 
@@ -364,10 +472,12 @@ def main(args=None):
             init(args[argc+1:])
             sys.exit(0)
             pass
-        elif arg=='-h':
+        elif arg=='-h' or arg=="--help":
             usage()
             sys.exit(0)
             pass
         argc+=1
         pass
-    
+    usage()
+    pass
+
