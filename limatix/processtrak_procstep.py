@@ -774,7 +774,11 @@ def procstep_elementmatch_elementpath_generator(prxdoc,output,elementmatch,eleme
     # Search for matching elements
 
     # sys.stderr.write("elementmatch=%s\n" % (elementmatch))
-    elements=output.xpath(elementmatch,namespaces=elmn_copy,variables={"filepath":output.filehref.getpath(),"filename":os.path.split(output.filehref.getpath())[1]})
+    try: 
+        elements=output.xpath(elementmatch,namespaces=elmn_copy,variables={"filepath":output.filehref.getpath(),"filename":os.path.split(output.filehref.getpath())[1]})
+        pass
+    except etree.XPathEvalError:
+        raise ValueError("XPathEvalError evaluating xpath %s on url %s in step %s" % (elementmatch,output.filehref.absurl(),processtrak_prxdoc.getstepname(prxdoc,steptag)))
     
     elementpaths=[ output.savepath(element) for element in elements]
 
@@ -830,15 +834,23 @@ def procstep_uniquematch_element_generator_nofilters(prxdoc,output,elementmatch,
         del umn_copy[None]  # Can not pass None entry
         pass
     
-    
-    key_elements=output.xpath(key_criteron,namespaces=umn_copy,variables={"filepath":output.filehref.getpath(),"filename":os.path.split(output.filehref.getpath())[1]})
+    try: 
+        key_elements=output.xpath(key_criteron,namespaces=umn_copy,variables={"filepath":output.filehref.getpath(),"filename":os.path.split(output.filehref.getpath())[1]})
+        pass
+    except etree.XPathEvalError:
+        raise ValueError("XPathEvalError evaluating xpath %s on url %s in step %s" % (elementmatch,output.filehref.absurl(),processtrak_prxdoc.getstepname(prxdoc,steptag)))
+
 
     if len(key_elements)==0:
         sys.stderr.write("Warning: step %s: no element match key for <prx:uniquematch> for output href %s\n" % (processtrak_prxdoc.getstepname(prxdoc,steptag),output.get_filehref().absurl()))
         pass
     
-
-    parent_elements=output.xpath(parentxpath,namespaces=umn_copy,variables={"filepath":output.filehref.getpath(),"filename":os.path.split(output.filehref.getpath())[1]})
+    try:
+        parent_elements=output.xpath(parentxpath,namespaces=umn_copy,variables={"filepath":output.filehref.getpath(),"filename":os.path.split(output.filehref.getpath())[1]})
+        pass
+    except etree.XPathEvalError:
+        raise ValueError("XPathEvalError evaluating xpath %s on url %s in step %s" % (elementmatch,output.filehref.absurl(),processtrak_prxdoc.getstepname(prxdoc,steptag)))
+    
     if len(parent_elements)!=1:
         raise ValueError("Step %s: <prx:uniquematch> parent must match exactly one element (%d found)" % (processtrak_prxdoc.getstepname(prxdoc,steptag),len(parent_elements)))
 
