@@ -773,8 +773,11 @@ def procsteppython_execfunc(scripthref,pycode_text,pycode_lineno,prxdoc,prxnsmap
     # Search for matching elements
 
     # sys.stderr.write("elementmatch=%s\n" % (elementmatch))
-    elements=output.xpath(elementmatch,namespaces=elementmatch_nsmap,variables={"filepath":output.filehref.getpath(),"filename":os.path.split(output.filehref.getpath())[1]})
-
+    try: 
+        elements=output.xpath(elementmatch,namespaces=elementmatch_nsmap,variables={"filepath":output.filehref.getpath(),"filename":os.path.split(output.filehref.getpath())[1]})
+        pass
+    except etree.XPathEvalError:
+        raise ValueError("XPathEvalError evaluating xpath %s on url %s" % (elementmatch,output.filehref.absurl()))
 
     if len(elements)==0:
         sys.stderr.write("Warning: step %s: no matching elements for output href %s\n" % (processtrak_prxdoc.getstepname(prxdoc,steptag),output.get_filehref().absurl()))

@@ -92,6 +92,7 @@ class textentrystep(gtk.HBox):
         self.set_property("initialtext","")
         self.set_property("description","")
         self.set_property("width",0)
+        self.myprops["text"]=self.text_from_xml()
 
         self.pack_start(self.gladeobjdict["textentrystep"],True,True,0)
 
@@ -114,7 +115,7 @@ class textentrystep(gtk.HBox):
         try:
             xmltag=self.checklist.xmldoc.restorepath(self.xmlpath)
 
-            textparamnodes=self.checklist.xmldoc.xpathcontext(xmltag,"chx:parameter[@name='text']")
+            textparamnodes=self.checklist.xmldoc.xpathcontext(xmltag,"chx:parameter[@name='text']|chx:text")
             if len(textparamnodes) > 0:
                 textparamnode=textparamnodes[0]
                 
