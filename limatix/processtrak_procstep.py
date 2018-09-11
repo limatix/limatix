@@ -26,6 +26,7 @@ except ImportError:
     from io import StringIO
     pass
 
+from io import BytesIO
 
 import shutil
 import datetime
@@ -760,7 +761,7 @@ def procsteppython_runelement(output,prxdoc,prxnsmap,steptag,rootprocesspath,ste
     return (modified_elements,referenced_elements)
     
 
-def procstep_elementmatch_elementpath_generator(prxdoc,output,elementmatch,elementmatch_nsmap,uniquematchel,filters):
+def procstep_elementmatch_elementpath_generator(prxdoc,output,steptag,elementmatch,elementmatch_nsmap,uniquematchel,filters):
     elmn_copy=copy.copy(elementmatch_nsmap)
     if None in elmn_copy:
         del elmn_copy[None]  # Can not pass None entry
@@ -793,7 +794,7 @@ def canonxmlrepr(element):
     
     elcopy = copy.deepcopy(element)
         
-    et=etree.ElementTree()
+    et=etree.ElementTree(elcopy)
     fh=BytesIO()
     et.write_c14n(fh,exclusive=True,with_comments=False)
     fh.seek(0)
@@ -812,7 +813,7 @@ def grandchildren_with_tag(child,tagnames):
         pass
     return ret
     
-def procstep_uniquematch_element_generator_nofilters(prxdoc,output,elementmatch,elementmatch_nsmap,uniquematchel):
+def procstep_uniquematch_element_generator_nofilters(prxdoc,output,steptag,elementmatch,elementmatch_nsmap,uniquematchel):
     
     # Search for matching elements
 
@@ -825,7 +826,7 @@ def procstep_uniquematch_element_generator_nofilters(prxdoc,output,elementmatch,
         raise ValueError("Step %s: <prx:uniquematch> element has no \"parent\" attribute" % (processtrak_prxdoc.getstepname(prxdoc,steptag)))
     
 
-    key_criteron=uniquematchel.attrib["key"]
+    key_criterion=uniquematchel.attrib["key"]
     parentxpath = uniquematchel.attrib["parent"]
 
     
@@ -835,10 +836,10 @@ def procstep_uniquematch_element_generator_nofilters(prxdoc,output,elementmatch,
         pass
     
     try: 
-        key_elements=output.xpath(key_criteron,namespaces=umn_copy,variables={"filepath":output.filehref.getpath(),"filename":os.path.split(output.filehref.getpath())[1]})
+        key_elements=output.xpath(key_criterion,namespaces=umn_copy,variables={"filepath":output.filehref.getpath(),"filename":os.path.split(output.filehref.getpath())[1]})
         pass
     except etree.XPathEvalError:
-        raise ValueError("XPathEvalError evaluating xpath %s on url %s in step %s" % (elementmatch,output.filehref.absurl(),processtrak_prxdoc.getstepname(prxdoc,steptag)))
+        raise ValueError("XPathEvalError evaluating xpath %s on url %s in step %s" % (key_criterion,output.filehref.absurl(),processtrak_prxdoc.getstepname(prxdoc,steptag)))
 
 
     if len(key_elements)==0:
@@ -849,7 +850,7 @@ def procstep_uniquematch_element_generator_nofilters(prxdoc,output,elementmatch,
         parent_elements=output.xpath(parentxpath,namespaces=umn_copy,variables={"filepath":output.filehref.getpath(),"filename":os.path.split(output.filehref.getpath())[1]})
         pass
     except etree.XPathEvalError:
-        raise ValueError("XPathEvalError evaluating xpath %s on url %s in step %s" % (elementmatch,output.filehref.absurl(),processtrak_prxdoc.getstepname(prxdoc,steptag)))
+        raise ValueError("XPathEvalError evaluating xpath %s on url %s in step %s" % (parentxpath,output.filehref.absurl(),processtrak_prxdoc.getstepname(prxdoc,steptag)))
     
     if len(parent_elements)!=1:
         raise ValueError("Step %s: <prx:uniquematch> parent must match exactly one element (%d found)" % (processtrak_prxdoc.getstepname(prxdoc,steptag),len(parent_elements)))
@@ -881,9 +882,9 @@ def procstep_uniquematch_element_generator_nofilters(prxdoc,output,elementmatch,
     # Find all pre-existing children of the desired parent element
     # that match this tag
     
-    candidate_children=[ child,grandchildren_with_tag(child,tagnames) for child in parent_elements[0].iterchildren() if child.tag==childtag ]
+    candidate_children=[ (child,grandchildren_with_tag(child,grandchild_tagnames)) for child in parent_elements[0].iterchildren() if child.tag==childtag ]
 
-    candidate_grandchildren=[ child,grandchildren for (child,grandchildren) in candidate_children if len(grandchildren) > 0 ]
+    candidate_grandchildren=[ (child,grandchildren) for (child,grandchildren) in candidate_children if len(grandchildren) > 0 ]
 
     candidate_children_by_canon_grandchild={ }
     for (child,grandchildren) in candidate_grandchildren:
@@ -915,7 +916,7 @@ def procstep_uniquematch_element_generator_nofilters(prxdoc,output,elementmatch,
 
     pass
 
-def procstep_uniquematch_elementpath_generator(prxdoc,output,elementmatch,elementmatch_nsmap,uniquematchel,filters):
+def procstep_uniquematch_elementpath_generator(prxdoc,output,steptag,elementmatch,elementmatch_nsmap,uniquematchel,filters):
 
     matchcriterion="."
     for elementfilter in filters:
@@ -923,7 +924,7 @@ def procstep_uniquematch_elementpath_generator(prxdoc,output,elementmatch,elemen
         pass
     
     
-    for (unfiltered,unfiltered_elementmatchlist) in procstep_uniquematch_elementpath_generator_nofilters(prxdoc,output,elementmatch,elementmatch_nsmap,uniquematchel):
+    for (unfiltered,unfiltered_elementmatchlist) in procstep_uniquematch_element_generator_nofilters(prxdoc,output,steptag,elementmatch,elementmatch_nsmap,uniquematchel):
         resultlist = output.xpathcontext(unfiltered,matchcriterion)
         if len(resultlist) > 0:
             assert(len(resultlist)==1) # Shouldn't be possible to get multiple elements
@@ -962,7 +963,7 @@ def procsteppython_execfunc(scripthref,pycode_text,pycode_lineno,prxdoc,prxnsmap
     matchcnt=0
 
     # Loop over each matching element
-    for (elementpath,uniquematches) in procstep_elementpath_generator(prxdoc,output,elementmatch,elementmatch_nsmap,uniquematchel,filters):
+    for (elementpath,uniquematches) in procstep_elementpath_generator(prxdoc,output,steptag,elementmatch,elementmatch_nsmap,uniquematchel,filters):
         # elementpath is the path to the element we have found that we are
         # supposed to be operating on
         # uniquematches, if it is not None, and for is a list of elements
@@ -1056,7 +1057,7 @@ def procsteppython_execfunc(scripthref,pycode_text,pycode_lineno,prxdoc,prxnsmap
 
     pass
 
-def procsteppython(scripthref,pycode_el,prxdoc,output,steptag,scripttag,rootprocesspath,initelementmatch,initelementmatch_nsmap,uniquematchel,elementmatch,elementmatch_nsmap,params,filters,inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist):
+def procsteppython(scripthref,pycode_el,prxdoc,output,steptag,scripttag,rootprocesspath,initelementmatch,initelementmatch_nsmap,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist):
     # *** output should be rwlock'd exactly ONCE when this is called
     # *** Output will be rwlock'd exactly ONCE on return
     #     (but may have been unlocked in the interim)
