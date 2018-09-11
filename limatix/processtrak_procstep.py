@@ -6,6 +6,7 @@ import os.path
 import posixpath
 import socket
 import copy
+import collections
 import inspect
 import numbers
 import traceback
@@ -610,7 +611,7 @@ def applyresultdict(output,prxdoc,steptag,element,resultdict):
         pass
     pass
 
-def procsteppython_runelement(output,prxdoc,prxnsmap,steptag,rootprocesspath,stepprocesspath,elementpath,stepglobals,argnames,argsdefaults,params,inputfilehref,ipythonmodelist,execfunc,action,scripthref,pycode_text,pycode_lineno):
+def procsteppython_runelement(output,prxdoc,prxnsmap,steptag,rootprocesspath,stepprocesspath,elementpath,uniquematches,stepglobals,argnames,argsdefaults,params,inputfilehref,ipythonmodelist,execfunc,action,scripthref,pycode_text,pycode_lineno):
     # *** output should be rwlock'd exactly ONCE when this is called
     # *** Output will be rwlock'd exactly ONCE on return
     #     (but may have been unlocked in the interim)
@@ -661,6 +662,10 @@ def procsteppython_runelement(output,prxdoc,prxnsmap,steptag,rootprocesspath,ste
             elif argname=="_step":  # _xmldoc parameter gets output XML document
                 argkw[argname]=steptag         # supply output XML document
                 pass
+            elif argname=="_uniquematches":  # _uniquematches parameter gets list of elements matching the key of the <prx:uniquematch> and corresponding to this particular element
+                argkw[argname]=uniquematches   # supply uniquematches list
+                
+                pass
             elif argname=="_inputfilename":  # _inputfilename parameter gets unquoted name (but not path) of input file
                 argkw[argname]=inputfilehref.get_bare_unquoted_filename()
                 pass
@@ -697,7 +702,13 @@ def procsteppython_runelement(output,prxdoc,prxnsmap,steptag,rootprocesspath,ste
         #os.chdir(destdir) # CD into destination directory
         try :  # try... catch.. finally.. block for changed directory
             if execfunc.__name__.endswith("unlocked"): 
-                assert(not "_tag" in argnames) # can't supply tag if lock is released
+                if  "_tag" in argnames or "_element" in argnames or "_uniquematches" in argnames:
+                    # can't supply element if lock is released
+                    raise ValueError("Python function for step %s cannot be rununlocked because it requires XML element parameter(s)" % (processtrak_prxdoc.getstepname(prxdoc,steptag)))
+                if uniquematches is not None:
+                    # prx:uniquematch not compatible with rununlocked()
+                    raise ValueError("<prx:uniquematch> is incompatible with rununlocked() in step %s." % (processtrak_prxdoc.getstepname(prxdoc,steptag)))
+                
                 output.unlock_rw() # release output lock 
                 try: 
                     resultdict=procsteppython_do_run(stepglobals,execfunc,argkw,ipythonmodelist,action,scripthref,pycode_text,pycode_lineno)
@@ -749,20 +760,10 @@ def procsteppython_runelement(output,prxdoc,prxnsmap,steptag,rootprocesspath,ste
     return (modified_elements,referenced_elements)
     
 
-
-def procsteppython_execfunc(scripthref,pycode_text,pycode_lineno,prxdoc,prxnsmap,output,steptag,scripttag,rootprocesspath,stepprocesspath,stepglobals,elementmatch,elementmatch_nsmap,params,filters,inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist,execfunc,action):
-    
-    
-    (argnames, varargs, keywords, defaults)=inspect.getargspec(execfunc)        
-    
-    argsdefaults={}
-    if defaults is not None:
-        numdefaults=len(defaults)
-        argsdefaults=dict(zip(argnames[-numdefaults:],defaults))
-        # argsdefaults is a dictionary by argname of default values.
-        pass
-    if None in elementmatch_nsmap:
-        del elementmatch_nsmap[None]  # Can not pass None entry
+def procstep_elementmatch_elementpath_generator(prxdoc,output,elementmatch,elementmatch_nsmap,uniquematchel,filters):
+    elmn_copy=copy.copy(elementmatch_nsmap)
+    if None in elmn_copy:
+        del elmn_copy[None]  # Can not pass None entry
         pass
     # Add filters to elementmatch
     
@@ -773,23 +774,191 @@ def procsteppython_execfunc(scripthref,pycode_text,pycode_lineno,prxdoc,prxnsmap
     # Search for matching elements
 
     # sys.stderr.write("elementmatch=%s\n" % (elementmatch))
-    elements=output.xpath(elementmatch,namespaces=elementmatch_nsmap,variables={"filepath":output.filehref.getpath(),"filename":os.path.split(output.filehref.getpath())[1]})
+    elements=output.xpath(elementmatch,namespaces=elmn_copy,variables={"filepath":output.filehref.getpath(),"filename":os.path.split(output.filehref.getpath())[1]})
+    
+    elementpaths=[ output.savepath(element) for element in elements]
 
+    for elementpath in elementpaths:
+        yield (elementpath,None)  # return element paths one-by-one
 
-    if len(elements)==0:
-        sys.stderr.write("Warning: step %s: no matching elements for output href %s\n" % (processtrak_prxdoc.getstepname(prxdoc,steptag),output.get_filehref().absurl()))
+    pass
+
+def canonxmlrepr(element):
+    """Return copy of element tree and canonicalized 
+    string representation"""
+    
+    elcopy = copy.deepcopy(element)
+        
+    et=etree.ElementTree()
+    fh=BytesIO()
+    et.write_c14n(fh,exclusive=True,with_comments=False)
+    fh.seek(0)
+    canonstr=fh.read().decode('utf-8')
+    fh.close()
+    return (elcopy,canonstr)
+
+def grandchildren_with_tag(child,tagnames):
+    """Return children of child that have tag names in 
+    the given set of tag names"""
+    ret=[]
+    for grandchild in child.iterchildren():
+        if grandchild.tag in tagnames:
+            ret.append(grandchild)
+            pass
+        pass
+    return ret
+    
+def procstep_uniquematch_element_generator_nofilters(prxdoc,output,elementmatch,elementmatch_nsmap,uniquematchel):
+    
+    # Search for matching elements
+
+    # sys.stderr.write("elementmatch=%s\n" % (elementmatch))
+    if not "key" in uniquematchel.attrib:
+        raise ValueError("Step %s: <prx:uniquematch> element has no \"key\" attribute" % (processtrak_prxdoc.getstepname(prxdoc,steptag)))
+    
+
+    if not "parent" in uniquematchel.attrib:
+        raise ValueError("Step %s: <prx:uniquematch> element has no \"parent\" attribute" % (processtrak_prxdoc.getstepname(prxdoc,steptag)))
+    
+
+    key_criteron=uniquematchel.attrib["key"]
+    parentxpath = uniquematchel.attrib["parent"]
+
+    
+    umn_copy=copy.copy(uniquematchel.nsmap)
+    if None in umn_copy:
+        del umn_copy[None]  # Can not pass None entry
+        pass
+    
+    
+    key_elements=output.xpath(key_criteron,namespaces=umn_copy,variables={"filepath":output.filehref.getpath(),"filename":os.path.split(output.filehref.getpath())[1]})
+
+    if len(key_elements)==0:
+        sys.stderr.write("Warning: step %s: no element match key for <prx:uniquematch> for output href %s\n" % (processtrak_prxdoc.getstepname(prxdoc,steptag),output.get_filehref().absurl()))
         pass
     
 
-    elementpaths=[ output.savepath(element) for element in elements]
+    parent_elements=output.xpath(parentxpath,namespaces=umn_copy,variables={"filepath":output.filehref.getpath(),"filename":os.path.split(output.filehref.getpath())[1]})
+    if len(parent_elements)!=1:
+        raise ValueError("Step %s: <prx:uniquematch> parent must match exactly one element (%d found)" % (processtrak_prxdoc.getstepname(prxdoc,steptag),len(parent_elements)))
+
+    grandchild_tagnames=set()
+    unique_dict=collections.OrderedDict() # Dictionary by canonical text of element copies
+    elementlist_dict={}  # Dictionary by canonical text of list of original elements 
+    for element in key_elements:
+        # Canonicalize each element by putting it into an element tree
+        # and doing canonical serialization
+        (elcopy,canonstr)=canonxmlrepr(element)
+        if canonstr not in unique_dict:
+            unique_dict[canonstr]=elcopy
+            elementlist_dict[canonstr]=[]
+            pass
+        elementlist_dict[canonstr].append(element) # Save original element on list
+        grandchild_tagnames.add(elcopy.tag)
+        pass
+
+
+
+    
+    uniquematch_children = prxdoc.xpathcontext(uniquematchel,"*")
+    if len(uniquematch_children) != 1:
+        raise ValueError("Step %s: <prx:uniquematch> element must have exactly one child (%d found)" % (processtrak_prxdoc.getstepname(prxdoc,steptag),len(uniquematch_children)))
+        
+    childtag=uniquematch_children[0].tag
+
+    # Find all pre-existing children of the desired parent element
+    # that match this tag
+    
+    candidate_children=[ child,grandchildren_with_tag(child,tagnames) for child in parent_elements[0].iterchildren() if child.tag==childtag ]
+
+    candidate_grandchildren=[ child,grandchildren for (child,grandchildren) in candidate_children if len(grandchildren) > 0 ]
+
+    candidate_children_by_canon_grandchild={ }
+    for (child,grandchildren) in candidate_grandchildren:
+        for grandchild in grandchildren:
+            candidate_children_by_canon_grandchild[canonxmlrepr(element)[1]]=child
+            pass
+        pass
+
+    # Go through our unique_dict and see if tags already exist
+    for canonstr in unique_dict:
+        if canonstr in candidate_children_by_canon_grandchild:
+            # Use pre-existing element
+            yield (candidate_children_by_canon_grandchild[canonstr],elementlist_dict[canonstr])
+        else:
+            # No such child already exists
+            # .. create it
+            newchild = etree.Element(childtag,nsmap=parent_elements[0].nsmap)
+
+            # ... Give it the characteristic element
+            elcopy=unique_dict[canonstr]
+            newchild.append(elcopy)
+
+            # Add it to the parent
+            parent_elements[0].append(newchild)
+            # ... and use it!
+            yield (newchild,elementlist_dict[canonstr])
+        pass
+
+
+    pass
+
+def procstep_uniquematch_elementpath_generator(prxdoc,output,elementmatch,elementmatch_nsmap,uniquematchel,filters):
+
+    matchcriterion="."
+    for elementfilter in filters:
+        matchcriterion+="[%s]" % (elementfilter)
+        pass
+    
+    
+    for (unfiltered,unfiltered_elementmatchlist) in procstep_uniquematch_elementpath_generator_nofilters(prxdoc,output,elementmatch,elementmatch_nsmap,uniquematchel):
+        resultlist = output.xpathcontext(unfiltered,matchcriterion)
+        if len(resultlist) > 0:
+            assert(len(resultlist)==1) # Shouldn't be possible to get multiple elements
+            yield (output.savepath(resultlist[0]),unfiltered_elementmatchlist)
+            pass
+        
+        pass
+    pass
+
+
+
+
+def procsteppython_execfunc(scripthref,pycode_text,pycode_lineno,prxdoc,prxnsmap,output,steptag,scripttag,rootprocesspath,stepprocesspath,stepglobals,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist,execfunc,action):
+    
+    
+    (argnames, varargs, keywords, defaults)=inspect.getargspec(execfunc)        
+    
+    argsdefaults={}
+    if defaults is not None:
+        numdefaults=len(defaults)
+        argsdefaults=dict(zip(argnames[-numdefaults:],defaults))
+        # argsdefaults is a dictionary by argname of default values.
+        pass
+
+
+    if uniquematchel is not None:
+        procstep_elementpath_generator = procstep_uniquematch_elementpath_generator
+        pass
+    else:
+        procstep_elementpath_generator = procstep_elementmatch_elementpath_generator
+        pass
+    
 
     # output.unlock_rw() # release output lock
 
-    
+    matchcnt=0
 
     # Loop over each matching element
-    for elementpath in elementpaths:
+    for (elementpath,uniquematches) in procstep_elementpath_generator(prxdoc,output,elementmatch,elementmatch_nsmap,uniquematchel,filters):
+        # elementpath is the path to the element we have found that we are
+        # supposed to be operating on
+        # uniquematches, if it is not None, and for is a list of elements
+        # that matched the key of the <prx:uniquematch> element
+        # giving rise to this element. 
 
+        
+        matchcnt+=1
         modified_elements=set([])
         referenced_elements=set([])
 
@@ -805,7 +974,7 @@ def procsteppython_execfunc(scripthref,pycode_text,pycode_lineno,prxdoc,prxnsmap
         output.should_be_rwlocked_once()
 
         try : 
-            (modified_elements,referenced_elements)=procsteppython_runelement(output,prxdoc,prxnsmap,steptag,rootprocesspath,stepprocesspath,elementpath,stepglobals,argnames,argsdefaults,params,inputfilehref,ipythonmodelist,execfunc,action,scripthref,pycode_text,pycode_lineno)
+            (modified_elements,referenced_elements)=procsteppython_runelement(output,prxdoc,prxnsmap,steptag,rootprocesspath,stepprocesspath,elementpath,uniquematches,stepglobals,argnames,argsdefaults,params,inputfilehref,ipythonmodelist,execfunc,action,scripthref,pycode_text,pycode_lineno)
             pass
         except KeyboardInterrupt: 
             # Don't want to hold off keyboard interrupts!
@@ -867,10 +1036,15 @@ def procsteppython_execfunc(scripthref,pycode_text,pycode_lineno,prxdoc,prxnsmap
         output.should_be_rwlocked_once() 
 
         pass
+    
+    if matchcnt==0:
+        sys.stderr.write("Warning: step %s: no matching elements for output href %s\n" % (processtrak_prxdoc.getstepname(prxdoc,steptag),output.get_filehref().absurl()))
+        pass
+    
 
     pass
 
-def procsteppython(scripthref,pycode_el,prxdoc,output,steptag,scripttag,rootprocesspath,initelementmatch,initelementmatch_nsmap,elementmatch,elementmatch_nsmap,params,filters,inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist):
+def procsteppython(scripthref,pycode_el,prxdoc,output,steptag,scripttag,rootprocesspath,initelementmatch,initelementmatch_nsmap,uniquematchel,elementmatch,elementmatch_nsmap,params,filters,inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist):
     # *** output should be rwlock'd exactly ONCE when this is called
     # *** Output will be rwlock'd exactly ONCE on return
     #     (but may have been unlocked in the interim)
@@ -985,7 +1159,7 @@ def procsteppython(scripthref,pycode_el,prxdoc,output,steptag,scripttag,rootproc
         pass
 
 
-    procsteppython_execfunc(scripthref,pycode_text,pycode_lineno,prxdoc,prxnsmap,output,steptag,scripttag,rootprocesspath,stepprocesspath,stepglobals,elementmatch,elementmatch_nsmap,params,filters,inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist,runfunc,action)
+    procsteppython_execfunc(scripthref,pycode_text,pycode_lineno,prxdoc,prxnsmap,output,steptag,scripttag,rootprocesspath,stepprocesspath,stepglobals,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist,runfunc,action)
 
     print("") # add newline
 
@@ -1044,6 +1218,14 @@ def procstep(prxdoc,out,steptag,filters,overall_starttime,debugmode,stdouthandle
     except NameError:
         pass
 
+    uniquematchel=None
+    try:
+        uniquematchel=prxdoc.xpathsinglecontext(steptag,"prx:uniquematch")
+        pass
+    except NameError:
+        pass
+
+
     ## try for <prx:inputfilematch> in <step> 
     #try: 
     #    inputfilematchel=prxdoc.xpathsinglecontext(steptag,"prx:inputfilematch")
@@ -1064,6 +1246,17 @@ def procstep(prxdoc,out,steptag,filters,overall_starttime,debugmode,stdouthandle
     except NameError:
         pass
 
+    try:
+        uniquematchel=prxdoc.xpathsinglecontext(scripttag,"prx:uniquematch")
+        pass
+    except NameError:
+        pass
+
+    if uniquematchel is not None and elementmatch is not defaultelementmatch: 
+        raise ValueError("Both prx:uniquematch and prx:element match specified for step %s" % (processtrak_prxdoc.getstepname(prxdoc,steptag)))
+    
+    
+    
     ## try for <prx:inputfilematch> in <script> 
     #try: 
     #    inputfilematchel=prxdoc.xpathsinglecontext(scripttag,"prx:inputfilematch")
@@ -1130,10 +1323,10 @@ def procstep(prxdoc,out,steptag,filters,overall_starttime,debugmode,stdouthandle
     processtrak_common.open_or_lock_output(prxdoc,out,overall_starttime,copyfileinfo=None) # procsteppython/procstepmatlab are called with output locked exactly once
     try : 
         if pycode_el is not None or scripthref.get_bare_unquoted_filename().endswith(".py"):
-            procsteppython(scripthref,pycode_el,prxdoc,out.output,steptag,scripttag,out.processpath,initelementmatch,initelementmatch_nsmap,elementmatch,elementmatch_nsmap,params,filters,out.inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist)
+            procsteppython(scripthref,pycode_el,prxdoc,out.output,steptag,scripttag,out.processpath,initelementmatch,initelementmatch_nsmap,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,out.inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist)
             pass
         elif scripthref.get_bare_unquoted_filename().endswith(".m"):
-            procstepmatlab(scripthref.getpath(),prxdoc,out.output,steptag,scripttag,out.processpath,elementmatch,elementmatch_nsmap,params,filters,out.inputfilehref,debugmode,ipythonmodelist)
+            procstepmatlab(scripthref.getpath(),prxdoc,out.output,steptag,scripttag,out.processpath,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,out.inputfilehref,debugmode,ipythonmodelist)
             pass
         pass
     except: 
