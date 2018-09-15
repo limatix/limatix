@@ -122,7 +122,7 @@ class infiledicts(object):
             # This violates the assumptions of our processing
             # and we cannot continue
             if ifo.canonpath in self.all_by_canonpath:
-                raise ValueError("Two hrefs: %s (contextlist=%s) and %s (%s) share the same canonical file path %s. This violates the assumptions of our processing and we cannot continue" % (
+                raise ValueError("Two hrefs: %s (contextlist=%s) and %s (contextlist=%s) share the same canonical file path %s. This violates the assumptions of our processing and we cannot continue" % (
                     self.all_by_canonpath[ifo.canonpath].href.humanurl(),
                     str(self.all_by_canonpath[ifo.canonpath].href.href_context.contextlist),
                     ifo.href.humanurl(),
@@ -337,6 +337,8 @@ def traverse_one(infiles,infileobj,pending,completed,dests,hrefs,recursive=False
 
             for link in all_links:
                 href=dc_value.hrefvalue.fromxml(infileobj.xmldocu,link).fragless()
+                if href.ismem():
+                    continue # ignore mem:// hrefs
                 if hrefs is not None:
                     hrefs.add(href)
                     pass
@@ -385,7 +387,9 @@ def traverse(infiles,infilehrefs=None,recursive=False,need_href_set=False,includ
     # print("traversepending(%s)" % ([str(infilehref) for infilehref in pending]))
     while len(pending) > 0:
         for href in list(pending):
-            traverse_one(infiles,infiles.all[href],pending,completed,dests,hrefs,recursive=recursive,include_processed=include_processed)
+            if not href.ismem(): # ignore mem:// url's 
+                traverse_one(infiles,infiles.all[href],pending,completed,dests,hrefs,recursive=recursive,include_processed=include_processed)
+                pass
             pass
         pass
     

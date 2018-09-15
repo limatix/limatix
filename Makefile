@@ -60,8 +60,14 @@ endif
 ifneq ($(PYTHON2.7), /none)
 	$(PYTHON2.7) ./setup.py install --prefix=$(PREFIX) 
 endif
-ifneq ($(PYTHON3), /none)
-	$(PYTHON3) ./setup.py install --prefix=$(PREFIX) 
+ifneq ($(PYTHON3.4), /none)
+	$(PYTHON3.4) ./setup.py install --prefix=$(PREFIX) 
+endif
+ifneq ($(PYTHON3.6), /none)
+	$(PYTHON3.6) ./setup.py install --prefix=$(PREFIX) 
+endif
+ifneq ($(PYTHON3.7), /none)
+	$(PYTHON3.7) ./setup.py install --prefix=$(PREFIX) 
 endif
 ifneq ($(DEFAULTPY), /none)
 	$(DEFAULTPY) ./setup.py install --prefix=$(PREFIX) 

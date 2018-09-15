@@ -793,7 +793,9 @@ def canonxmlrepr(element):
     string representation"""
     
     elcopy = copy.deepcopy(element)
-        
+    provenance.strip_provenance_attributes(elcopy) # Provenance is not part of the canonical representation
+
+    
     et=etree.ElementTree(elcopy)
     fh=BytesIO()
     et.write_c14n(fh,exclusive=True,with_comments=False)
@@ -889,7 +891,7 @@ def procstep_uniquematch_element_generator_nofilters(prxdoc,output,steptag,eleme
     candidate_children_by_canon_grandchild={ }
     for (child,grandchildren) in candidate_grandchildren:
         for grandchild in grandchildren:
-            candidate_children_by_canon_grandchild[canonxmlrepr(element)[1]]=child
+            candidate_children_by_canon_grandchild[canonxmlrepr(grandchild)[1]]=child
             pass
         pass
 
@@ -901,14 +903,19 @@ def procstep_uniquematch_element_generator_nofilters(prxdoc,output,steptag,eleme
         else:
             # No such child already exists
             # .. create it
+            
             newchild = etree.Element(childtag,nsmap=parent_elements[0].nsmap)
 
             # ... Give it the characteristic element
             elcopy=unique_dict[canonstr]
             newchild.append(elcopy)
 
-            # Add it to the parent
+            # Add it to the parent, marking our provenance
             parent_elements[0].append(newchild)
+            provenance.elementgenerated(output,elcopy)
+            provenance.elementgenerated(output,newchild)
+            output.modified=True
+
             # ... and use it!
             yield (newchild,elementlist_dict[canonstr])
         pass

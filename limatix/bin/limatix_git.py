@@ -71,12 +71,14 @@ NOTE: This is intended for raw data, experiment logs, scripts and instructions,
 """ % (sys.argv[0]))
     pass
 
-def get_unprocessed(input_file_hrefs):
+def get_unprocessed(input_file_hrefs,cdup):
     input_files=processtrak_cleanup.infiledicts.fromhreflist(input_file_hrefs)
 
     (completed_set,desthref_set,href_set)=processtrak_cleanup.traverse(input_files,recursive=True,need_href_set=True,include_processed=False)
 
-    allpaths_no_dest = [ href.getpath() for href in (completed_set | href_set)-desthref_set ]
+    allhrefs_no_dest = [ href for href in (completed_set | href_set)-desthref_set if not href.isabs() ]
+    allhrefs_rootrel_no_dest = [ href.attempt_relative_href(pathname2url(cdup)) for href in allhrefs_no_dest  ]
+    allpaths_no_dest = [href.getpath() for href in allhrefs_rootrel_no_dest] # Paths relative to repository root
     xlppaths = [ path for path in allpaths_no_dest if os.path.splitext(path)[1].lower()==".xlp" ]
     unprocessedpaths = [ path for path in allpaths_no_dest if os.path.splitext(path)[1].lower()!=".xlp" ]
 
@@ -93,12 +95,15 @@ def get_processed(input_file_hrefs_unprocessed,input_file_hrefs):
 
     (completed_set,desthref_set,href_set)=processtrak_cleanup.traverse(input_files_pr,recursive=True,need_href_set=True,include_processed=True)
 
-    import pdb
-    pdb.set_trace()
+    #import pdb
+    #pdb.set_trace()
     
     processed_href_set = (completed_set | href_set) - (unprocessed_completed_set | unprocessed_href_set) - desthref_set
+    allhrefs_no_dest = [ href for href in processed_href_set if not href.isabs() ]
 
-    processedpaths = [ href.getpath() for href in processed_href_set ]
+    allhrefs_rootrel_no_dest = [ href.attempt_relative_href(pathname2url(cdup)) for href in allhrefs_no_dest  ]
+    processedpaths = [href.getpath() for href in allhrefs_rootrel_no_dest] # Paths relative to repository root
+
 
     #import pdb
     #pdb.set_trace()
@@ -160,14 +165,21 @@ def add(args):
     to_consider=[ os.path.join(prefix,positional) for positional in positionals ]
     
     if all:
-        autofound_files = find_recursive_xlg_prx_py(rootpath)
+        autofound_files = find_recursive_xlg_prx_py(cdup)
 
         to_consider.extend(autofound_files)
         
         pass
 
-    input_file_hrefs=[ dc_value.hrefvalue(pathname2url(input_file_name),contexthref=dc_value.hrefvalue(pathname2url(rootpath))) for input_file_name in to_consider ]
-    (unprocessedpaths,xlppaths)=get_unprocessed(input_file_hrefs)
+    # fixup e.g. './filename.xlg' into 'filename.xlg' to avoid inconsistent references
+    pathname_fixup=[ input_file_name if os.path.split(input_file_name)[0]!='.' else os.path.split(input_file_name)[1] for input_file_name in to_consider ]
+
+    input_file_hrefs=[ dc_value.hrefvalue(pathname2url(input_file_name),contexthref=dc_value.hrefvalue(pathname2url(cdup))) for input_file_name in pathname_fixup ]
+
+    #import pdb 
+    #pdb.set_trace()
+
+    (unprocessedpaths,xlppaths)=get_unprocessed(input_file_hrefs,cdup)
 
     print("Adding paths for commit:")
     for unprocessedpath in unprocessedpaths:
