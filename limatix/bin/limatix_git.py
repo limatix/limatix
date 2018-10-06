@@ -84,7 +84,7 @@ def get_unprocessed(input_file_hrefs,cdup):
 
     return (unprocessedpaths,xlppaths)
 
-def get_processed(input_file_hrefs_unprocessed,input_file_hrefs):
+def get_processed(input_file_hrefs_unprocessed,input_file_hrefs,cdup):
     input_files_up=processtrak_cleanup.infiledicts.fromhreflist(input_file_hrefs_unprocessed)
 
 
@@ -105,8 +105,8 @@ def get_processed(input_file_hrefs_unprocessed,input_file_hrefs):
     processedpaths = [href.getpath() for href in allhrefs_rootrel_no_dest] # Paths relative to repository root
 
 
-    #import pdb
-    #pdb.set_trace()
+    import pdb
+    pdb.set_trace()
     return (processedpaths)
 
 def filename_is_xlg_prx_py(filename):
@@ -250,31 +250,35 @@ def add_processed(args):
 
     to_consider=[ os.path.join(prefix,positional) for positional in positionals ]
     
-    autofound_files = find_recursive_xlg_prx_py(rootpath)
+    autofound_files = find_recursive_xlg_prx_py(cdup)
     to_consider_unprocessed = to_consider + autofound_files
     
     if all:
         to_consider.extend(autofound_files)
         pass
     
-    input_file_hrefs_unprocessed=[ dc_value.hrefvalue(pathname2url(input_file_name),contexthref=dc_value.hrefvalue(pathname2url(rootpath))) for input_file_name in to_consider_unprocessed ]
+    # fixup e.g. './filename.xlg' into 'filename.xlg' to avoid inconsistent references
+    to_consider_pathname_fixup=[ input_file_name if os.path.split(input_file_name)[0]!='.' else os.path.split(input_file_name)[1] for input_file_name in to_consider ]
+    to_consider_unprocessed_pathname_fixup=[ input_file_name if os.path.split(input_file_name)[0]!='.' else os.path.split(input_file_name)[1] for input_file_name in to_consider_unprocessed ]
 
-    input_file_hrefs=[ dc_value.hrefvalue(pathname2url(input_file_name),contexthref=dc_value.hrefvalue(pathname2url(rootpath))) for input_file_name in to_consider ]
+    input_file_hrefs_unprocessed=[ dc_value.hrefvalue(pathname2url(input_file_name),contexthref=dc_value.hrefvalue(pathname2url(cdup))) for input_file_name in to_consider_unprocessed_pathname_fixup ]
+
+    input_file_hrefs=[ dc_value.hrefvalue(pathname2url(input_file_name),contexthref=dc_value.hrefvalue(pathname2url(cdup))) for input_file_name in to_consider_pathname_fixup ]
     
-    (unprocessedpaths,xlppaths)=get_unprocessed(input_file_hrefs_unprocessed)
+    (unprocessedpaths,xlppaths)=get_unprocessed(input_file_hrefs_unprocessed,cdup)
 
     # Check that all unprocessedpaths are unmodified
-    unprocessedabspaths = [os.path.abspath(unprocessedpath) for unprocessedpath in unprocessedpaths ]
-    if len(unprocessedabspaths) > 0:
+    unprocessedpaths_fixup = [ input_file_name if os.path.split(input_file_name)[0]!='.' else os.path.split(input_file_name)[1] for input_file_name in unprocessedpaths ]
+    if len(unprocessedpaths_fixup) > 0:
 
-        modified_unprocessed=repo.index.diff(None,paths=unprocessedabspaths)
+        modified_unprocessed=repo.index.diff(None,paths=unprocessedpaths_fixup)
         if len(modified_unprocessed) > 0:
             sys.stderr.write("Modifed raw input files present:\n")
             for diff in modified_unprocessed:
                 fname=diff.a_path
                 sys.stderr.write("   %s\n" % (fname))
                 pass
-            sys.stderr.write("\nAdd these to non-processed branch with limatix-git add;git commit\n")
+            sys.stderr.write("\nAdd these to non-processed branch with git checkout <unprocessed_branch>;limatix-git add -a;git commit\n")
             sys.exit(1)
             pass
 
@@ -292,7 +296,7 @@ def add_processed(args):
         
             
         unprocessed_byname = { }
-        for unprocessed in unprocessedabspaths:
+        for unprocessed in unprocessedpaths_fixup:
             unprocessed_fname=os.path.split(unprocessed)[1]
             if not unprocessed_fname in unprocessed_byname:
                 unprocessed_byname[unprocessed_fname]=[]
@@ -306,7 +310,7 @@ def add_processed(args):
         for commonname in commonnames:
             for (untracked,untracked_fullpath) in untracked_byname[commonname]:
                 for unprocessed in unprocessed_byname[commonname]:
-                    if (os.path.samepath(untracked_fullpath,unprocessed)):
+                    if (os.path.samefile(untracked_fullpath,unprocessed)):
                         if len(untracked_unprocessed)==0:
                             sys.stderr.write("Untracked raw input files present:\n")
                             pass
@@ -328,7 +332,7 @@ def add_processed(args):
         sys.exit(1)
         pass
 
-    processedpaths=get_processed(input_file_hrefs_unprocessed,input_file_hrefs)
+    processedpaths=get_processed(input_file_hrefs_unprocessed,input_file_hrefs,cdup)
 
     print("Adding paths for commit:")
     for processedpath in processedpaths:
@@ -395,7 +399,16 @@ def init(args):
 
     if not dryrun:
         repo=Repo.init(".")
+        with repo.config_writer() as config:
+            # Disable "trustctime" so GIT doesn't waste a lot
+            # of time rereading huge repo files just due to 
+            # e.g. a backup system having read them or 
+            # a file mode permission change
+            config.set_value("core","trustctime","false")
+            config.release()
+            pass
         pass
+        
 
     if not dryrun:
         gitignore=open(".gitignore","w")
@@ -403,6 +416,8 @@ def init(args):
         gitignore.write("*~\n")
         gitignore.write("*.bak\n")
         gitignore.write("*.pyc\n")
+        gitignore.write("*.databrowse\n")
+        gitignore.write("__pycache__\n")
         gitignore.close()
 
         repo.git.add(['.gitignore'])
