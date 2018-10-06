@@ -82,7 +82,12 @@ def get_unprocessed(input_file_hrefs,cdup):
     xlppaths = [ path for path in allpaths_no_dest if os.path.splitext(path)[1].lower()==".xlp" ]
     unprocessedpaths = [ path for path in allpaths_no_dest if os.path.splitext(path)[1].lower()!=".xlp" ]
 
-    return (unprocessedpaths,xlppaths)
+    unprocessedexistingpaths = [ path for path in unprocessedpaths if os.path.exists(path) ]
+
+    xlpexistingpaths = [ path for path in xlppaths if os.path.exists(path) ]
+
+
+    return (unprocessedexistingpaths,xlpexistingpaths)
 
 def get_processed(input_file_hrefs_unprocessed,input_file_hrefs,cdup):
     input_files_up=processtrak_cleanup.infiledicts.fromhreflist(input_file_hrefs_unprocessed)
@@ -104,10 +109,12 @@ def get_processed(input_file_hrefs_unprocessed,input_file_hrefs,cdup):
     allhrefs_rootrel_no_dest = [ href.attempt_relative_href(pathname2url(cdup)) for href in allhrefs_no_dest  ]
     processedpaths = [href.getpath() for href in allhrefs_rootrel_no_dest] # Paths relative to repository root
 
+    processedexistingpaths = [ path for path in processedpaths if os.path.exists(path) ]
 
-    import pdb
-    pdb.set_trace()
-    return (processedpaths)
+
+    #import pdb
+    #pdb.set_trace()
+    return (processedexistingpaths)
 
 def filename_is_xlg_prx_py(filename):
     ext=os.path.splitext(filename)[1].lower()
