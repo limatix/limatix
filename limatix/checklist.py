@@ -1936,7 +1936,7 @@ class checklist(object):
                 pass
             except:
                 # exception when adding documents... switch back to readonly
-                sys.stderr.write("checklist (%s): Exception switching to read/write mode. Returning to read-only mode\n" % (str(self.xmldoc.get_filehref())))
+                sys.stderr.write("checklist (%s): Exception switching to read/write mode. Returning to read-only mode\n: %s\n\nTraceback:%s\n" % (str(self.xmldoc.get_filehref()),str(sys.exc_info()[0]),traceback.format_exc()))
                 self.set_readonly(True)
                 raise
             pass
