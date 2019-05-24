@@ -344,7 +344,7 @@ def main(args=None):
             # to actually execute anything with this outdoc in the outputdict, as
             # the output will be only opened as read-only
             if os.path.exists(outdoc.outputfilehref.getpath()):
-                open_or_lock_output(prxdoc,outdoc,None,copyfileinfo=None,readonly=True)
+                processtrak_common.open_or_lock_output(prxdoc,outdoc,None,copyfileinfo=None,readonly=True)
                 xlpdocu=outdoc.output
                 pass
             else:
