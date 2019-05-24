@@ -1040,7 +1040,19 @@ def procsteppython_execfunc(scripthref,pycode_text,pycode_lineno,prxdoc,prxnsmap
         provenance.write_timestamp(output,process_el,"lip:starttimestamp",el_starttime)
         provenance.write_timestamp(output,process_el,"lip:finishtimestamp")
         provenance.write_process_info(output,process_el)  # We always write process info to ensure uniqueness of our UUID. It would be better to merge with parent elements before calculating UUID.
-        provenance.write_process_log(output,process_el,status,errcapt.getvalue())
+
+        captvalue = errcapt.getvalue()
+        
+        if bytes is str and isinstance(captvalue,str):
+            # In python 2.x captvalue can end up as a str
+            # not a unicode. 
+            # But we should be writing unicode to the process log
+            # ... so we need to decode the utf-8
+            captvalue=captvalue.decode('utf-8')
+            pass
+        
+
+        provenance.write_process_log(output,process_el,status,captvalue)
 
         provenance.write_target(output,process_el,dcv.hrefvalue.fromelement(output,element).value())  # lip:target -- target of this particular iteration (ETXPath)
         
