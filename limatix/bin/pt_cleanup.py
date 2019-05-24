@@ -222,7 +222,7 @@ def cleanup_obsolete_tags(xlpdocu):
             print("Step not found for %s... will eliminate generated tags" % (xlpdocu.xpathsinglecontextstr(target,"(ancestor-or-self::lip:process/lip:action)[1]")))
             pass
         
-        obsolete_process_uuids.extend([ str(xlpdocu.getattr(target,"uuid")) for target in target_missing_step])  # xpathsinglecontextstr(target,"parent::lip:process/@uuid")) for action in action_missing_step])
+        obsolete_process_uuids.update(set([ str(xlpdocu.getattr(target,"uuid")) for target in target_missing_step]))  # xpathsinglecontextstr(target,"parent::lip:process/@uuid")) for action in action_missing_step])
         
         pass
     
