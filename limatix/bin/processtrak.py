@@ -270,7 +270,7 @@ def main(args=None):
         pass
 
         
-    if allsteps or liststeps:
+    if allsteps or liststeps or status:
         steps=[ None ] + prxdoc.xpath("prx:step")
         pass
     else: # Convert list of step names into list of step elements
@@ -357,7 +357,7 @@ def main(args=None):
                 
                 actionprocs_with_prxfile=[ (actionproc,xlpdocu.xpathsinglecontext(actionproc,"(ancestor-or-self::lip:process/lip:wascontrolledby)[1]/lip:prxfile")) for actionproc in actionprocesses ]
 
-                actionprocs_with_prxfilehref=[ (actionproc, dc_value.hrefvalue.fromxml(xlpdocu,prxfile)) for (actionproc,prxfile) in actionprocs_with_prxfile ]
+                actionprocs_with_prxfilehref=[ (actionproc, dcv.hrefvalue.fromxml(xlpdocu,prxfile)) for (actionproc,prxfile) in actionprocs_with_prxfile ]
 
                 actionprocs_matching_prxfile = [ actionproc for (actionproc,actionprxfilehref) in actionprocs_with_prxfilehref if actionprxfilehref==prxfilehref ]
                 actionprocs_not_matching_prxfile = [ actionproc for (actionproc,actionprxfilehref) in actionprocs_with_prxfilehref if not(actionprxfilehref==prxfilehref) ]
@@ -376,7 +376,7 @@ def main(args=None):
                 # sort lists in actionproc_listdict_matching_prxfile[stepname] by starttimestamp
                 
                 for stepname in actionproc_listdict_matching_prxfile:  # dictionary by step name of lists of actionprocs
-                    actionproc_listdict_matching_prxfile[stepname].sort(key = lambda actionproc: xlpdocu.xpathsinglecontextstr(actionproc,"lip:startimestamp"))
+                    actionproc_listdict_matching_prxfile[stepname].sort(key = lambda actionproc: xlpdocu.xpathsinglecontextstr(actionproc,"lip:starttimestamp"))
                     pass
 
                 # reduce actionproc_listdict_matching_prxfile to most recent runs (last entries)
@@ -384,8 +384,8 @@ def main(args=None):
 
                 actionproc_date_status_dict_matching_prxfile = { stepname: (actionproc_dict_matching_prxfile[stepname], # actionproc
                                                                             xlpdocu.xpathsinglecontextstr(actionproc_dict_matching_prxfile[stepname],"lip:starttimestamp"), # start timestamp
-                                                                            len(xlpdocu.xpathcontext(actionproc_dict_matching_prxfile[stepname],"descendent-or-self::lip:log[status != 'success']")) > 0 or len(xlpdocu.xpathcontext(actionproc_dict_matching_prxfile[stepname],"descendent-or-self::lip:process[count(lip:finishtimestamp) = 0]")) > 0,  # failure indicator: status not listed as success or no finish timestamp
-                                                                            "-l" in ast.literal_eval(xmldocu.xpathsinglecontextstr(actionproc_dict_matching_prxfile[stepname],"lip:argv")))  # Presence of additional xpath filters when running this step
+                                                                            len(xlpdocu.xpathcontext(actionproc_dict_matching_prxfile[stepname],"descendant-or-self::lip:log[@status != 'success']")) > 0 or len(xlpdocu.xpathcontext(actionproc_dict_matching_prxfile[stepname],"descendant-or-self::lip:process[count(lip:finishtimestamp) = 0]")) > 0,  # failure indicator: status not listed as success or no finish timestamp
+                                                                            "-l" in ast.literal_eval(xlpdocu.xpathsinglecontextstr(actionproc_dict_matching_prxfile[stepname],"lip:argv",default="[ ]")))  # Presence of additional xpath filters when running this step
                                                                  for stepname in actionproc_listdict_matching_prxfile }
                 
                 
@@ -397,8 +397,12 @@ def main(args=None):
                 actionprocs_with_prxfile = []
                 pass
             
-            print("Input file: %s" % (inputfile))
+            print("Input file: %s" % (inputfile_href.humanurl()))
             print("---------------------------")
+
+            #import pdb
+            #pdb.set_trace()
+            
             for step_el in steps:
                 if step_el is None:   # "None" means the copyinput step
                     stepname="copyinput"

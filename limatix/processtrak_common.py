@@ -106,6 +106,7 @@ xsltpath=[os.path.join(__install_prefix__,"share","limatix","xslt")]
 
 outputnsmap={
     "lip": "http://limatix.org/provenance",
+    "xlink": "http://www.w3.org/1999/xlink",
 }
 
 
