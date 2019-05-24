@@ -848,10 +848,12 @@ def process_is_obsolete(processdict,processtagbyuuid,obsoleteprocesstagbyuuid,ch
 
         if obsolete:
             # remove from processtagbyuuid dictionary, add to obsoleteprocesstagbyuuid
-            processtag=processtagbyuuid[uuid]
-            del processtagbyuuid[uuid]
-            obsoleteprocesstagbyuuid[uuid]=processtag
-            
+            if uuid in processtagbyuuid:
+                processtag=processtagbyuuid[uuid]
+                del processtagbyuuid[uuid]
+                obsoleteprocesstagbyuuid[uuid]=processtag
+                pass
+
             return True
         pass
     return False
@@ -1498,7 +1500,25 @@ def checkprovenance(history_stack,element_hrefc,refuuids_or_mtime,nsmap={},refer
             pass
         pass
     pass
-    
+
+def strip_provenance_attributes(root):
+    toremove=[]
+
+    for attrname in list(root.attrib.keys()):
+        if attrname.startswith(LIP):
+            del root.attrib[attrname]
+            pass
+        pass
+
+    for descendant in root.iterdescendants():
+        for attrname in list(descendant.attrib.keys()):
+            if attrname.startswith(LIP):
+                del root.attrib[attrname]
+                pass
+            pass
+        pass
+
+    pass
     
 # code snippet for extracting provenance uuid from an canonicalized ETXpath:
 junk="""

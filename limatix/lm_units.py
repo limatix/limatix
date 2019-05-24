@@ -347,6 +347,28 @@ class units(object):
         accumulatedivide(retval,other)
         return retval
 
+    def __truediv__(self,other):
+        if not isinstance(other,units):
+            retval=copy.deepcopy(self)
+            retval.Coefficient/=other
+            return retval
+
+        retval=copy.deepcopy(self)
+
+        accumulatedivide(retval,other)
+        return retval
+
+    def __floordiv__(self,other):
+        if not isinstance(other,units):
+            retval=copy.deepcopy(self)
+            retval.Coefficient/=other
+            return retval
+
+        retval=copy.deepcopy(self)
+
+        accumulatedivide(retval,other)
+        return retval
+
     def __str__(self):
         return printunits(self,True)
 

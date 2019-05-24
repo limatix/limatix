@@ -708,6 +708,9 @@ class hrefvalue(value):
     def isfile(self):
         return self.href_context.isfile()
         
+    def isabs(self):
+        fullurl=str(self.href_context)
+        return fullurl.startswith('/') or ":" in fullurl
 
     def __str__(self):
         return str(self.href_context)
@@ -1286,6 +1289,35 @@ class complexunitsvalue(value) :
 
         
         return complexunitsvalue(self.val/todiv,newunits);
+
+    def __truediv__(self,other):
+        if not isinstance(other,float):
+            newunits=lm_units.divideunits(self.unit, other.units())
+            
+            todiv=other.value()
+            pass
+        else :
+            newunits=self.unit
+            todiv=other
+            pass
+
+        
+        return complexunitsvalue(self.val/todiv,newunits);
+
+    def __floordiv__(self,other):
+        if not isinstance(other,float):
+            newunits=lm_units.divideunits(self.unit, other.units())
+            
+            todiv=other.value()
+            pass
+        else :
+            newunits=self.unit
+            todiv=other
+            pass
+
+        
+        return complexunitsvalue(self.val//todiv,newunits);
+
     pass
     
 class numericunitsvalue(value) :
@@ -1703,6 +1735,35 @@ class numericunitsvalue(value) :
 
         
         return numericunitsvalue(self.val/todiv,newunits);
+
+    def __truediv__(self,other):
+        if not isinstance(other,float):
+            newunits=lm_units.divideunits(self.unit, other.units())
+            
+            todiv=other.value()
+            pass
+        else :
+            newunits=self.unit
+            todiv=other
+            pass
+
+        
+        return numericunitsvalue(self.val/todiv,newunits);
+
+    def __floordiv__(self,other):
+        if not isinstance(other,float):
+            newunits=lm_units.divideunits(self.unit, other.units())
+            
+            todiv=other.value()
+            pass
+        else :
+            newunits=self.unit
+            todiv=other
+            pass
+
+        
+        return numericunitsvalue(self.val//todiv,newunits);
+
     pass
 
 
@@ -1889,6 +1950,29 @@ class integervalue(value) :
             raise ValueError("Attempting to divide something other than int (%s) to dcv.integervalue " % (other.__class__.__name__))
             
         pass
+
+    def __truediv__(self,other):
+        assert(self.val is not None)
+        assert(not hasattr(other,"units")) # don't support arithmetic between integervalue and numericunitsvalue at this point
+        if isinstance(other,int):
+           
+            return integervalue(self.val // other);
+        else :
+            raise ValueError("Attempting to divide something other than int (%s) to dcv.integervalue " % (other.__class__.__name__))
+            
+        pass
+
+    def __floordiv__(self,other):
+        assert(self.val is not None)
+        assert(not hasattr(other,"units")) # don't support arithmetic between integervalue and numericunitsvalue at this point
+        if isinstance(other,int):
+           
+            return integervalue(self.val // other);
+        else :
+            raise ValueError("Attempting to divide something other than int (%s) to dcv.integervalue " % (other.__class__.__name__))
+            
+        pass
+
     pass
 
 
