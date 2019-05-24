@@ -561,7 +561,7 @@ def output_ensure_namespaces(output,prxdoc,justcopied):
 
         
 
-def open_or_lock_output(prxdoc,out,overall_starttime,copyfileinfo=None):
+def open_or_lock_output(prxdoc,out,overall_starttime,copyfileinfo=None,readonly=False):
     # Use a list (opendoclist) to wrap our output object so
     # that it can be passed around and reassigned
     # Should always be length 1
@@ -574,10 +574,20 @@ def open_or_lock_output(prxdoc,out,overall_starttime,copyfileinfo=None):
     # if success, we leave the output locked. 
 
     if out.output is not None:
-        out.output.lock_rw()
+        if readonly:
+            out.output.lock_ro()
+            pass
+        else:
+            out.output.lock_rw()
+            pass
         return
+
     
-    out.output=xmldoc.xmldoc.loadhref(out.outputfilehref,readonly=False,num_backups=1,use_locking=True,nsmap=outputnsmap) # ,debug=True) # !!!*** Remove debug mode eventually for performance reasons
+    out.output=xmldoc.xmldoc.loadhref(out.outputfilehref,readonly=readonly,num_backups=1,use_locking=True,nsmap=outputnsmap) # ,debug=True) # !!!*** Remove debug mode eventually for performance reasons
+
+    if readonly:
+        # cannot add stuff to document if readonly
+        return
 
     try: 
         # Make sure output file and in memory NSMAP has the needed namespaces

@@ -160,6 +160,7 @@ Flags:
   --git-add           Stage changes to .prx and input files for commit
   --gtk3              Use GTK3 if gui elements required
   --steps             Don't do anything; just list available steps
+  --status            Don't do anything; Show status of steps
   --files             Don't do anything; just list available files
     """)
     pass
@@ -182,6 +183,7 @@ def main(args=None):
     allsteps=False
     liststeps=False
     listfiles=False
+    status=False
     debugmode=False
     ipythonmodelist=[False] # ipythonmode is contained within a list so it is mutable by functions and these changes will be persistent
     
@@ -207,6 +209,9 @@ def main(args=None):
         elif arg=="--files": # just list files
             listfiles=True
             pass
+        elif arg=="--status":
+            status=True
+            pass        
         elif arg=="-a": # run all steps
             allsteps=True
             pass
@@ -304,12 +309,6 @@ def main(args=None):
         sys.exit(0)
         pass
 
-    if len(steps)==0:
-        print("Nothing to do! (try specifying a step with -s <step> or all steps with -a);\nlist steps with --steps\n")
-        sys.exit(0)
-        pass
-
-    #print("steps=%s" % str(steps))
 
     for argv_inputfile in argv_inputfiles:
         if argv_inputfile not in [ inputfilehref.getpath() for (inputfile,inputfilehref) in inputfiles_with_hrefs ]:
@@ -331,6 +330,146 @@ def main(args=None):
     # Build dictionary by input file of output files
     outputdict=processtrak_common.build_outputdict(prxdoc,inputfiles_with_hrefs)
 
+
+    if status:
+        print("")
+        
+        print("Step status")
+        print("---------------------------")
+        for (inputfile,inputfile_href) in useinputfiles_with_hrefs:
+            print(" ")
+
+            outdoc = outputdict[inputfile_href]
+            # NOTE: calling open_or_lock_output with readonly=True means it's NOT OK
+            # to actually execute anything with this outdoc in the outputdict, as
+            # the output will be only opened as read-only
+            if os.path.exists(outdoc.outputfilehref.getpath()):
+                open_or_lock_output(prxdoc,outdoc,None,copyfileinfo=None,readonly=True)
+                xlpdocu=outdoc.output
+                pass
+            else:
+                xlpdocu=None
+                pass
+
+            if xlpdocu is not None:
+                # Find all lip:process tags with an action child that also have-- either themselves or and ancestor -- a wascontrolledby with a lip:prxfile 
+                actionprocesses=xlpdocu.xpath("lip:process/descendant-or-self::lip:process[lip:action and (ancestor-or-self::lip:process/lip:wascontrolledby)[1]/lip:prxfile/@xlink:href]")
+                
+                actionprocs_with_prxfile=[ (actionproc,xlpdocu.xpathsinglecontext(actionproc,"(ancestor-or-self::lip:process/lip:wascontrolledby)[1]/lip:prxfile")) for actionproc in actionprocesses ]
+
+                actionprocs_with_prxfilehref=[ (actionproc, dc_value.hrefvalue.fromxml(xlpdocu,prxfile)) for (actionproc,prxfile) in actionprocs_with_prxfile ]
+
+                actionprocs_matching_prxfile = [ actionproc for (actionproc,actionprxfilehref) in actionprocs_with_prxfilehref if actionprxfilehref==prxfilehref ]
+                actionprocs_not_matching_prxfile = [ actionproc for (actionproc,actionprxfilehref) in actionprocs_with_prxfilehref if not(actionprxfilehref==prxfilehref) ]
+
+                actionproc_listdict_matching_prxfile = { }  # dictionary by step name of lists of actionprocs 
+                for actionproc in actionprocs_matching_prxfile:
+                    stepname = xlpdocu.xpathsinglecontextstr(actionproc,"lip:action")
+                    if stepname not in actionproc_listdict_matching_prxfile:
+                        actionproc_listdict_matching_prxfile[stepname] = [] # empty list
+                        pass
+                    
+                    actionproc_listdict_matching_prxfile[stepname].append(actionproc)
+                    pass
+
+
+                # sort lists in actionproc_listdict_matching_prxfile[stepname] by starttimestamp
+                
+                for stepname in actionproc_listdict_matching_prxfile:  # dictionary by step name of lists of actionprocs
+                    actionproc_listdict_matching_prxfile[stepname].sort(key = lambda actionproc: xlpdocu.xpathsinglecontextstr(actionproc,"lip:startimestamp"))
+                    pass
+
+                # reduce actionproc_listdict_matching_prxfile to most recent runs (last entries)
+                actionproc_dict_matching_prxfile = { stepname: actionproc_listdict_matching_prxfile[stepname][-1] for stepname in actionproc_listdict_matching_prxfile }
+
+                actionproc_date_status_dict_matching_prxfile = { stepname: (actionproc_dict_matching_prxfile[stepname], # actionproc
+                                                                            xlpdocu.xpathsinglecontextstr(actionproc_dict_matching_prxfile[stepname],"lip:starttimestamp"), # start timestamp
+                                                                            len(xlpdocu.xpathcontext(actionproc_dict_matching_prxfile[stepname],"descendent-or-self::lip:log[status != 'success']")) > 0 or len(xlpdocu.xpathcontext(actionproc_dict_matching_prxfile[stepname],"descendent-or-self::lip:process[count(lip:finishtimestamp) = 0]")) > 0,  # failure indicator: status not listed as success or no finish timestamp
+                                                                            "-l" in ast.literal_eval(xmldocu.xpathsinglecontextstr(actionproc_dict_matching_prxfile[stepname],"lip:argv")))  # Presence of additional xpath filters when running this step
+                                                                 for stepname in actionproc_listdict_matching_prxfile }
+                
+                
+                                                                        
+                                                                        
+                
+                pass
+            else:
+                actionprocs_with_prxfile = []
+                pass
+            
+            print("Input file: %s" % (inputfile))
+            print("---------------------------")
+            for step_el in steps:
+                if step_el is None:   # "None" means the copyinput step
+                    stepname="copyinput"
+                    pass
+                else:
+                    stepname=processtrak_prxdoc.getstepname(prxdoc,step_el)
+                    pass
+                if xlpdocu is None:
+                    print("%20s NOT EXECUTED" % (stepname))
+                    pass
+                else:
+                    # have an xlp document
+
+                    if stepname not in actionproc_date_status_dict_matching_prxfile:
+                        print("%20s NOT EXECUTED" % (stepname))
+                        pass
+                    else:
+                        # did find step
+                        (actionproc,date,failure,filterflag) = actionproc_date_status_dict_matching_prxfile[stepname]
+                        flagstr=""
+                        if failure:
+                            flagstr += " FAILURE"
+                            pass
+                        if filterflag:
+                            flagstr +=" USED_XPATH_FILTERS"
+                            pass
+                        
+                        print("%20s %36s %s" % (stepname,date,flagstr))
+
+                        del actionproc_date_status_dict_matching_prxfile[stepname] # mark as shown
+                        pass
+                    pass
+                
+                pass
+
+            if len(actionproc_date_status_dict_matching_prxfile.keys()) > 0:
+                print(" ")
+                print("Additional steps not found in .prx file")
+                print("---------------------------------------")
+
+                for stepname in actionproc_date_status_dict_matching_prxfile:
+                    print("%20s" % (stepname))
+                    pass
+                pass
+
+            if len(actionprocs_not_matching_prxfile) > 0:
+                print(" ")
+                print("Additional steps from different .prx file")
+                print("---------------------------------------")
+                
+                for actionproc in actionprocs_not_matching_prxfile:
+                    stepname = xlpdocu.xpathsinglecontextstr(actionproc,"lip:action")
+                    print("%20s" % (stepname))
+                    pass
+                
+                
+                pass
+            
+            pass
+        
+        
+        sys.exit(0)
+        pass
+
+
+    if len(steps)==0:
+        print("Nothing to do! (try specifying a step with -s <step> or all steps with -a);\nlist steps with --steps\n")
+        sys.exit(0)
+        pass
+
+    #print("steps=%s" % str(steps))
 
     
     # Run the specified steps, on the specified files
