@@ -654,7 +654,7 @@ def simplifyunits(comba):
     comba.sortunits()
 
     # Strip unitless, unless it is all there is: 
-    if len(comba.Factors) > 0:
+    if len(comba.Factors) > 1:
         for FactorCnt in range(len(comba.Factors)-1,-1,-1):
             Factor=comba.Factors[FactorCnt]
             if "unitless" in UnitDict and Factor.Unit is UnitDict["unitless"]:
