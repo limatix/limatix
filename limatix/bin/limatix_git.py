@@ -194,7 +194,13 @@ def add(args):
         pass
     print(" ")
     if not dryrun:
-        repo.git.add(unprocessedpaths)
+        # If we add too many paths in one step, 
+        # we get an 'argument list too long'
+        #repo.git.add(unprocessedpaths)
+
+        for pos in range((len(unprocessedpaths)+9)//10):
+            repo.git.add(unprocessedpaths[pos:(pos+10)])
+            pass
         pass
 
     if len(xlppaths) > 0:
