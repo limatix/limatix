@@ -302,14 +302,22 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
                 (lines,startinglineno)=inspect.getsourcelines(runfunc)
                 
                 assert(lines[0].startswith("def")) # first line of function is the defining line
-                del lines[0] # remove def line
+
+                # Preparse to figure out how many lines are part of def
+                preparse=ast.parse("".join(lines),filename=scripthref.getpath(),mode='exec')
+                assert isinstance(preparse.body[0],ast.FunctionDef)
+                assert(preparse.body[0].lineno==1) # Def statement should start on line "1"
+                firstbodyline = preparse.body[0].body[0].lineno
+                lines_to_delete = firstbodyline - 2
+
+                del lines[:lines_to_delete] # remove def line, leading comments, etc. 
                 lines.insert(0,"if 1:\n") # allow function to be indented
                 runfunc_syntaxtree=ast.parse("".join(lines), filename=scripthref.getpath(), mode='exec') # BUG: Should set dont_inherit parameter and properly determine which __future__ import flags should be passed
 
                 # fixup line numbers
                 for syntreenode in ast.walk(runfunc_syntaxtree):
                     if hasattr(syntreenode,"lineno"):
-                        syntreenode.lineno+=startinglineno-1
+                        syntreenode.lineno+=startinglineno+lines_to_delete-1-1
                         pass
                     pass
 
@@ -946,8 +954,14 @@ def procstep_uniquematch_elementpath_generator(prxdoc,output,steptag,elementmatc
 
 def procsteppython_execfunc(scripthref,pycode_text,pycode_lineno,prxdoc,prxnsmap,output,steptag,scripttag,rootprocesspath,stepprocesspath,stepglobals,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist,execfunc,action):
     
+    if hasattr(inspect,"getfullargspec"):
+        getargspecfunc = inspect.getfullargspec # python3
+        pass
+    else:
+        getargspecfunc = inspect.getargspec # python 2
+        pass
     
-    (argnames, varargs, keywords, defaults)=inspect.getargspec(execfunc)        
+    (argnames, varargs, keywords, defaults)=getargspecfunc(execfunc)        
     
     argsdefaults={}
     if defaults is not None:
