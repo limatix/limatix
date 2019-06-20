@@ -121,10 +121,10 @@ def get_stephrefpaths(primary=False):
         # See if we can get module version data for provenance tracking
         if hasattr(steppathfunc,"__module__") and steppathfunc.__module__ in sys.modules:
             module=sys.modules[steppathfunc.__module__]
-            module_version = (steppathfunc.__module__,None)
+            module_version = (module,None)
             if hasattr(module,"__version__"):
                 # Got valid version string
-                module_version = (steppathfunc.__module__,module.__version__)
+                module_version = (module,module.__version__)
                 pass
             pass
         
