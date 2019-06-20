@@ -112,20 +112,41 @@ def get_stephrefpaths(primary=False):
     # primary=True limits it to just the main /usr/share/limatix/pt_steps or similar
     
     steppath = []
+
+    module_version_map = {}
     for entrypoint in iter_entry_points("limatix.processtrak.step_url_search_path"):
         steppathfunc=entrypoint.load()
+
+        module_version = (None, None)
+        # See if we can get module version data for provenance tracking
+        if hasattr(steppathfunc,"__module__") and steppathfunc.__module__ in sys.modules:
+            module=sys.modules[steppathfunc.__module__]
+            module_version = (steppathfunc.__module__,None)
+            if hasattr(module,"__version__"):
+                # Got valid version string
+                module_version = (steppathfunc.__module__,module.__version__)
+                pass
+            pass
+        
+        
         add_to_steppath = steppathfunc()
         if isinstance(add_to_steppath,basestring):
             sys.stderr.write("limatix.processtrak_procstep: Error enumerating limatix.datacollect2.ptstepurlpath entry points: Got string from %s:%s; expected list or tuple\n" % (entrypoint.module_name,entrypoint.name))
             continue
+
+        # build database indexed by search path of source module & version
+        for pathentry in add_to_steppath:
+            module_version_map[pathentry] = module_version
+            pass
         
         if not primary or entrypoint.name=="limatix.share.pt_steps":            
             steppath.extend(add_to_steppath)
             pass
         pass
-    
+
     stephrefpaths=[ dcv.hrefvalue(stepurl) if stepurl.endswith(posixpath.sep) else dcv.hrefvalue(stepurl+posixpath.sep) for stepurl in steppath ]
-    return stephrefpaths
+    module_versions = [ module_version_map[pathentry] for pathentry in steppath ] 
+    return (stephrefpaths,module_versions)
     
 
 
@@ -140,13 +161,15 @@ def find_script_in_path(contexthref,scriptname):
     #if posixpath.pathsep in scriptname:
     #    return dcv.hrefvalue(quote(scriptname),contexthref=contexthref)
 
-    stephrefpaths=get_stephrefpaths()
-    
-    for tryhrefpath in stephrefpaths:
+    (stephrefpaths,module_versions) = get_stephrefpaths()
+
+    for hrefpathindex in range(len(stephrefpaths)):
+        tryhrefpath = stephrefpaths[hrefpathindex]
+        module_version = module_versions[hrefpathindex]
 
         candidate=dcv.hrefvalue(quote(scriptname),contexthref=tryhrefpath)
         if os.path.exists(candidate.getpath()):
-            return candidate
+            return (candidate,module_version)
         pass
     
     raise IOError("Could not find script %s in path %s" % (scriptname,unicode([ searchhref.humanurl() for searchhref in stephrefpaths ])))
@@ -1076,7 +1099,7 @@ def procsteppython_execfunc(scripthref,pycode_text,pycode_lineno,prxdoc,prxnsmap
 
     pass
 
-def procsteppython(scripthref,pycode_el,prxdoc,output,steptag,scripttag,rootprocesspath,initelementmatch,initelementmatch_nsmap,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist):
+def procsteppython(scripthref,module_version,pycode_el,prxdoc,output,steptag,scripttag,rootprocesspath,initelementmatch,initelementmatch_nsmap,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist):
     # *** output should be rwlock'd exactly ONCE when this is called
     # *** Output will be rwlock'd exactly ONCE on return
     #     (but may have been unlocked in the interim)
@@ -1084,6 +1107,7 @@ def procsteppython(scripthref,pycode_el,prxdoc,output,steptag,scripttag,rootproc
     prxnsmap=dict(prxdoc.getroot().nsmap)
 
     stepglobals={}
+
 
     # !!!*** NON-REENTRANT
     # Temporarily adjust sys.path so as to add script's directory 
@@ -1117,17 +1141,24 @@ def procsteppython(scripthref,pycode_el,prxdoc,output,steptag,scripttag,rootproc
     # Find modules imported or referenced
     modules=set()
     for variable in stepglobals:
-        if hasattr(variable,"__module__"):
-            modulename=variable.__module__
+        if isinstance(stepglobals[variable],sys.__class__) and hasattr(stepglobals[variable],"__name__"):
+            # is a module itself
+            modulename=stepglobals[variable].__name__
             pass
-        elif hasattr(variable,"__package__"):
-            modulename=variable.__package__
+        elif hasattr(stepglobals[variable],"__module__"):
+            modulename=stepglobals[variable].__module__
+            pass
+        elif hasattr(stepglobals[variable],"__package__"):
+            modulename=stepglobals[variable].__package__
             pass
         else: 
             continue
+        if modulename is None:
+            continue
+        #print("modulename=%s" % (modulename))
         modulenamesplit=modulename.split(".")
-        for modulenamecomponentcnt in range(1,len(modulenamesplit)):
-            trymodulename=".".join(modulenamesplit[:modulenamecomponentcnt])
+        for modulenamecomponentcnt in range(len(modulenamesplit)):
+            trymodulename=".".join(modulenamesplit[:(modulenamecomponentcnt+1)])
             modules.add(trymodulename)
             pass
         pass
@@ -1148,10 +1179,13 @@ def procsteppython(scripthref,pycode_el,prxdoc,output,steptag,scripttag,rootproc
     
     action=processtrak_prxdoc.getstepname(prxdoc,steptag)
     provenance.write_action(output,stepprocess_el,action)
+    
     for module in (set(sys.modules.keys()) & modules):  # go through modules
         provenance.reference_pymodule(output,stepprocess_el,"lip:used",rootprocess_el.getparent(),module,warnlevel="none")
         pass
-
+    
+    provenance.reference_pt_script(output,stepprocess_el,"lip:used",rootprocess_el.getparent(),scripthref,module_version)
+    
     provenance.write_process_info(output,stepprocess_el) # ensure uniqueness prior to uuid generation
 
     # Generate uuid
@@ -1322,13 +1356,14 @@ def procstep(prxdoc,out,steptag,filters,overall_starttime,debugmode,stdouthandle
 
                          
     pycode_el=None
+    module_version = (None,None)
     if prxdoc.hasattr(scripttag,"xlink:href"): 
         #scriptpath=prxdoc.get_href_fullpath(contextnode=scripttag)
         scripthref=dcv.hrefvalue.fromxml(prxdoc,scripttag)
         #scriptpath=scripthref.getpath()
         pass
     elif prxdoc.hasattr(scripttag,"name"): 
-        scripthref=find_script_in_path(prxdoc.filehref,prxdoc.getattr(scripttag,"name"))
+        (scripthref,module_version)=find_script_in_path(prxdoc.filehref,prxdoc.getattr(scripttag,"name"))
         pass
     else: 
         pycode_el=prxdoc.child(scripttag,"prx:pycode") # set to pycode tag or None
@@ -1355,7 +1390,7 @@ def procstep(prxdoc,out,steptag,filters,overall_starttime,debugmode,stdouthandle
     processtrak_common.open_or_lock_output(prxdoc,out,overall_starttime,copyfileinfo=None) # procsteppython/procstepmatlab are called with output locked exactly once
     try : 
         if pycode_el is not None or scripthref.get_bare_unquoted_filename().endswith(".py"):
-            procsteppython(scripthref,pycode_el,prxdoc,out.output,steptag,scripttag,out.processpath,initelementmatch,initelementmatch_nsmap,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,out.inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist)
+            procsteppython(scripthref,module_version,pycode_el,prxdoc,out.output,steptag,scripttag,out.processpath,initelementmatch,initelementmatch_nsmap,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,out.inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist)
             pass
         elif scripthref.get_bare_unquoted_filename().endswith(".m"):
             procstepmatlab(scripthref.getpath(),prxdoc,out.output,steptag,scripttag,out.processpath,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,out.inputfilehref,debugmode,ipythonmodelist)

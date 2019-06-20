@@ -195,25 +195,47 @@ def reference_hrefcontext(doc,parent,tagname,contextelement,hrefc,warnlevel="err
     return element
 
 
-def reference_pymodule(doc,parent,tagname,contextelement,module,warnlevel="none"):
+def reference_pymodule(doc,parent,tagname,contextelement,module_name,warnlevel="none"):
     # Create a new element, named tagname, within parent, that references the python
     # module object referenced as "module"
     # warnlevel defaults to "none" because we usually don't have the ability to diagnose, anyway
 
     element=doc.addelement(parent,tagname)
     doc.setattr(element,"type","pymodule")
-    if hasattr(module,"__version__"):
-        doc.setattr(element,"pymoduleversion",module.__version__)
+    if hasattr(sys.modules[module_name],"__version__"):
+        doc.setattr(element,"pymoduleversion",sys.modules[module_name].__version__)
+        pass
+    if hasattr(sys.modules[module_name],"__versiondiff__"):
+        doc.setattr(element,"pymoduleversiondiff",sys.modules[module_name].__versiondiff__)
+        pass
+    
+    doc.settext(element,module_name)
+    doc.setattr(element,"warnlevel",warnlevel)
+    return element
+
+
+
+def reference_pt_script(doc,parent,tagname,contextelement,scripthref,module_version):
+    # Create a new element, named tagname, within parent, that references the python
+    # module object referenced as "module"
+    # warnlevel defaults to "none" because we usually don't have the ability to diagnose, anyway
+
+    element=doc.addelement(parent,tagname)
+    doc.setattr(element,"type","pt_script_py")
+    (module,version) = module_version 
+    if module is not None and hasattr(module,"__name__"):        
+        doc.setattr(element,"pymodule",module.__name__)
+        pass
+    if version is not None:
+        doc.setattr(element,"pymoduleversion",version)
         pass
     if hasattr(module,"__versiondiff__"):
         doc.setattr(element,"pymoduleversiondiff",module.__versiondiff__)
         pass
-    
-    doc.settext(element,module.__name__)
-    doc.setattr(element,"warnlevel",warnlevel)
+    scripthref.xmlrepr(doc,element) # add xlink:href to script
     return element
 
-    
+
 
 def reference_file(doc,parent,tagname,contextelement,referencehrefc,warnlevel="error",timestamp=None,fragcanonsha256=None):
     # filecontext_xpath is "/"+outputroot.tag
