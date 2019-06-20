@@ -199,7 +199,7 @@ def add(args):
         #repo.git.add(unprocessedpaths)
 
         for pos in range((len(unprocessedpaths)+9)//10):
-            repo.git.add(unprocessedpaths[pos:(pos+10)])
+            repo.git.add(unprocessedpaths[(pos*10):((pos*10)+10)])
             pass
         pass
 
