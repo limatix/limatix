@@ -2,6 +2,10 @@
 import sys
 import numpy as np
 
+from . import dc_value
+from .dc_value import hrefvalue as hrefv
+
+from . import xmldoc
 from lxml import etree
 import traceback
 
@@ -100,17 +104,22 @@ class dc_dbus_paramserver(dbus_service_Object):
             
             assert(classname[-5:]=="value")
             classdescr=classname[:-5]
-            xmlobj=etree.Element("{http://limatix.org/datacollect}%s" % (str(paramname)),nsmap=xpathnamespaces)
 
-            dcvalue.xmlrepr(None,xmlobj)
+            valxml = xmldoc.xmldoc.newdoc("dc:"+str(paramname),nsmap={"dc":"http://limatix.org/datacollect","dcv":"http://limatix.org/dcvalue","xlink":"http://www.w3.org/1999/xlink"},contexthref=hrefv("."),nodialogs=True)
+            
+            #xmlobj=etree.Element("{http://limatix.org/datacollect}%s" % (str(paramname)),nsmap=xpathnamespaces)
+            #dcvalue.xmlrepr(None,xmlobj)
+            dcvalue.xmlrepr(valxml,valxml.getroot())
 
             # print units
-            return (str(dcvalue),dblrep,imagrep,etree.tostring(xmlobj,encoding='utf8'),classdescr,units)
+            #return (str(dcvalue),dblrep,imagrep,etree.tostring(xmlobj,encoding='utf8'),classdescr,units)
+            return (str(dcvalue),dblrep,imagrep,valxml.tostring(),classdescr,units)
         except : 
             (exctype,excvalue)=sys.exc_info()[:2]
-            print("ERROR %s %s" % (str(exctype.__name__),str(excvalue)))
-            traceback.print_exc()
-            return ("ERROR %s %s" % (str(exctype.__name__),str(excvalue)),np.nan,np.nan,"<xmlns:dc=\"http://limatix.org/datacollect\" dc:error/>","None","")
+            exc=traceback.format_exc()
+
+            print("ERROR (paramlookup) %s %s\nTraceback:%s\n" % (str(exctype.__name__),str(excvalue),exc))
+            return ("ERROR (paramlookup) %s %s\nTraceback:%s\n" % (str(exctype.__name__),str(excvalue),exc),np.nan,np.nan,"<xmlns:dc=\"http://limatix.org/datacollect\" dc:error/>","None","")
         pass
 
 
@@ -138,17 +147,22 @@ class dc_dbus_paramserver(dbus_service_Object):
             
             assert(classname[-5:]=="value")
             classdescr=classname[:-5]
-            xmlobj=etree.Element("{http://limatix.org/datacollect}%s" % (str(paramname)),nsmap=xpathnamespaces)
+
+            valxml = xmldoc.xmldoc.newdoc("dc:"+str(paramname),nsmap={"dc":"http://limatix.org/datacollect","dcv":"http://limatix.org/dcvalue","xlink":"http://www.w3.org/1999/xlink"},contexthref=hrefv("."),nodialogs=True)
+
+            #xmlobj=etree.Element("{http://limatix.org/datacollect}%s" % (str(paramname)),nsmap=xpathnamespaces)
             
-            dcvalue.xmlrepr(None,xmlobj)
+            #dcvalue.xmlrepr(None,xmlobj)
+            dcvalue.xmlrepr(valxml,valxml.getroot())
             
             # print units
-            return (str(dcvalue),dblrep,imagrep,etree.tostring(xmlobj,encoding='utf8'),classdescr,units)
+            #return (str(dcvalue),dblrep,imagrep,etree.tostring(xmlobj,encoding='utf8'),classdescr,units)
+            return (str(dcvalue),dblrep,imagrep,valxml.tostring(),classdescr,units)
         except : 
             (exctype,excvalue)=sys.exc_info()[:2]
-            print("ERROR %s %s" % (str(exctype.__name__),str(excvalue)))
+            print("ERROR (paramlookupunits) %s %s" % (str(exctype.__name__),str(excvalue)))
             traceback.print_exc()
-            return ("ERROR %s %s" % (str(exctype.__name__),str(excvalue)),np.nan,np.nan,"<xmlns:dc=\"http://limatix.org/datacollect\" dc:error/>","None","")
+            return ("ERROR (paramlookupunits) %s %s" % (str(exctype.__name__),str(excvalue)),np.nan,np.nan,"<xmlns:dc=\"http://limatix.org/datacollect\" dc:error/>","None","")
         pass
     
         
@@ -160,11 +174,14 @@ class dc_dbus_paramserver(dbus_service_Object):
 
         try :
 
-            xml=etree.XML(paramxml)
+            reqxmldoc = xmldoc.xmldoc.fromstring(paramxml,nsmap={"dc":"http://limatix.org/datacollect","dcv":"http://limatix.org/dcvalue","xlink":"http://www.w3.org/1999/xlink"},contexthref=hrefv("."),nodialogs=True)
+
+            #xml=etree.XML(paramxml)
             
             pdbentry=self.paramdb[paramname]
 
-            dcvalue=pdbentry.paramtype.fromxml(None,xml,defunits=pdbentry.defunits)
+            #dcvalue=pdbentry.paramtype.fromxml(None,xml,defunits=pdbentry.defunits)
+            dcvalue=pdbentry.paramtype.fromxml(reqxmldoc,reqxmldoc.getroot(),defunits=pdbentry.defunits)
             
             pdbentry.requestval_sync(dcvalue)
 
@@ -172,9 +189,9 @@ class dc_dbus_paramserver(dbus_service_Object):
         
         except : 
             (exctype,excvalue)=sys.exc_info()[:2]
-            print("ERROR %s %s" % (str(exctype.__name__),str(excvalue)))
-            traceback.print_exc()
-            return ("ERROR %s %s" % (str(exctype.__name__),str(excvalue)),np.nan,np.nan,"<xmlns:dc=\"http://limatix.org/datacollect\" dc:error/>","None","")
+            exc=traceback.format_exc()
+            print("ERROR (requestvalxml) %s %s\nTraceback follows:\n%s\n" % (str(exctype.__name__),str(excvalue),exc))
+            return ("ERROR (requestvalxml) %s %s\nTraceback follows:\n%s\n" % (str(exctype.__name__),str(excvalue),exc),np.nan,np.nan,"<xmlns:dc=\"http://limatix.org/datacollect\" dc:error/>","None","")
         pass
 
     @dbus_service_method(dbus_interface="org.limatix.datacollect2.paramdb2",in_signature='sds', out_signature='sddsss')
@@ -195,9 +212,9 @@ class dc_dbus_paramserver(dbus_service_Object):
         
         except : 
             (exctype,excvalue)=sys.exc_info()[:2]
-            print("ERROR %s %s" % (str(exctype.__name__),str(excvalue)))
+            print("ERROR (requestvalunits) %s %s" % (str(exctype.__name__),str(excvalue)))
             traceback.print_exc()
-            return ("ERROR %s %s" % (str(exctype.__name__),str(excvalue)),np.nan,np.nan,"<xmlns:dc=\"http://limatix.org/datacollect\" dc:error/>","None","")
+            return ("ERROR (requestvalunits) %s %s" % (str(exctype.__name__),str(excvalue)),np.nan,np.nan,"<xmlns:dc=\"http://limatix.org/datacollect\" dc:error/>","None","")
         pass
 
 
@@ -218,9 +235,9 @@ class dc_dbus_paramserver(dbus_service_Object):
         
         except : 
             (exctype,excvalue)=sys.exc_info()[:2]
-            print("ERROR %s %s" % (str(exctype.__name__),str(excvalue)))
+            print("ERROR (requestvalstr) %s %s" % (str(exctype.__name__),str(excvalue)))
             traceback.print_exc()
-            return ("ERROR %s %s" % (str(exctype.__name__),str(excvalue)),np.nan,np.nan,"<xmlns:dc=\"http://limatix.org/datacollect\" dc:error/>","None","")
+            return ("ERROR (requestvalstr) %s %s" % (str(exctype.__name__),str(excvalue)),np.nan,np.nan,"<xmlns:dc=\"http://limatix.org/datacollect\" dc:error/>","None","")
         pass
 
     # Function to return a list of paramter names
@@ -235,7 +252,7 @@ class dc_dbus_paramserver(dbus_service_Object):
             return (paramlist,typelist)
         except:
             (exctype,excvalue)=sys.exc_info()[:2]
-            print("ERROR %s %s" % (str(exctype.__name__),str(excvalue)))
+            print("ERROR (getparamlist) %s %s" % (str(exctype.__name__),str(excvalue)))
             traceback.print_exc()
             return ([],[])
 
@@ -290,9 +307,9 @@ class dc_dbus_paramserver(dbus_service_Object):
             raise ValueError("No match to ID %s" % (idstr))
         except : 
             (exctype,excvalue)=sys.exc_info()[:2]
-            print("ERROR %s %s" % (str(exctype.__name__),str(excvalue)))
+            print("ERROR (automeas) %s %s" % (str(exctype.__name__),str(excvalue)))
             traceback.print_exc()
-            return "ERROR %s %s" % (str(exctype.__name__),str(excvalue))
+            return "ERROR (automeas) %s %s" % (str(exctype.__name__),str(excvalue))
         pass
 
 

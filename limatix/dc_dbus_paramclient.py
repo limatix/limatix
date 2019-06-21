@@ -1,4 +1,4 @@
-import xmldoc
+from . import xmldoc
 import traceback
 
 try :
@@ -13,7 +13,8 @@ except:
 
 # import dbus.service
 
-import dc_value
+from . import dc_value
+from .dc_value import hrefvalue as hrefv
 from lxml import etree
 
 # import gobject
@@ -34,7 +35,11 @@ def dc_param(name):
         raise KeyError(name)
     
     valueclass=getattr(dc_value,valueclassname+"value")
-    valueobj=valueclass.fromxml(None,etree.XML(xmlrep))
+
+    xmlrepdoc = xmldoc.xmldoc.fromstring(xmlrep,nsmap={"dc":"http://limatix.org/datacollect","dcv":"http://limatix.org/dcvalue","xlink":"http://www.w3.org/1999/xlink"},contexthref=hrefv("."),nodialogs=True)
+
+    #valueobj=valueclass.fromxml(None,etree.XML(xmlrep))
+    valueobj=valueclass.fromxml(xmlrepdoc,xmlrepdoc.getroot())
     return valueobj
 
 # Get List of Parameters
@@ -66,9 +71,14 @@ def dc_requestval(name,dcvalueobj):
 
     proxy=sessionbus.get_object(bus_name,bus_object)
 
-    reqxmlrep=etree.Element("{http://limatix.org/datacollect}"+name,nsmap={"dc":"http://limatix.org/datacollect","dcv":"http://limatix.org/dcvalue"})
-    dcvalueobj.xmlrepr(None,reqxmlrep)
-    reqxmlstr=etree.tostring(reqxmlrep,encoding="utf-8")
+    #reqxmlrep=etree.Element("{http://limatix.org/datacollect}"+name,nsmap={"dc":"http://limatix.org/datacollect","dcv":"http://limatix.org/dcvalue"})
+    #dcvalueobj.xmlrepr(None,reqxmlrep)
+    #reqxmlstr=etree.tostring(reqxmlrep,encoding="utf-8")
+    
+    reqxmldoc = xmldoc.xmldoc.newdoc("dc:"+name,nsmap={"dc":"http://limatix.org/datacollect","dcv":"http://limatix.org/dcvalue","xlink":"http://www.w3.org/1999/xlink"},contexthref=hrefv("."),nodialogs=True)
+    dcvalueobj.xmlrepr(reqxmldoc,reqxmldoc.getroot())
+    reqxmlstr=reqxmldoc.tostring(reqxmldoc.getroot())
+
 
     (stringrep,doublerep,imagrep,xmlrep,valueclassname,units)=proxy.requestvalxml(name,reqxmlstr,dbus_interface=bus_interface)
 
@@ -76,7 +86,11 @@ def dc_requestval(name,dcvalueobj):
         raise KeyError(name)
     
     valueclass=getattr(dc_value,valueclassname+"value")
-    valueobj=valueclass.fromxml(None,etree.XML(xmlrep))
+    #valueobj=valueclass.fromxml(None,etree.XML(xmlrep))
+
+    xmlrepdoc = xmldoc.xmldoc.fromstring(xmlrep,nsmap={"dc":"http://limatix.org/datacollect","dcv":"http://limatix.org/dcvalue","xlink":"http://www.w3.org/1999/xlink"},contexthref=hrefv("."),nodialogs=True)
+    valueobj=valueclass.fromxml(xmlrepdoc,xmlrepdoc.getroot())
+    
     return valueobj
 
 # Note that this is inherently synchronous. It returns the actual new value
@@ -92,7 +106,10 @@ def dc_requestvalstr(name,strrep):
         raise KeyError(name)
     
     valueclass=getattr(dc_value,valueclassname+"value")
-    valueobj=valueclass.fromxml(None,etree.XML(xmlrep))
+    #valueobj=valueclass.fromxml(None,etree.XML(xmlrep))
+    xmlrepdoc = xmldoc.xmldoc.fromstring(xmlrep,nsmap={"dc":"http://limatix.org/datacollect","dcv":"http://limatix.org/dcvalue","xlink":"http://www.w3.org/1999/xlink"},contexthref=hrefv("."),nodialogs=True)
+    valueobj=valueclass.fromxml(xmlrepdoc,xmlrepdoc.getroot())
+
     return valueobj
 
 # dc_automeas creates the <dc:automeas> tags used for

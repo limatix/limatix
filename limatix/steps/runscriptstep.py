@@ -26,6 +26,8 @@ except ImportError:
 from .. import viewautoexp
 from .. import dc_value
 from .. import paramdb2 as pdb
+from .. import xmldoc
+from ..dc_value import hrefvalue as hrefv
 
 try:
     from Queue import Queue, Empty
@@ -391,9 +393,10 @@ class runscriptstep(buttontextareastep):
 
 
         desthref = self.paramdb["dest"].dcvalue
-        destxmlrep=etree.Element("{http://limatix.org/datacollect}dest",nsmap={"dc":"http://limatix.org/datacollect","dcv":"http://limatix.org/dcvalue"})
-        desthref.xmlrepr(None,destxmlrep)
-        desthrefstr=etree.tostring(destxmlrep,encoding='utf-8')
+        destdoc = xmldoc.xmldoc.newdoc("dc:dest",nsmap={"dc":"http://limatix.org/datacollect","dcv":"http://limatix.org/dcvalue","xlink":"http://www.w3.org/1999/xlink"},contexthref=hrefv("."),nodialogs=True)
+        #destxmlrep=etree.Element("{http://limatix.org/datacollect}dest",nsmap={"dc":"http://limatix.org/datacollect","dcv":"http://limatix.org/dcvalue"})
+        desthref.xmlrepr(destdoc,destdoc.getroot())
+        desthrefstr=destdoc.tostring(destdoc.getroot())
 
         # for backward compatibility with scripts that don't actually need any arguments, if desthref not present in self.command provide name path
         if "desthref" not in self.command:
@@ -408,7 +411,11 @@ class runscriptstep(buttontextareastep):
             tooltip.set_text(self.environstr+self.determine_command()+"\n(Press right mouse button to copy to clipboard)")
             pass
         elif self.state==self.STATE_RUNNING:
-            tooltip.set_text("pid=%s\n(Press right mouse button to copy to clipboard)" % (str(self.subprocess_pobj.pid)))
+            pid = "None"
+            if self.subprocess_pobj is not None:
+                pid = str(self.subprocess_pobj.pid)
+                pass
+            tooltip.set_text("pid=%s\n(Press right mouse button to copy to clipboard)" % (pid))
             pass
         return True
 
