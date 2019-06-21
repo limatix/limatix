@@ -9,6 +9,20 @@ import threading
 import subprocess
 from lxml import etree
 
+try:
+    # py2.x
+    from urllib import pathname2url
+    from urllib import url2pathname
+    from urllib import quote
+    pass
+except ImportError:
+    # py3.x
+    from urllib.request import pathname2url
+    from urllib.request import url2pathname
+    from urllib.parse import quote
+    pass
+
+
 from .. import viewautoexp
 from .. import dc_value
 from .. import paramdb2 as pdb
