@@ -380,6 +380,12 @@ class runscriptstep(buttontextareastep):
         destxmlrep=etree.Element("{http://limatix.org/datacollect}dest",nsmap={"dc":"http://limatix.org/datacollect","dcv":"http://limatix.org/dcvalue"})
         desthref.xmlrepr(None,destxmlrep)
         desthrefstr=etree.tostring(destxmlrep,encoding='utf-8')
+
+        # for backward compatibility with scripts that don't actually need any arguments, if desthref not present in self.command provide name path
+        if "desthref" not in self.command:
+            href = hrefv(quote(os.path.splitext(os.path.split(self.checklist.chklistfile)[1])[0]),contexthref=desthref)
+            basepath = href.getpath()
+            return self.command % { "id": str(id(self)),"basename":basepath}
         
         return self.command % { "id": str(id(self)),"desthref":desthrefstr, "basename":os.path.splitext(os.path.split(self.checklist.chklistfile)[1])[0]}
 
