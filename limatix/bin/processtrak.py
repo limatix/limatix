@@ -8,6 +8,7 @@ orig_sys_exit=sys.exit # keep a copy of real sys.exit, because ipython messes it
 # set up stdout/stderr forwarders as FIRST step before other modules get loaded
 
 from limatix.processtrak_stdiocapture import stdiohandler
+from limatix import timestamp
 
 stdouthandler=stdiohandler(sys.stdout,None)
 sys.stdout=stdouthandler
@@ -402,7 +403,10 @@ def main(args=None):
 
             #import pdb
             #pdb.set_trace()
+
             
+            most_recent_time = datetime.datetime(1970,1,1,0,0,0,tzinfo=timestamp.UTC())  # Beginning of UNIX epoch: essentially -infinity
+
             for step_el in steps:
                 if step_el is None:   # "None" means the copyinput step
                     stepname="copyinput"
@@ -422,6 +426,15 @@ def main(args=None):
                     else:
                         # did find step
                         (actionproc,date,failure,filterflag) = actionproc_date_status_dict_matching_prxfile[stepname]
+
+                        parseddate = timestamp.readtimestamp(date)
+                        if (parseddate <= most_recent_time):
+                            flagstr += " OUT_OF_ORDER"
+                            pass
+                        else:
+                            most_recent_time=parseddate
+                            pass
+                        
                         flagstr=""
                         if failure:
                             flagstr += " FAILURE"
