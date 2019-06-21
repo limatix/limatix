@@ -7,6 +7,7 @@ import copy
 import pty
 import threading
 import subprocess
+from lxml import etree
 
 from .. import viewautoexp
 from .. import dc_value
@@ -107,7 +108,7 @@ class runscriptstep(buttontextareastep):
                      gobject.PARAM_READWRITE), # flags
         "command": (gobject.TYPE_STRING,
                        "command to run",
-                       "command should have a \"%(id)s\" where the id should be substituted and a %(basename)s where the base of the output file name should be substituted note: current directory will be the destination location and files should be output there.",
+                       "command should have a \"%(id)s\" where the id should be substituted, a %(desthref)s will have the context for the generated file, and %(basename)s where the base of the output file name should be substituted note: current directory will be the destination location and files should be output there. The correct way to reassemble an outputfilename is by hrefv(quote(basename+\".ext\"),contexthref=desthref).",
                      "", # default value 
                      gobject.PARAM_READWRITE), # flags
         "viewautoexp": (gobject.TYPE_BOOLEAN,
@@ -332,10 +333,10 @@ class runscriptstep(buttontextareastep):
             pass
         elif property.name=="command":
             # command should have a "%(id)s" where the id should be substituted 
+            # a %(desthref)s will have the context for the generated file,
             # and a %(basename)s where the base of the output file name should
             # be substituted
-            # note: current directoy will be the destination location and files
-            # should be output there. 
+            # The correct way to reassemble an outputfilename is by hrefv(quote(basename+".ext"),contexthref=desthref).
             self.command=value
             pass
         elif property.name=="buttonlabel":
@@ -373,8 +374,14 @@ class runscriptstep(buttontextareastep):
         if self.checklist is None or self.checklist.chklistfile is None:
             #  This condition is diagnosed also when you click on the button (see nofilenamedialog)
             return ""
+
+
+        desthref = self.paramdb["dest"].dcvalue
+        destxmlrep=etree.Element("{http://limatix.org/datacollect}dest",nsmap={"dc":"http://limatix.org/datacollect","dcv":"http://limatix.org/dcvalue"})
+        desthref.xmlrepr(None,destxmlrep)
+        desthrefstr=etree.tostring(destxmlrep,encoding='utf-8')
         
-        return self.command % { "id": str(id(self)),"basename":os.path.splitext(self.checklist.chklistfile)[0]}
+        return self.command % { "id": str(id(self)),"desthref":desthrefstr, "basename":os.path.splitext(os.path.split(self.checklist.chklistfile)[1])[0]}
 
     def button_tooltip(self,item,x,y, keyboard_mode, tooltip):
         if self.state==self.STATE_IDLE or self.state==self.STATE_DONE:
@@ -432,10 +439,10 @@ class runscriptstep(buttontextareastep):
 
             # fork off process; fork off reader thread that uses gobject.timeout_add() to pass data back every few seconds. Then triggers scriptcompletecallback when done. 
             # command should have a "%(id)s" where the id should be substituted 
+            # a %(desthref)s will have the context for the generated file,
             # and a %(basename)s where the base of the output file name should
             # be substituted
-            # note: current directoy will be the destination location and files
-            # should be output there. 
+            # The correct way to reassemble an outputfilename is by hrefv(quote(basename+".ext"),contexthref=desthref).
             # sys.stderr.write("Got buttoncallback... forking suprocess and starting thread\n");
             self.state=self.STATE_RUNNING
 
@@ -452,7 +459,9 @@ class runscriptstep(buttontextareastep):
             newenviron.update(self.environadd)
 
             try : 
-                self.subprocess_pobj=subprocess.Popen(self.determine_command(),stdout=slave,stderr=subprocess.STDOUT,cwd=unicode(self.paramdb["dest"].dcvalue),shell=True,close_fds=True,env=newenviron)
+                #self.subprocess_pobj=subprocess.Popen(self.determine_command(),stdout=slave,stderr=subprocess.STDOUT,cwd=unicode(self.paramdb["dest"].dcvalue),shell=True,close_fds=True,env=newenviron)
+                # 6/21/19 sdh4 no longer change directory for running script. Instead provide the destination href as a parameter. 
+                self.subprocess_pobj=subprocess.Popen(self.determine_command(),stdout=slave,stderr=subprocess.STDOUT,shell=True,close_fds=True,env=newenviron)
                 pass
             except : 
                 
