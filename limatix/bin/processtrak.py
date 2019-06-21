@@ -415,17 +415,19 @@ def main(args=None):
                     stepname=processtrak_prxdoc.getstepname(prxdoc,step_el)
                     pass
                 if xlpdocu is None:
-                    print("%20s NOT EXECUTED" % (stepname))
+                    print("%20s NOT_EXECUTED" % (stepname))
                     pass
                 else:
                     # have an xlp document
 
                     if stepname not in actionproc_date_status_dict_matching_prxfile:
-                        print("%20s NOT EXECUTED" % (stepname))
+                        print("%20s NOT_EXECUTED" % (stepname))
                         pass
                     else:
                         # did find step
                         (actionproc,date,failure,filterflag) = actionproc_date_status_dict_matching_prxfile[stepname]
+
+                        flagstr=""
 
                         parseddate = timestamp.readtimestamp(date)
                         if (parseddate <= most_recent_time):
@@ -435,7 +437,6 @@ def main(args=None):
                             most_recent_time=parseddate
                             pass
                         
-                        flagstr=""
                         if failure:
                             flagstr += " FAILURE"
                             pass
