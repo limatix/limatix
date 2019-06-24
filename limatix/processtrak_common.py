@@ -560,7 +560,22 @@ def output_ensure_namespaces(output,prxdoc,justcopied):
         pass
     pass
 
-        
+
+def close_output(prxdoc,out,readonly=False):
+    """readonly should match the parameter to open_or_lock_output()"""
+    if out.output is not None:
+        out.output.close()
+        out.output=None
+        out.processpath=None
+        pass
+    pass
+
+def reset_outputdict(prxdoc,outputdict,previous_readonly=False):
+    for key in outputdict:
+        close_output(prxdoc,outputdict[key],previous_readonly)
+        pass
+    pass
+
 
 def open_or_lock_output(prxdoc,out,overall_starttime,copyfileinfo=None,readonly=False):
     # Use a list (opendoclist) to wrap our output object so
@@ -747,7 +762,7 @@ def build_outputdict(prxdoc,useinputfiles_with_hrefs):
 
 def outputdict_run_steps(prxdoc,outputdict,useinputfiles_with_hrefs,steps,filters,overall_starttime,debugmode,stdouthandler,stderrhandler,ipythonmodelist):
     # delayed import to avoid circular reference
-    from limatix import processtrak_procstep
+    from . import processtrak_procstep
     
     # Run the specified steps, on the specified files
 
@@ -760,11 +775,11 @@ def outputdict_run_steps(prxdoc,outputdict,useinputfiles_with_hrefs,steps,filter
 
     # Run each step on each input file 
     for step in steps:
-
-    
+        
+        
         
         for (inputfile,inputfilehref) in useinputfiles_with_hrefs:
-
+            
             if step is None: 
                 # Initialize output file 
                 print("\nProcessing step %s on %s->%s" % (processtrak_prxdoc.getstepname(prxdoc,step),inputfilehref.humanurl(),outputdict[inputfilehref].outputfilehref.humanurl()))
@@ -776,12 +791,93 @@ def outputdict_run_steps(prxdoc,outputdict,useinputfiles_with_hrefs,steps,filter
 
                 processtrak_procstep.procstep(prxdoc,outputdict[inputfilehref],step,filters,overall_starttime,debugmode,stdouthandler,stderrhandler,ipythonmodelist)
                 pass
-            pass
+
+            
+            
+        
         pass
 
     for inputfilehref in outputdict:
         finalize_output_file(prxdoc,outputdict,inputfilehref)
         pass
+    pass
+
+def outputdict_run_needed_steps(prxdoc,prxfilehref,outputdict,useinputfiles_with_hrefs,all_step_elements,steps,filters,overall_starttime,debugmode,stdouthandler,stderrhandler,ipythonmodelist):
+    # delayed import to avoid circular reference
+    from . import processtrak_procstep,processtrak_status
+
+    executecnt=0
+    
+    # Run the specified steps, on the specified files
+
+    
+    # # Initialize any output files that don't exist
+    # for inputfilehref in outputdict:
+    #     initialize_output_file(prxdoc,outputdict,inputfilehref,overall_starttime)
+    #     pass
+
+
+    actionproc_date_status_success_dict_matching_prxfile_dict={}
+    actionprocs_missing_from_prx_dict={}
+    actionprocs_not_matching_prxfile_dict={}
+
+    # evaluate status
+    for (inputfile,inputfilehref) in useinputfiles_with_hrefs:
+        (actionproc_date_status_success_dict_matching_prxfile,
+         actionprocs_missing_from_prx,
+         actionprocs_not_matching_prxfile)=processtrak_status.eval_status_inputfile(inputfile,inputfilehref,prxdoc,prxfilehref,outputdict,all_step_elements)
+
+        actionproc_date_status_success_dict_matching_prxfile_dict[inputfilehref]=actionproc_date_status_success_dict_matching_prxfile
+        actionprocs_missing_from_prx_dict[inputfilehref]=actionprocs_missing_from_prx
+        actionprocs_not_matching_prxfile_dict[inputfilehref]=actionprocs_not_matching_prxfile
+        
+        pass
+    reset_outputdict(prxdoc,outputdict,previous_readonly=True)
+
+        
+    # Run each step on each input file 
+    for step_el in steps:
+        if step_el is None:   # "None" means the copyinput step
+            stepname="copyinput"
+            pass
+        else:
+            stepname=processtrak_prxdoc.getstepname(prxdoc,step_el)
+            pass
+        
+            
+        for (inputfile,inputfilehref) in useinputfiles_with_hrefs:
+
+            actionproc_date_status_success_dict_matching_prxfile=actionproc_date_status_success_dict_matching_prxfile_dict[inputfilehref]
+            (actionproc,date,outoforderflag,filterflag,failure,neededflag)=actionproc_date_status_success_dict_matching_prxfile[stepname]
+
+            if neededflag:
+
+                executecnt+=1
+                
+                if step_el is None: 
+                    # Initialize output file 
+                    print("\nProcessing step %s on %s->%s" % (processtrak_prxdoc.getstepname(prxdoc,step_el),inputfilehref.humanurl(),outputdict[inputfilehref].outputfilehref.humanurl()))
+                    
+                    initialize_output_file(prxdoc,outputdict,inputfilehref,overall_starttime,force=True)
+                    pass
+                else: 
+                    # print("\nProcessing step %s on URL %s." % (processtrak_prxdoc.getstepname(prxdoc,step_el),output.get_filehref().absurl())) 
+
+                    processtrak_procstep.procstep(prxdoc,outputdict[inputfilehref],step_el,filters,overall_starttime,debugmode,stdouthandler,stderrhandler,ipythonmodelist)
+                    pass
+                for inputfilehref in outputdict:
+                    finalize_output_file(prxdoc,outputdict,inputfilehref)
+                    pass
+                reset_outputdict(prxdoc,outputdict,previous_readonly=False)
+                pass
+            
+            pass
+        pass
+
+    if executecnt==0:
+        print("None of the selected steps need to be executed on the selected experiment logs")
+        pass
+    pass
 
 
 
