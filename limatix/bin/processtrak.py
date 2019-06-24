@@ -340,7 +340,7 @@ def main(args=None):
 
     if status:
         # print out status information
-        processtrak_status.print_status(inputfiles_with_hrefs,prxdoc,prxfilehref,steps)
+        processtrak_status.print_status(useinputfiles_with_hrefs,prxdoc,prxfilehref,steps)
         sys.exit(0)
         pass
 
