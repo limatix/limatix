@@ -271,7 +271,7 @@ def print_status(inputfiles_with_hrefs,prxdoc,prxfilehref,all_step_elements):
 
                 (actionproc,date,outoforderflag,filterflag,failure,needed)=actionproc_date_status_success_dict_matching_prxfile[stepname]
                 if actionproc is None:                
-                    print("%20s NOT_EXECUTED" % (stepname))
+                    print("%20s NOT_EXECUTED NEEDED" % (stepname))
                     pass
                 else:
                     flagstr=""

@@ -1133,7 +1133,7 @@ def suggest(docdict,processdict,processdictbyhrefc,processdictbyusedelement,elem
 
         prxfile_doc=xmldoc.xmldoc.loadhref(dc_value.hrefvalue(prxfile_hrefc),nsmap={"prx":"http://limatix.org/processtrak/processinginstructions","xlink":"http://www.w3.org/1999/xlink"})
         prxfile_steps=prxfile_doc.xpath("prx:step")
-        prxfile_inputfiles=prxfile_doc.xpath("prx:inputfile")
+        prxfile_inputfiles=prxfile_doc.xpath("prx:inputfiles/prx:inputfile")
         for step in prxfile_steps:
             stepaction=processtrak_prxdoc.getstepname(prxfile_doc,step)
             refdinputhrefcs=[inputfilehrefc for (inputfilehrefc,action) in suggestions_by_prxfile[prxfile_hrefc] if action==stepaction]
@@ -1163,7 +1163,7 @@ def suggest(docdict,processdict,processdictbyhrefc,processdictbyusedelement,elem
                         
                     pass
                 if not foundinputfile: 
-                    sys.stderr.write("Could not find reference to input file %s in %s" % (refdinputhrefc.humanurl(),prxfile_hrefc.humanurl()))
+                    sys.stderr.write("Could not find reference to input file %s in %s\n" % (refdinputhrefc.humanurl(),prxfile_hrefc.humanurl()))
                     pass
                 pass
             pass
