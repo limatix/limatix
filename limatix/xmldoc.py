@@ -2687,8 +2687,8 @@ class xmldoc(object):
         element.getparent().remove(element)
         pass
 
-    def getattr(self,tag,attrname,default=IndexError("Attribute not found"),namespaces=None) :
-        """Set the attribute of the specified element or path
+    def getattr(self,tag,attrname,default=IndexError("Attribute not found"),namespaces=None,noprovenance=False) :
+        """Get the attribute of the specified element or path
         Use namespace prefixes as usual. 
 
         tag:      The element itself, or path to it from the main tag,
@@ -2700,11 +2700,16 @@ class xmldoc(object):
         namespaces: Additional namespaces for attribute evaluation
         """
 
+        
         if isinstance(tag,basestring):
             tag=self.find(tag);
             pass
         if tag is None:
             tag=self.doc.getroot()
+            pass
+
+        if not noprovenance:
+            provenance.xmldocelementaccessed(self,tag)
             pass
 
         self.element_in_doc(tag)
@@ -2729,7 +2734,7 @@ class xmldoc(object):
         pass
 
 
-    def hasattr(self,tag,attrname) :
+    def hasattr(self,tag,attrname,noprovenance=False) :
         """Check if the attribute of the specified element or path
         exists. Use namespace prefixes as usual. 
 
@@ -2744,6 +2749,11 @@ class xmldoc(object):
         if tag is None:
             tag=self.doc.getroot()
             pass
+
+        if not noprovenance:
+            provenance.xmldocelementaccessed(self,tag)
+            pass
+
         self.element_in_doc(tag)
         if ":" in attrname:  # colon in attrname means this is in a namespace
             # Apply namespace from nsmap

@@ -441,7 +441,7 @@ class xmltreevalue(value):
         pass
 
     @classmethod
-    def fromxml(cls,xmldocu,element,tagnameoverride=None,nsmap=None,defunits=None,contextdir=None,force_abs_href=False):
+    def fromxml(cls,xmldocu,element,tagnameoverride=None,nsmap=None,defunits=None,contextdir=None,force_abs_href=False,noprovenance=False):
         # Create from a parsed xml representation. 
         # if tagnameoverride is specified, it will override the tag name of element
         # contexthref is the context href you want internally stored
@@ -450,7 +450,7 @@ class xmltreevalue(value):
 
         # assert(xml_attribute is None)  # storing content in an attribute does not make sense for an xml tre
 
-        if xmldocu is not None:
+        if xmldocu is not None and not noprovenance:
             provenance.xmldocelementaccessed(xmldocu,element)
             pass
 
@@ -629,9 +629,9 @@ class stringvalue(value):
     
 
     @classmethod
-    def fromxml(cls,xmldocu,element,defunits=None,contextdir=None):
+    def fromxml(cls,xmldocu,element,defunits=None,contextdir=None,noprovenance=False):
         # NOTE: to use xml_attribute you must provide xmldocu)
-        if xmldocu is not None:
+        if xmldocu is not None and not noprovenance:
             provenance.xmldocelementaccessed(xmldocu,element)
             pass
 
@@ -830,11 +830,11 @@ class hrefvalue(value):
         
 
     @classmethod
-    def fromxml(cls,xmldocu,element,defunits=None,contextdir=None):
+    def fromxml(cls,xmldocu,element,defunits=None,contextdir=None,noprovenance=False):
         # NOTE: to use xml_attribute you must provide xmldocu)
         # contextdir is ignored and obsolete
         
-        if xmldocu is not None:
+        if xmldocu is not None and not noprovenance:
             provenance.xmldocelementaccessed(xmldocu,element)
             pass
 
@@ -1050,11 +1050,11 @@ class complexunitsvalue(value) :
         pass
     
     @classmethod
-    def fromxml(cls,xmldocu,element,defunits=None,contextdir=None):
+    def fromxml(cls,xmldocu,element,defunits=None,contextdir=None,noprovenance=False):
         # NOTE: if xml_attribute is provided, xmldocu must be also.
 
         # Check if we have a units attribute
-        if xmldocu is not None:
+        if xmldocu is not None and not noprovenance:
             provenance.xmldocelementaccessed(xmldocu,element)
             pass
         
@@ -1501,10 +1501,10 @@ class numericunitsvalue(value) :
         pass
     
     @classmethod
-    def fromxml(cls,xmldocu,element,defunits=None,contextdir=None):
+    def fromxml(cls,xmldocu,element,defunits=None,contextdir=None,noprovenance=False):
         # NOTE: if xml_attribute is provided, xmldocu must be also.
 
-        if xmldocu is not None:
+        if xmldocu is not None and not noprovenance:
             provenance.xmldocelementaccessed(xmldocu,element)
             pass
 
@@ -1848,9 +1848,9 @@ class integervalue(value) :
         return str(self.val)
     
     @classmethod
-    def fromxml(cls,xmldocu,element,defunits=None,contextdir=None):
+    def fromxml(cls,xmldocu,element,defunits=None,contextdir=None,noprovenance=False):
         # NOTE: if xml_attribute is provided, xmldocu must be also.
-        if xmldocu is not None:
+        if xmldocu is not None and not noprovenance:
             provenance.xmldocelementaccessed(xmldocu,element)
             pass
 
@@ -2085,13 +2085,13 @@ class excitationparamsvalue(value) :
 
 
     @classmethod
-    def fromxml(cls,xmldocu,element,defunits=None,contextdir=None):
+    def fromxml(cls,xmldocu,element,defunits=None,contextdir=None,noprovenance=False):
         # NOTE: if xml_attribute must be none because of the structure used.
 
         #assert(xml_attribute is None)
-
+        
         vals={}
-        if xmldocu is not None:
+        if xmldocu is not None and not noprovenance:
             provenance.xmldocelementaccessed(xmldocu,element)
             pass
 
@@ -2217,14 +2217,14 @@ class imagevalue(value):
         return str(self.PILimage)
 
     @classmethod
-    def fromxml(cls,xmldocu,element,defunits=None):
+    def fromxml(cls,xmldocu,element,defunits=None,noprovenance=False):
         # read src=... attribute like an html <img src="data:image/png;base64,..."/>
         from PIL import Image  # Need Python Imaging Library
         
-        if not xmldocu.hasattr(element,"src"):
+        if not xmldocu.hasattr(element,"src",noprovenance=noprovenance):
             return imagevalue(None) # blank
         
-        srcvalue=xmldocu.getattr(element,"src")
+        srcvalue=xmldocu.getattr(element,"src",noprovenance=noprovenance)
 
         if srcvalue.startswith("data:image/png;base64,"):
             imagedata=base64.b64decode(srcvalue[22:])
@@ -2326,17 +2326,17 @@ class photosvalue(value):
     
     
     @classmethod
-    def fromxml(cls,xmldocu,element,defunits=None,contextdir=None):
+    def fromxml(cls,xmldocu,element,defunits=None,contextdir=None,noprovenance=False):
         # NOTE: Does not currently handle context directories in a meaningful way (ignores them; assumes everything ends up in dest)
         #assert(xml_attribute=="xlink:href")
-        if xmldocu is not None:
+        if xmldocu is not None and not noprovenance:
             provenance.xmldocelementaccessed(xmldocu,element)
             pass
         tmp=set([])
         for subel in element:
             if subel.tag != DCV+"photo":
                 raise ValueError("Photosvalue found non-dcv:photo tag: %s" % (subel.tag))
-            tmp.add(hrefvalue.fromxml(xmldocu,subel))
+            tmp.add(hrefvalue.fromxml(xmldocu,subel,noprovenance=noprovenance))
             
             pass
         
@@ -2472,7 +2472,7 @@ class datesetvalue(value):
         return ",".join(sorteddates)
         
     @classmethod
-    def fromxml(cls,xmldocu,element,defunits=None,contextdir=None):
+    def fromxml(cls,xmldocu,element,defunits=None,contextdir=None,noprovenance=noprovenance):
         # NOTE: if xml_attribute is provided, xmldocu must be also.
 
         #if xml_attribute is None:
@@ -2482,7 +2482,7 @@ class datesetvalue(value):
         #    elementtext=xmldocu.getattr(element,xml_attribute,"")
         #    pass
 
-        if xmldocu is not None:
+        if xmldocu is not None and not noprovenance:
             provenance.xmldocelementaccessed(xmldocu,element)
             pass
         return cls(elementtext)
@@ -2614,9 +2614,9 @@ class integersetvalue(value) :
         
     
     @classmethod
-    def fromxml(cls,xmldocu,element,defunits=None,contextdir=None):
+    def fromxml(cls,xmldocu,element,defunits=None,contextdir=None,noprovenance=False):
         # NOTE: if xml_attribute is provided, xmldocu must be also.
-        if xmldocu is not None:
+        if xmldocu is not None and not noprovenance:
             provenance.xmldocelementaccessed(xmldocu,element)
             pass
 
@@ -2763,8 +2763,8 @@ class arrayvalue(value):
         pass
     
     @classmethod
-    def fromxml(cls,xmldocu,element,defunits=None):
-        if xmldocu is not None:
+    def fromxml(cls,xmldocu,element,defunits=None,noprovenance=False):
+        if xmldocu is not None and not noprovenance:
             provenance.xmldocelementaccessed(xmldocu,element)
             pass
         
