@@ -2472,7 +2472,7 @@ class datesetvalue(value):
         return ",".join(sorteddates)
         
     @classmethod
-    def fromxml(cls,xmldocu,element,defunits=None,contextdir=None,noprovenance=noprovenance):
+    def fromxml(cls,xmldocu,element,defunits=None,contextdir=None,noprovenance=False):
         # NOTE: if xml_attribute is provided, xmldocu must be also.
 
         #if xml_attribute is None:
