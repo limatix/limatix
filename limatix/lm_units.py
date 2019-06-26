@@ -685,6 +685,12 @@ def simplifyunits(comba):
             pass
         pass
 
+    # add unitless if there are no factors
+    if len(comba.Factors) == 0:
+        comba.AddUnitFactor("unitless")
+        pass
+        
+
     return comba
 
 def extractcoefficient(comb):
