@@ -1253,6 +1253,26 @@ def procsteppython(scripthref,module_version,pycode_el,prxdoc,output,steptag,scr
 
 
 
+def check_inputfilematch(prxdoc,steptag,scripttag,inputfilehref):
+    inputfilematch=["*"] # defaults to matching anything
+
+    for inputfilematchel in prxdoc.xpath("prx:inputfilematch") + prxdoc.xpathcontext(steptag,"prx:inputfilematch") + prxdoc.xpathcontext(scripttag,"prx:inputfilematch"):
+        if prxdoc.getattr(inputfilematchel,"mode",default="replace")=="union":
+            # union
+            inputfilematch.append(prxdoc.gettext(inputfilematchel))
+            pass
+        else:
+            # replace
+            inputfilematch=[ prxdoc.gettext(inputfilematchel) ]
+            pass
+        pass
+    
+    if not any([ fnmatch.fnmatch(inputfilehref.get_bare_unquoted_filename(),inputfilematchstr) for inputfilematchstr in inputfilematch]):
+        return False
+    
+    return True
+    
+
 def procstep(prxdoc,out,steptag,filters,overall_starttime,debugmode,stdouthandler,stderrhandler,ipythonmodelist):
     # *** output should be unlocked when this is called
 
@@ -1269,18 +1289,6 @@ def procstep(prxdoc,out,steptag,filters,overall_starttime,debugmode,stdouthandle
     scripttag=prxdoc.xpathsinglecontext(steptag,"prx:script")
     
  
-    inputfilematch=["*"] # defaults to matching anything
-
-    for inputfilematchel in prxdoc.xpath("prx:inputfilematch") + prxdoc.xpathcontext(steptag,"prx:inputfilematch") + prxdoc.xpathcontext(scripttag,"prx:inputfilematch"):
-        if prxdoc.getattr(inputfilematchel,"mode",default="replace")=="union":
-            # union
-            inputfilematch.append(prxdoc.gettext(inputfilematchel))
-            pass
-        else:
-            # replace
-            inputfilematch=[ prxdoc.gettext(inputfilematchel) ]
-            pass
-        pass
     
     
     elementmatch=defaultelementmatch
@@ -1348,8 +1356,7 @@ def procstep(prxdoc,out,steptag,filters,overall_starttime,debugmode,stdouthandle
 
 
     # return if we don't pass filename matching
-    
-    if not any([ fnmatch.fnmatch(out.inputfilehref.get_bare_unquoted_filename(),inputfilematchstr) for inputfilematchstr in inputfilematch]):
+    if not check_inputfilematch(prxdoc,steptag,scripttag,out.inputfilehref):    
         return
     
 

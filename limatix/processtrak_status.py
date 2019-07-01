@@ -79,6 +79,7 @@ from . import provenance as provenance
 from . import xmldoc
 from . import processtrak_prxdoc
 from . import processtrak_common
+from . import processtrak_procstep
 from . import timestamp as lm_timestamp
 
 
@@ -179,12 +180,18 @@ def eval_status_inputfile(inputfile,inputfile_href,prxdoc,prxfilehref,outputdict
             
             if step_el is None:   # "None" means the copyinput step
                 stepname="copyinput"
+                step_valid_for_inputfile = True
                 pass
             else:
                 stepname=processtrak_prxdoc.getstepname(prxdoc,step_el)
+
+                script_el=prxdoc.xpathsinglecontext(step_el,"prx:script")
+                step_valid_for_inputfile = processtrak_procstep.check_inputfilematch(prxdoc,step_el,script_el,inputfile_href)
                 pass
             
-        
+            if not step_valid_for_inputfile:
+                continue
+            
             if stepname not in actionproc_date_success_dict_matching_prxfile:
                 neededflag=True
                 actionproc_date_status_success_dict_matching_prxfile[stepname]=(None,None,True,False,False,neededflag)
