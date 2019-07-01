@@ -271,6 +271,12 @@ def print_status(inputfiles_with_hrefs,prxdoc,prxfilehref,all_step_elements):
                 stepname=processtrak_prxdoc.getstepname(prxdoc,step_el)
                 pass
 
+            if not stepname in actionproc_date_status_success_dict_matching_prxfile:
+                # if eval_status_inputfile() filtered the step name from 
+                # actionproc_date_status_success_dict_matching_prxfile then
+                # that means the step was not applicable to this inputfile
+                continue
+
             xlpdocu=outputdict[inputfile_href].output
 
             if xlpdocu is None:
