@@ -167,7 +167,10 @@ def eval_status_inputfile(inputfile,inputfile_href,prxdoc,prxfilehref,outputdict
             
             pass
         else:
-            actionprocs_with_prxfile = []
+            
+            #actionprocs_with_prxfile = []
+            actionproc_date_success_dict_matching_prxfile = {}
+            actionprocs_not_matching_prxfile = []
             pass
         
         
@@ -271,7 +274,7 @@ def print_status(inputfiles_with_hrefs,prxdoc,prxfilehref,all_step_elements):
             xlpdocu=outputdict[inputfile_href].output
 
             if xlpdocu is None:
-                print("%20s NOT_EXECUTED" % (stepname))
+                print("%20s NOT_EXECUTED NEEDED" % (stepname))
                 pass
             else:
                 # have an xlp document
