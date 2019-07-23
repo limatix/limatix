@@ -1223,7 +1223,7 @@ def procsteppython(scripthref,module_version,pycode_el,prxdoc,output,steptag,scr
         pass
 
     if initfunc is not None:
-        procsteppython_execfunc(scripthref,pycode_text,pycode_lineno,prxdoc,prxnsmap,output,steptag,scripttag,rootprocesspath,stepprocesspath,stepglobals,initelementmatch,initelementmatch_nsmap,params,[],inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist,initfunc,action)
+        procsteppython_execfunc(scripthref,pycode_text,pycode_lineno,prxdoc,prxnsmap,output,steptag,scripttag,rootprocesspath,stepprocesspath,stepglobals,initelementmatch,initelementmatch_nsmap,uniquematchel,params,[],inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist,initfunc,action)
         pass
     
     
