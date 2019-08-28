@@ -978,13 +978,14 @@ def procstep_uniquematch_elementpath_generator(prxdoc,output,steptag,elementmatc
 def procsteppython_execfunc(scripthref,pycode_text,pycode_lineno,prxdoc,prxnsmap,output,steptag,scripttag,rootprocesspath,stepprocesspath,stepglobals,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist,execfunc,action):
     
     if hasattr(inspect,"getfullargspec"):
-        getargspecfunc = inspect.getfullargspec # python3
+        # python3
+        (argnames, varargs, keywords, defaults,kwonlyargs,kwonlydefaults,annotations)=inspect.getfullargspec(execfunc)        
         pass
     else:
         getargspecfunc = inspect.getargspec # python 2
+        (argnames, varargs, keywords, defaults)=inspect.getargspec(execfunc)        
         pass
     
-    (argnames, varargs, keywords, defaults)=getargspecfunc(execfunc)        
     
     argsdefaults={}
     if defaults is not None:

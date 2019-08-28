@@ -624,6 +624,10 @@ def xmldocelementaccessed(xmldocu,element):
     if isinstance(element,etree._Comment) or isinstance(element,etree._ProcessingInstruction):
         return # Don't track provenance of comments or processing instructions
  
+    if element.getparent() is None and xmldocu.getroot(noprovenance=True) is not element:
+        sys.stderr.write("xmldocelementaccessed(): %s tag has no parent but is not the document root. Access will not be provenance-tracked\n" % (element.tag))
+        return
+
    
     our_tid=id(threading.current_thread)
     if our_tid in ProvenanceDB:

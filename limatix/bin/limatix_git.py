@@ -72,13 +72,20 @@ NOTE: This is intended for raw data, experiment logs, scripts and instructions,
     pass
 
 def get_unprocessed(input_file_hrefs,cdup):
-    input_files=processtrak_cleanup.infiledicts.fromhreflist(input_file_hrefs)
+    repository_root=dc_value.hrefvalue(pathname2url(cdup) + '/',contexthref=".")
 
-    (completed_set,desthref_set,href_set)=processtrak_cleanup.traverse(input_files,recursive=True,need_href_set=True,include_processed=False)
+    input_files=processtrak_cleanup.infiledicts.fromhreflist(input_file_hrefs,repository_root=repository_root)
+
+    (completed_set,desthref_set,href_set)=processtrak_cleanup.traverse(input_files,recursive=True,need_href_set=True,include_processed=False,repository_root=repository_root)
 
     allhrefs_no_dest = [ href for href in (completed_set | href_set)-desthref_set if not href.isabs() ]
-    allhrefs_rootrel_no_dest = [ href.attempt_relative_href(pathname2url(cdup)) for href in allhrefs_no_dest  ]
-    allpaths_no_dest = [href.getpath() for href in allhrefs_rootrel_no_dest] # Paths relative to repository root
+    allhrefs_rootrel_no_dest = [ href.attempt_relative_href(pathname2url(cdup)+'/') for href in allhrefs_no_dest  ]
+    allurls_rootrel_no_dest = [ href.attempt_relative_url(pathname2url(cdup) + '/') for href in allhrefs_rootrel_no_dest ]
+
+    all_inrepository_hrefs_rootrel_no_dest = [ allhrefs_rootrel_no_dest[urlnum] for urlnum in range(len(allurls_rootrel_no_dest)) if not allurls_rootrel_no_dest[urlnum].startswith('../') ]
+
+    # !!!*** getpath() doesn't have the ability to do relative... this is broken***
+    allpaths_no_dest = [href.getpath() for href in all_inrepository_hrefs_rootrel_no_dest] # Paths relative to repository root
     xlppaths = [ path for path in allpaths_no_dest if os.path.splitext(path)[1].lower()==".xlp" ]
     unprocessedpaths = [ path for path in allpaths_no_dest if os.path.splitext(path)[1].lower()!=".xlp" ]
 
@@ -90,15 +97,17 @@ def get_unprocessed(input_file_hrefs,cdup):
     return (unprocessedexistingpaths,xlpexistingpaths)
 
 def get_processed(input_file_hrefs_unprocessed,input_file_hrefs,cdup):
-    input_files_up=processtrak_cleanup.infiledicts.fromhreflist(input_file_hrefs_unprocessed)
+    repository_root=dc_value.hrefvalue(pathname2url(cdup) + '/',contexthref=".")
+
+    input_files_up=processtrak_cleanup.infiledicts.fromhreflist(input_file_hrefs_unprocessed,repository_root=repository_root)
 
 
     
-    (unprocessed_completed_set,unprocessed_desthref_set,unprocessed_href_set)=processtrak_cleanup.traverse(input_files_up,recursive=True,need_href_set=True,include_processed=False)
+    (unprocessed_completed_set,unprocessed_desthref_set,unprocessed_href_set)=processtrak_cleanup.traverse(input_files_up,recursive=True,need_href_set=True,include_processed=False,repository_root=repository_root)
 
-    input_files_pr=processtrak_cleanup.infiledicts.fromhreflist(input_file_hrefs)
+    input_files_pr=processtrak_cleanup.infiledicts.fromhreflist(input_file_hrefs,repository_root=repository_root)
 
-    (completed_set,desthref_set,href_set)=processtrak_cleanup.traverse(input_files_pr,recursive=True,need_href_set=True,include_processed=True)
+    (completed_set,desthref_set,href_set)=processtrak_cleanup.traverse(input_files_pr,recursive=True,need_href_set=True,include_processed=True,repository_root=repository_root)
 
     #import pdb
     #pdb.set_trace()
@@ -106,14 +115,12 @@ def get_processed(input_file_hrefs_unprocessed,input_file_hrefs,cdup):
     processed_href_set = (completed_set | href_set) - (unprocessed_completed_set | unprocessed_href_set) - desthref_set
     allhrefs_no_dest = [ href for href in processed_href_set if not href.isabs() ]
 
-    allhrefs_rootrel_no_dest = [ href.attempt_relative_href(pathname2url(cdup)) for href in allhrefs_no_dest  ]
+    allhrefs_rootrel_no_dest = [ href.attempt_relative_href(pathname2url(cdup)+'/') for href in allhrefs_no_dest  ]
     processedpaths = [href.getpath() for href in allhrefs_rootrel_no_dest] # Paths relative to repository root
 
     processedexistingpaths = [ path for path in processedpaths if os.path.exists(path) ]
 
 
-    #import pdb
-    #pdb.set_trace()
     return (processedexistingpaths)
 
 def filename_is_xlg_prx_py(filename):
@@ -181,7 +188,7 @@ def add(args):
     # fixup e.g. './filename.xlg' into 'filename.xlg' to avoid inconsistent references
     pathname_fixup=[ input_file_name if os.path.split(input_file_name)[0]!='.' else os.path.split(input_file_name)[1] for input_file_name in to_consider ]
 
-    input_file_hrefs=[ dc_value.hrefvalue(pathname2url(input_file_name),contexthref=dc_value.hrefvalue(pathname2url(cdup))) for input_file_name in pathname_fixup ]
+    input_file_hrefs=[ dc_value.hrefvalue(pathname2url(input_file_name),contexthref=".") for input_file_name in pathname_fixup ]
 
     #import pdb 
     #pdb.set_trace()
@@ -274,9 +281,9 @@ def add_processed(args):
     to_consider_pathname_fixup=[ input_file_name if os.path.split(input_file_name)[0]!='.' else os.path.split(input_file_name)[1] for input_file_name in to_consider ]
     to_consider_unprocessed_pathname_fixup=[ input_file_name if os.path.split(input_file_name)[0]!='.' else os.path.split(input_file_name)[1] for input_file_name in to_consider_unprocessed ]
 
-    input_file_hrefs_unprocessed=[ dc_value.hrefvalue(pathname2url(input_file_name),contexthref=dc_value.hrefvalue(pathname2url(cdup))) for input_file_name in to_consider_unprocessed_pathname_fixup ]
+    input_file_hrefs_unprocessed=[ dc_value.hrefvalue(pathname2url(input_file_name),contexthref=dc_value.hrefvalue(pathname2url(cdup)+'/')) for input_file_name in to_consider_unprocessed_pathname_fixup ]
 
-    input_file_hrefs=[ dc_value.hrefvalue(pathname2url(input_file_name),contexthref=dc_value.hrefvalue(pathname2url(cdup))) for input_file_name in to_consider_pathname_fixup ]
+    input_file_hrefs=[ dc_value.hrefvalue(pathname2url(input_file_name),contexthref=dc_value.hrefvalue(pathname2url(cdup)+'/')) for input_file_name in to_consider_pathname_fixup ]
     
     (unprocessedpaths,xlppaths)=get_unprocessed(input_file_hrefs_unprocessed,cdup)
 

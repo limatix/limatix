@@ -848,29 +848,30 @@ def outputdict_run_needed_steps(prxdoc,prxfilehref,outputdict,useinputfiles_with
         for (inputfile,inputfilehref) in useinputfiles_with_hrefs:
 
             actionproc_date_status_success_dict_matching_prxfile=actionproc_date_status_success_dict_matching_prxfile_dict[inputfilehref]
-            (actionproc,date,outoforderflag,filterflag,failure,neededflag)=actionproc_date_status_success_dict_matching_prxfile[stepname]
+            if stepname in actionproc_date_status_success_dict_matching_prxfile:
+                (actionproc,date,outoforderflag,filterflag,failure,neededflag)=actionproc_date_status_success_dict_matching_prxfile[stepname]
 
-            if neededflag:
+                if neededflag:
 
-                executecnt+=1
+                    executecnt+=1
                 
-                if step_el is None: 
-                    # Initialize output file 
-                    print("\nProcessing step %s on %s->%s" % (processtrak_prxdoc.getstepname(prxdoc,step_el),inputfilehref.humanurl(),outputdict[inputfilehref].outputfilehref.humanurl()))
-                    
-                    initialize_output_file(prxdoc,outputdict,inputfilehref,overall_starttime,force=True)
-                    pass
-                else: 
-                    # print("\nProcessing step %s on URL %s." % (processtrak_prxdoc.getstepname(prxdoc,step_el),output.get_filehref().absurl())) 
+                    if step_el is None: 
+                        # Initialize output file 
+                        print("\nProcessing step %s on %s->%s" % (processtrak_prxdoc.getstepname(prxdoc,step_el),inputfilehref.humanurl(),outputdict[inputfilehref].outputfilehref.humanurl()))
+                        
+                        initialize_output_file(prxdoc,outputdict,inputfilehref,overall_starttime,force=True)
+                        pass
+                    else: 
+                        # print("\nProcessing step %s on URL %s." % (processtrak_prxdoc.getstepname(prxdoc,step_el),output.get_filehref().absurl())) 
 
-                    processtrak_procstep.procstep(prxdoc,outputdict[inputfilehref],step_el,filters,overall_starttime,debugmode,stdouthandler,stderrhandler,ipythonmodelist)
+                        processtrak_procstep.procstep(prxdoc,outputdict[inputfilehref],step_el,filters,overall_starttime,debugmode,stdouthandler,stderrhandler,ipythonmodelist)
+                        pass
+                    for inputfilehref in outputdict:
+                        finalize_output_file(prxdoc,outputdict,inputfilehref)
+                        pass
+                    reset_outputdict(prxdoc,outputdict,previous_readonly=False)
                     pass
-                for inputfilehref in outputdict:
-                    finalize_output_file(prxdoc,outputdict,inputfilehref)
-                    pass
-                reset_outputdict(prxdoc,outputdict,previous_readonly=False)
                 pass
-            
             pass
         pass
 
