@@ -69,6 +69,9 @@ endif
 ifneq ($(PYTHON3.7), /none)
 	$(PYTHON3.7) ./setup.py install --prefix=$(PREFIX) 
 endif
+ifneq ($(PYTHON3.8), /none)
+	$(PYTHON3.8) ./setup.py install --prefix=$(PREFIX) 
+endif
 ifneq ($(DEFAULTPY), /none)
 	$(DEFAULTPY) ./setup.py install --prefix=$(PREFIX) 
 	$(DEFAULTPY) ./setup.py install_data # --prefix=$(PREFIX) 
