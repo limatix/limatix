@@ -76,11 +76,13 @@ class infiledicts(object):
         pass
 
     @classmethod
-    def fromhreflist(cls,inputfilehrefs):
+    def fromhreflist(cls,inputfilehrefs,repository_root=None):
         ifd=cls()
         
         for inputfilehref in inputfilehrefs:
-            ifd.open_href(inputfilehref)
+            if check_inside_root(repository_root,inputfilehref):
+                ifd.open_href(inputfilehref)
+                pass
             pass
         return ifd
 
@@ -231,13 +233,16 @@ class inputfile(object):
     pass
 
 
-def add_to_traverse(infiles,pending,completed,newhref):
+def add_to_traverse(repository_root,infiles,pending,completed,newhref):
 
     newhref=newhref.fragless()
 
     if newhref.is_directory():
         return  # we don't traverse directories, only explicit references
     
+    if not check_inside_root(repository_root,newhref): # we don't add hrefs outside the specified root
+        return
+
     if newhref not in pending and newhref not in completed:
         try:
             infiles.open_href(newhref)  # adds to dicts if not already present
@@ -252,7 +257,7 @@ def add_to_traverse(infiles,pending,completed,newhref):
 
     
 
-def traverse_one(infiles,infileobj,pending,completed,dests,hrefs,recursive=False,include_processed=True):
+def traverse_one(infiles,infileobj,pending,completed,dests,hrefs,recursive=False,include_processed=True,repository_root=None):
     # go through infile, searching for links
 
 
@@ -279,7 +284,7 @@ def traverse_one(infiles,infileobj,pending,completed,dests,hrefs,recursive=False
                     hrefs.add(xlphref)
                     pass
                 if recursive:
-                    add_to_traverse(infiles,pending,completed,xlphref)
+                    add_to_traverse(repository_root,infiles,pending,completed,xlphref)
                     pass
                 pass
             pass
@@ -292,8 +297,9 @@ def traverse_one(infiles,infileobj,pending,completed,dests,hrefs,recursive=False
             for desttag in desttags:
                 #print("got desttag!")
                 desthref=dc_value.hrefvalue.fromxml(infileobj.xmldocu,desttag)
-                dests.add(desthref)
-                
+                if check_inside_root(repository_root,desthref): # we don't add hrefs outside the specified root
+                    dests.add(desthref)
+                    pass
                 pass
             pass
         
@@ -307,19 +313,23 @@ def traverse_one(infiles,infileobj,pending,completed,dests,hrefs,recursive=False
 
             for prx_inputfile_href in prx_outputdict:
                 if hrefs is not None:
-                    hrefs.add(prx_inputfile_href.fragless())
-                    if include_processed:
-                        hrefs.add(prx_outputdict[prx_inputfile_href].outputfilehref.fragless())
+                    if check_inside_root(repository_root,prx_inputfile_href): # we don't add hrefs outside the specified root
+                        hrefs.add(prx_inputfile_href.fragless())
+                        if include_processed:
+                            if check_inside_root(repository_root,prx_outputdict[prx_inputfile_href].outputfilehref.fragless()): # we don't add hrefs outside the specified root
+                                hrefs.add(prx_outputdict[prx_inputfile_href].outputfilehref.fragless())
+                                pass
+                            pass
                         pass
                     pass
                 
                 if recursive:
-                    add_to_traverse(infiles,pending,completed,prx_inputfile_href.fragless())
+                    add_to_traverse(repository_root,infiles,pending,completed,prx_inputfile_href.fragless())
                     pass
                 
                 # follow link to output whether or not recursive is set
                 if include_processed:
-                    add_to_traverse(infiles,pending,completed,prx_outputdict[prx_inputfile_href].outputfilehref.fragless())
+                    add_to_traverse(repository_root,infiles,pending,completed,prx_outputdict[prx_inputfile_href].outputfilehref.fragless())
                     pass
                 
                 pass
@@ -339,11 +349,13 @@ def traverse_one(infiles,infileobj,pending,completed,dests,hrefs,recursive=False
                 href=dc_value.hrefvalue.fromxml(infileobj.xmldocu,link).fragless()
                 if href.ismem():
                     continue # ignore mem:// hrefs
-                if hrefs is not None:
-                    hrefs.add(href)
-                    pass
-                if recursive:
-                    add_to_traverse(infiles,pending,completed,href)
+                if check_inside_root(repository_root,href):
+                    if hrefs is not None:
+                        hrefs.add(href)
+                        pass
+                    if recursive:
+                        add_to_traverse(repository_root,infiles,pending,completed,href)
+                        pass
                     pass
                 pass
             pass
@@ -359,9 +371,20 @@ def traverse_one(infiles,infileobj,pending,completed,dests,hrefs,recursive=False
     pass
 
 
-def traverse(infiles,infilehrefs=None,recursive=False,need_href_set=False,include_processed=True):
-    # infiles is infiledict object, infilehrefs is list of hrefs
+def check_inside_root(repository_root,href):
 
+    if repository_root is None:
+        return True
+
+    relurl = href.attempt_relative_url(repository_root)
+    if relurl.startswith("/") or relurl.startswith("../") or relurl=="..":
+        return False
+    return True
+
+
+def traverse(infiles,infilehrefs=None,recursive=False,need_href_set=False,include_processed=True,repository_root=None):
+    # infiles is infiledict object, infilehrefs is list of hrefs
+    # if repository root is given, only add hrefs that appear to be within the root
     
     pending=set([])
     completed=set([])
@@ -381,14 +404,14 @@ def traverse(infiles,infilehrefs=None,recursive=False,need_href_set=False,includ
 
     
     for infilehref in infilehrefs:
-        add_to_traverse(infiles,pending,completed,infilehref)
+        add_to_traverse(repository_root,infiles,pending,completed,infilehref)
         pass
     
     # print("traversepending(%s)" % ([str(infilehref) for infilehref in pending]))
     while len(pending) > 0:
         for href in list(pending):
             if not href.ismem(): # ignore mem:// url's 
-                traverse_one(infiles,infiles.all[href],pending,completed,dests,hrefs,recursive=recursive,include_processed=include_processed)
+                traverse_one(infiles,infiles.all[href],pending,completed,dests,hrefs,recursive=recursive,include_processed=include_processed,repository_root=repository_root)
                 pass
             pass
         pass

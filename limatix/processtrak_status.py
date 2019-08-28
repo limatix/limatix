@@ -311,32 +311,39 @@ def print_status(inputfiles_with_hrefs,prxdoc,prxfilehref,all_step_elements):
                     print("%20s %36s %s" % (stepname,date,flagstr))
                 pass
             
-            pass
         
-        if len(actionprocs_missing_from_prx.keys()) > 0:
-            print(" ")
-            print("Additional steps not found in .prx file")
-            print("---------------------------------------")
-            
-            for stepname in actionprocs_missing_from_prx:
-                print("%20s" % (stepname))
+            if len(actionprocs_missing_from_prx.keys()) > 0:
+                print(" ")
+                print("Additional steps not found in .prx file")
+                print("---------------------------------------")
+                
+                for stepname in actionprocs_missing_from_prx:
+                    print("%20s" % (stepname))
+                    pass
                 pass
-            pass
         
-        if len(actionprocs_not_matching_prxfile) > 0:
-            print(" ")
-            print("Additional steps from different .prx file")
-            print("---------------------------------------")
-            
-            for actionproc in actionprocs_not_matching_prxfile:
-                stepname = xlpdocu.xpathsinglecontextstr(actionproc,"lip:action")
-                print("%20s" % (stepname))
+            if len(actionprocs_not_matching_prxfile) > 0:
+                print(" ")
+                print("Additional steps from different .prx file")
+                print("---------------------------------------")
+                
+                try:
+                    xlpdocu.lock_ro()
+                    for actionproc in actionprocs_not_matching_prxfile:
+                        stepname = xlpdocu.xpathsinglecontextstr(actionproc,"lip:action")
+                        print("%20s" % (stepname))
+                        pass
+                    pass
+                finally:
+                    xlpdocu.unlock_ro()
+                    pass
+                    
+                    
                 pass
-            
-            
+                
             pass
-    
         pass
+        
     
     processtrak_common.reset_outputdict(prxdoc,outputdict,previous_readonly=True) # reset our private outputdict (close all XML files) 
     pass

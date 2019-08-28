@@ -384,6 +384,13 @@ class prx_lookupfcn_ext(object):
                 pass
             return result
         else:   # Should be a single node
+            # Work around lxml bug whereby node doesn't have a 
+            #parent structure that will get you to the document root...
+            if node.getparent() is None:
+                contextxmldoc.possible_root_ids.add(id(node))
+                pass
+                
+
             hrefobj=dc_value.hrefvalue.fromxml(contextxmldoc,node)
             return self.href_eval_href(hrefobj)
         pass
@@ -409,15 +416,16 @@ class prx_lookupfcn_ext(object):
             #raise ValueError("prx extension function called with context or node that is not in docdb")
             # if we couldn't find it the correct answer is almost
             # always xlpdocu
-            return self.xlpdocu
-            
+            #return self.xlpdocu
+            return None  # Return none, because better not to return something genuinely wrong!
+
         return xmldoc
             
     def href(self,context,node):
 
         contextxmldoc=self.finddocument(context.context_node)
 
-        return self.hrefevalnode(contextxmldoc,context,node)
+        return self.href_eval_node(contextxmldoc,context,node)
     pass
 
 

@@ -459,6 +459,7 @@ Flags:
     -b              Cleanup obsolete elements from processed log 
     -s prx_step     Remove content from step named prx_step
     -p              Cleanup provenance
+    --root <rootdir> specify repository root (required for recursive operations)
     -d              Cleanup dest
     -r              Recursively search for xlp, xlg, prx, and other XML files
     -v:             Verbose output (list contents of errors)
@@ -478,6 +479,7 @@ def main(args=None):
     cleanup_dest_files=False
     cleanup_obsolete=False
     recursive=False
+    repository_root=None
     remove_steps=[]
 
     while argc < len(args):
@@ -511,6 +513,10 @@ def main(args=None):
         elif arg=="-v":
             verbose=True   # ***!!! Does not currently do anything
             pass
+        elif arg=="--root":
+            argc+=1
+            repository_root=dc_value.hrefvalue(args[argc],contexthref=".")
+            pass
         else: 
             input_file_names.append(arg)
             pass
@@ -526,11 +532,17 @@ def main(args=None):
 
     input_files=processtrak_cleanup.infiledicts.fromhreflist(input_file_hrefs)
 
-
+    
 
     #import pdb
     #pdb.set_trace()
-    (completed_set,desthref_set,href_set)=processtrak_cleanup.traverse(input_files,recursive=recursive,need_href_set=not(cleanup_obsolete or len(remove_steps)>0) and cleanup_dest_files)
+    
+    if recursive and repository_root is None:
+        raise ValueError("Recursive flag set and --root unset")
+        
+    
+
+    (completed_set,desthref_set,href_set)=processtrak_cleanup.traverse(input_files,recursive=recursive,need_href_set=not(cleanup_obsolete or len(remove_steps)>0) and cleanup_dest_files,repository_root=repository_root)
 
 
     if show_steps:
@@ -591,7 +603,7 @@ def main(args=None):
     
     if cleanup_obsolete or len(remove_steps)>0:
         # Re-call traverse(), this time getting the href_set if neede , but we don't need to recurse because we would have done that last time
-        (completed_set,desthref_set,href_set)=processtrak_cleanup.traverse(input_files,recursive=False,need_href_set=cleanup_dest_files)
+        (completed_set,desthref_set,href_set)=processtrak_cleanup.traverse(input_files,recursive=False,need_href_set=cleanup_dest_files,repository_root=repository_root)
 
         pass
     

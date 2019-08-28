@@ -333,6 +333,7 @@ class xmldoc(object):
     rw_lockcount=None # no. of times locked readwrite
     lockfd=None      # file descriptor currently used for locking, or -1. If this is not -1 then this decriptor is locked. This should be close()'d when you unlock. This should always be set if ro_lockcount or rw_lockcount > 0 and filename is set, cleared otherwise
     lockfh=None      # file handle currently used for locking, for NT which requires that the file be left open and reused
+    possible_root_ids=None # set of id() values that we will accept as representing root elements -- workaround for nodes passed to lxml extension functions not giving correct document root. 
 
 
     @classmethod
@@ -613,6 +614,7 @@ class xmldoc(object):
             self.modified=False;
             if ETreeObj is not None:
                 self.doc=ETreeObj
+                self.possible_root_ids=set([id(ETreeObj.getroot())])
                 pass
             elif not self.use_locking:
                 self._resync(initialload=True,FileObj=FileObj)
@@ -647,17 +649,20 @@ class xmldoc(object):
                 # explicit prefix
                 maintag=etree.Element("{%s}%s" % (self.nsmap[nspre_mtname[0]],nspre_mtname[1]),nsmap=self.nsmap)
                 pass
+
             
             self.doc=etree.ElementTree(maintag)
+            self.possible_root_ids=set([id(maintag)])
             self.modified=True;
 
             if self.use_locking:
                 self._flush(rwlock=True)  # creates low-level lock on file if filename is set
                 self.rw_lockcount=1
                 pass
+
+                
             pass
         
-
         
         pass
 
@@ -709,6 +714,7 @@ class xmldoc(object):
             pass
             
             self.doc=new_doc
+            self.possible_root_ids=set([id(new_doc.getroot())])
             pass
 
         pass
@@ -1422,6 +1428,8 @@ class xmldoc(object):
                         if rolock or rwlock:
                             raise ValueError("rolock and rwlock not supported with databrowse!")
                         self.doc=dbl.GetXML(self._filename, output=dbl.OUTPUT_ETREE)
+                        self.possible_root_ids=set([id(self.doc.getroot())])
+
                         self.lastfileinfo=None
                         pass
                     else :
@@ -1433,6 +1441,7 @@ class xmldoc(object):
                         if FileObj is not None:
                             # stream object. Don't have to do anything to lock it
                             self.doc=etree.parse(FileObj,parser)
+                            self.possible_root_ids=set([id(self.doc.getroot())])
                             self.lastfileinfo=None
                             pass
                         else :
@@ -1491,11 +1500,14 @@ class xmldoc(object):
                             #    pass
                             if reuseold and self.olddoc is not None and not self.debug: # reusing old parsed copies is disabled in debug mode to avoid hiding referencing errors 
                                 self.doc=self.olddoc
+                                self.possible_root_ids=set([id(self.doc.getroot())])
                                 self.olddoc=None
                                 pass
                             else : 
                                 
                                 self.doc=etree.parse(fh,parser)
+                                self.possible_root_ids=set([id(self.doc.getroot())])
+
                                 if self.lockfd >= 0: # if locked, we can save this file info
                                     self.lastfileinfo=fileinfo(self.lockfd)
                                     pass
@@ -1617,6 +1629,8 @@ class xmldoc(object):
                         continue
                     elif result=="recover": # recover in-memory
                         self.doc=self.olddoc
+                        self.possible_root_ids=set([id(self.doc.getroot())])
+
                         if self.debug:
                             self.debug_last_serialized=etree.tostring(self.doc,encoding="utf-8")
                             pass
@@ -1633,6 +1647,8 @@ class xmldoc(object):
             # attempt to restore from olddoc
             if self.olddoc is not None:
                 self.doc=self.olddoc
+                self.possible_root_ids=set([id(self.doc.getroot())])
+
                 self.olddoc=None
                 pass
             pass
@@ -2298,11 +2314,13 @@ class xmldoc(object):
         return self.xpathnumpyint(path,namespaces=namespaces,contextnodes=contextnodes,extensions=extensions,variables=variables,oneper=oneper)
 
 
-    def getroot(self):
+    def getroot(self,noprovenance=False):
         """Get the root node of the document"""
         root=self.doc.getroot()
-        provenance.xmldocelementaccessed(self,root)
-
+        if not noprovenance: 
+            provenance.xmldocelementaccessed(self,root)
+            pass
+            
         return self.doc.getroot()
 
     def get_canonical_etxpath(self,element):
@@ -3182,6 +3200,7 @@ class xmldoc(object):
 
         self.olddoc=self.doc
         self.doc=None
+        self.possible_root_ids=set([])
 
         pass
 
@@ -3337,13 +3356,13 @@ class xmldoc(object):
             # element should now be a list
 
             assert(self.doc is not None)
-            root=self.doc.getroot()
+            #root=self.doc.getroot()
             
             for singleelement in element:
                 if isinstance(singleelement,basestring):
                     continue
-
-                while singleelement is not root: 
+                    
+                while not(id(singleelement) in self.possible_root_ids):
                     singleelement=singleelement.getparent()
                     assert(singleelement is not None) # if this fails, element was not in the document!
                     pass
@@ -3449,6 +3468,7 @@ class xmldoc(object):
             pass
 
         self.doc=None
+        self.possible_root_ids=set([])
         self.filehref=None
         self._filename=None
         self.nsmap=None
