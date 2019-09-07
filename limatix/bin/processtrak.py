@@ -39,12 +39,13 @@ except ImportError:
     from io import StringIO
     pass
 
-if "--gtk3" in sys.argv or sys.version_info[0] >= 3:  # gtk3
+if "--gtk3" in sys.argv: # or sys.version_info[0] >= 3:  # gtk3
     import gi
     gi.require_version('Gtk','3.0')
     from gi.repository import Gtk as gtk
     pass
-else :  # gtk2
+elif "--gtk2" in sys.argv :  # gtk2
+    assert(sys.version_info[0] < 3) # Only support gtk2 in python2
     import gobject
     import gtk
     pass
@@ -160,7 +161,8 @@ Flags:
   -l                  Apply additional xpath filters (multiple OK)
   -i                  Use ipython interactive mode to execute script
   --git-add           Stage changes to .prx and input files for commit
-  --gtk3              Use GTK3 if gui elements required
+  --gtk3              Force preload of GTK3 - may be incompatible with -i
+  --gtk2              Force preload of GTK2
   --needed            Filter down steps and input files according to what "needs" 
                       to be run -- i.e. missing or out-of-order steps, etc. 
                       DOES NOT PERFORM PROVENANCE VERIFICATION
@@ -232,6 +234,9 @@ def main(args=None):
             debugmode=True
             pass
         elif arg=='--gtk3':
+            # handled at imports, above
+            pass
+        elif arg=='--gtk2':
             # handled at imports, above
             pass
         #elif arg=="-p":  # insert path into search path for steps

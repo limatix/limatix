@@ -212,7 +212,9 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
             # http://stackoverflow.com/questions/6723527/getting-pyside-to-work-with-matplotlib
             import matplotlib
             matplotlib.use('Qt4Agg')
-            matplotlib.rcParams['backend.qt4']='PySide'
+            if 'backend.qt4' in matplotlib.rcParams.keys():
+                matplotlib.rcParams['backend.qt4']='PySide'
+                pass
             pass
 
         import IPython
