@@ -281,7 +281,7 @@ def write_action(doc,process_el,action_name):
 def write_target(doc,process_el,target_hrefc):
     target_el=doc.addelement(process_el,"lip:target")
     target_hrefc.xmlrepr(doc,target_el)  # Note no provenance because we use hrefc not dc_value
-    pass
+    return target_el
 
 
 class iterelementsbutskip(object):

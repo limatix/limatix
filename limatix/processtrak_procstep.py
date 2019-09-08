@@ -1092,7 +1092,16 @@ def procsteppython_execfunc(scripthref,pycode_text,pycode_lineno,prxdoc,prxnsmap
 
         provenance.write_process_log(output,process_el,status,captvalue)
 
-        provenance.write_target(output,process_el,dcv.hrefvalue.fromelement(output,element).value())  # lip:target -- target of this particular iteration (ETXPath)
+        target_el=provenance.write_target(output,process_el,dcv.hrefvalue.fromelement(output,element).value())  # lip:target -- target of this particular iteration (ETXPath)
+
+        #if target_el.attrib["{http://www.w3.org/1999/xlink}href"].startswith(".#"):
+        #    import pdb
+        #    pdb.set_trace()
+        #
+        #target_hrefc = dcv.hrefvalue.fromelement(output,element).value()
+        #    target_context = output.getcontexthref().value()
+        #    target_hrefc.attempt_relative_url(target_context)
+        #    pass
         
         # Generate uuid
         process_uuid=provenance.set_hash(output,rootprocess_el,process_el)
