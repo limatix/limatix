@@ -247,7 +247,8 @@ def cleanup_obsolete_tags(xlpdocu):
     #  So now let's sort these things out by what element they were operating on
     validtarget_step_and_targethref = [ (target,steptag,dc_value.hrefvalue.fromxml(xlpdocu,xlpdocu.xpathsinglecontext(target,"lip:target")) ) for (target,steptag) in target_with_valid_step  ]
 
-    assert(all([targethref.fragless()==xlphref for (target,steptag,targethref) in validtarget_step_and_targethref]))
+
+    assert(all([targethref.fragless()==xlphref for (target,steptag,targethref) in validtarget_step_and_targethref])) # IF THIS ASSERTION TRIPS, check if xlp/pro file has lip:target elements with bad xlink:href self-references that start with .# . If so, run /usr/local/bin/xlp_target_fixup on the .xlp or .pro file(s). 
 
     #import pdb;
     #pdb.set_trace()
