@@ -341,7 +341,7 @@ def add_processed(args):
                 pass
             pass
         if len(untracked_unprocessed) > 0:
-            sys.stderr.write("\nAdd these to non-processed branch with limatix-git add;git commit\n")
+            sys.stderr.write("\nAdd these to non-processed branch with git checkout <unprocessed_branch>;limatix-git add -a;git commit\n")
             sys.exit(0)
         
         

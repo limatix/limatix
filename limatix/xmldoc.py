@@ -1474,30 +1474,39 @@ class xmldoc(object):
                             #    pass
                             # el
 
-                            # always obtain rw lock whether or not 
-                            # we are locking because resyncnotify
-                            # routine might need to write
+                            if self.use_locking:
+                                # always obtain rw lock whether or not 
+                                # we are asked to lock because resyncnotify
+                                # routine might need to write
 
-                            # On POSIX, lockfd owns an extra copy of the file descriptor and the one we use for
-                            # reading/writing is only open when needed
-                            # On NT, lockfd is the primary copy of the file descriptor, and we grab it from
-                            # there as needed. Also store Python file handle in lockfh
+                                # On POSIX, lockfd owns an extra copy of the file descriptor and the one we use for
+                                # reading/writing is only open when needed
+                                # On NT, lockfd is the primary copy of the file descriptor, and we grab it from
+                                # there as needed. Also store Python file handle in lockfh
+                                
+                                # if rolock or rwlock:
+                                #assert(os.name=="posix")
+                                if os.name=="posix":
+                                    lockfd=os.dup(fh.fileno())
+                                    pass
+                                else:
+                                    lockfd=fh.fileno()
+                                    pass
+                                if self.readonly:
+                                    self._lock_ro(lockfd,fh) # pass ownership of lockfd/fh
+                                    pass
+                                else:
+                                    self._lock_rw(lockfd,fh) # pass ownership of lockfd/fh
+                                    pass
 
-                            # if rolock or rwlock:
-                            #assert(os.name=="posix")
-                            if os.name=="posix":
-                                lockfd=os.dup(fh.fileno())
+                                if self.lastfileinfo is not None and fileinfo(lockfd)==self.lastfileinfo: 
+                                    reuseold=True # avoid rereading file
+                                    pass
+                                #else: 
+                                #    self.lastfileinfo=None
+                                #    pass
                                 pass
-                            else:
-                                lockfd=fh.fileno()
-                                pass
-                            self._lock_rw(lockfd,fh) # pass ownership of lockfd/fh
-                            if self.lastfileinfo is not None and fileinfo(lockfd)==self.lastfileinfo: 
-                                reuseold=True # avoid rereading file
-                                pass
-                            #else: 
-                            #    self.lastfileinfo=None
-                            #    pass
+
                             if reuseold and self.olddoc is not None and not self.debug: # reusing old parsed copies is disabled in debug mode to avoid hiding referencing errors 
                                 self.doc=self.olddoc
                                 self.possible_root_ids=set([id(self.doc.getroot())])
@@ -1535,18 +1544,17 @@ class xmldoc(object):
                     # print "Resync: self.doc=%s" % (str(self.doc))
                     # temporarily increment lockcounts so it doesn't look like we are unlockes
                     
-                    #if rwlock: 
-                    #    self.rw_lockcount+=1
-                    #    pass
-                    #
-                    #if rolock:
-
- 
-                    # always increment rw_lockcount whether or not 
-                    # we are rolocking because resyncnotify
-                    # routine might need to write
-                    self.rw_lockcount+=1
-            
+                    if self.use_locking:
+                        # always increment ro_lockcount or rw_lockcount according to whether or not 
+                        # we are read-only rolocking because resyncnotify
+                        # routine might need to write -- even if a lock wasn't requested by our caller
+                        if self.readonly: 
+                            self.ro_lockcount+=1
+                            pass
+                        else:                            
+                            self.rw_lockcount+=1
+                            pass
+                        pass
 
                     #sys.stderr.write("doing resync notifies for %s; self.doc=%s\n" % (self.filename,str(self.doc)))
                     for (notify,args,kwargs) in self.resyncnotify:
@@ -1558,20 +1566,23 @@ class xmldoc(object):
                         pass
 
                     # return lockcounts where they belong (caller will provide primary lockcount incrementing)
-                    #if rwlock: 
-                    #    self.rw_lockcount-=1
-                    #    pass
-
-                    #if rolock: 
-                    self.rw_lockcount-=1
+                    if self.use_locking:
+                        if self.readonly: 
+                            self.ro_lockcount-=1
+                            pass
+                        else:                            
+                            self.rw_lockcount-=1
+                            pass
+                        pass
 
                     if self.modified:
+                        assert(not self.readonly)
                         # if notify routine made changes, they should 
                         # be flushed out
                         self._flush()
                         pass
                     
-                    if rolock and self.lockfd >= 0:
+                    if rolock and not self.readonly and self.lockfd >= 0:
                         # currently holding a rwlock
                         # but user asked for an rolock
                         # attempt to convert (non-atomic process)
@@ -1585,6 +1596,9 @@ class xmldoc(object):
                             lockfd=-1
                             retry=True
                             continue
+                        pass
+                    elif rolock and self.readonly and self.lockfd >= 0:
+                        # asked for lock and have it... nothing to do. 
                         pass
                     elif not rwlock and self.lockfd >= 0:
                         # relinquish lock, as we weren't asked for it
@@ -2419,7 +2433,7 @@ class xmldoc(object):
                 provenance.warnnoprovenance("Unable to identify provenance of XPath result for %s on file %s" % (path,self._filename))
                 pass
             pass
-        else : 
+        elif foundnode is not None: 
             provenance.xmldocelementaccessed(self,foundnode)
 
             pass
