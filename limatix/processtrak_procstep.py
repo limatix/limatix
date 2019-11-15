@@ -5,6 +5,7 @@ import os
 import os.path
 import posixpath
 import socket
+import shutil
 import copy
 import collections
 import inspect
@@ -178,7 +179,7 @@ def find_script_in_path(contexthref,scriptname):
 
 
 def escapematlab(to_escape,comsol=False):
-    """Escape special characters that can't go verbatim into a MATLAB quoted string.
+    """Escape special characters that can't go verbatim into a MATLAB quoted string passed to sprintf. 
     if comsol flag is set, then we hex-escape the entire string because in passing MATLAB commands
     through COMSOL spaces get converted to semicolons (?) and this is problematic"""
     ret=[]
@@ -190,6 +191,12 @@ def escapematlab(to_escape,comsol=False):
             if to_escape[ind]=='\'':
                 ret.append('\'\'')
                 pass
+            elif to_escape[ind]=='%':
+                ret.append('%%')
+                pass
+            elif to_escape[ind]=='\\':
+                ret.append('\\\\')
+                pass
             else:
                 ret.append(to_escape[ind])
                 pass
@@ -199,7 +206,7 @@ def escapematlab(to_escape,comsol=False):
     else:
         # comsol
         while ind < len(to_escape):
-            ret.append("\x%x" % (ord(to_escape[ind])))
+            ret.append("\\x%x" % (ord(to_escape[ind])))
             ind += 1
             pass
         
@@ -212,7 +219,8 @@ def matlab_retval_to_resulttuple(retval):
     resultlist=[]
 
     # Iterate over root cell array
-    
+    import numpy as np
+
     for el in retval.ravel():
         assert(el.dtype == np.dtype('O'))
         # Object... it is a sub-cell array
@@ -333,9 +341,9 @@ def procstepmatlab_do_run(matpath,scriptname,diaryfilename,retfilename,argkw,ipy
     for argname in argkw:
         argvalue = argkw[argname]
 
-        if isinstance(argvalue,basestr):
+        if isinstance(argvalue,basestring):
             # a string!
-            matlabinitstrings.append("%s=\'%s\';" % (argname,escapematlab(argvalue,comsol=comsol)))
+            matlabinitstrings.append("%s=sprintf(\'%s\');" % (argname,escapematlab(argvalue,comsol=comsol)))
             pass
         elif isinstance(argvalue,int):
             # an integer!
@@ -347,19 +355,24 @@ def procstepmatlab_do_run(matpath,scriptname,diaryfilename,retfilename,argkw,ipy
             pass
         elif isinstance(argvalue,dcv.hrefvalue):
             # hypertext reference -- passed as string path wrapped by a cell array
-            matlabinitstrings.append("%s={\'%s\'};" % (argname,escapematlab(argvalue.getpath(),comsol=comsol)))
+            matlabinitstrings.append("%s={sprintf(\'%s\')};" % (argname,escapematlab(argvalue.getpath(),comsol=comsol)))
             pass
         else:
             raise ValueError("Parameter %s is of type %s which cannot be passed to MATLAB." % (argname,type(argvalue).__name__))
         pass
 
+    # COMSOL has MATLAB do a chdir()... we need to undo that
+    if comsol:
+        matlabinitstrings.append("cd(sprintf(\'%s\'));" % (escapematlab(os.getcwd(),comsol=comsol)))
+        pass
+
     # add call to script
-    matlabinitstrings,append("%s;" % (os.path.splitext(scriptname)[0]))
+    matlabinitstrings.append("%s;" % (os.path.splitext(scriptname)[0]))
     
     # add save of 'ret' variable and exit on completion
     if not ipythonmodelist[0]:
         # Not ipythonmode -- auto save and quit
-        matlabinitstrings.append("save(\'%s\',\'ret\',\'-v7\');quit;" % (escapematlab(retfilename,comsol=comsol)));
+        matlabinitstrings.append("save(\'%s\',\'ret\',\'-v7\');quit;" % (retfilename))
         pass
     else:
         matlabinitstrings.append("fprintf(1,\'%s\');" % (escapematlab("Store output and exit when done with: save(\'%s\',\'ret\',\'-v7\');quit;" % (retfilename),comsol=comsol)))        
@@ -374,22 +387,28 @@ def procstepmatlab_do_run(matpath,scriptname,diaryfilename,retfilename,argkw,ipy
 
     if comsol:
 
-        matproc = subprocess.Popen(["comsol","mphserver", "matlab",matlabinitstring],close_fds=True,env=matlabenv)
+        execlist = ["comsol","mphserver", "matlab",matlabinitstring]
 
         pass
     else:
-        
-        matproc = subprocess.Popen(["matlab","-r",matlabinitstring],close_fds=True,env=matlabenv)
+        execlist = ["matlab","-r",matlabinitstring]
         pass
     
-    matproc.wait()
+    matproc = subprocess.Popen(execlist,close_fds=True,env=matlabenv)
+    rc=matproc.wait()
+
+    diarytext=""
+
+    if rc != 0:
+        diarytext += "MATLAB execution failed. Command line=%s\n" % (" ".join(execlist))
+        pass
 
     retval = None
     
     # Attempt to read in diary and ret files
     if os.path.exists(diaryfilename):
         diaryfh = open(diaryfilename,"r")
-        diarytext = diaryfh.read()
+        diarytext += diaryfh.read()
         diaryfh.close()
 
         if os.path.exists(retfilename):
@@ -403,8 +422,10 @@ def procstepmatlab_do_run(matpath,scriptname,diaryfilename,retfilename,argkw,ipy
         pass
     else:
         status="exception"
-        diarytext="MATLAB execution failed!\n"
+        diarytext+="MATLAB execution failed (no diary written). Command line=%s\n" % (" ".join(execlist))
         pass
+
+    print(diarytext) # Display MATLAB output to console
 
     if retval is not None:
         # Interpret "ret" value as like a tuple-form resultdict represented with cell arrays
@@ -417,10 +438,13 @@ def procstepmatlab_do_run(matpath,scriptname,diaryfilename,retfilename,argkw,ipy
         resultdict = matlab_retval_to_resulttuple(retval)
         
         pass
-    
+    else:
+        resultdict={}
+        pass
+
     return (resultdict,status,diarytext)
 
-def procstepmatlab_runelement(matpath,scriptname,output,prxdoc,prxnsmap,steptag,rootprocesspath,stepprocesspath,elementpath,uniquematches,argnames,params,inputfilehref,ipythonmodelist,execfunc,action,scripthref,status,comsol=False):
+def procstepmatlab_runelement(matpath,scriptname,output,prxdoc,prxnsmap,steptag,rootprocesspath,stepprocesspath,elementpath,uniquematches,argnames,params,inputfilehref,ipythonmodelist,action,scripthref,diaryfilename,retfilename,status,comsol=False):
     # *** output should be rwlock'd exactly ONCE when this is called
     # *** Output will be rwlock'd exactly ONCE on return
     #     (but may have been unlocked in the interim)
@@ -496,10 +520,10 @@ def procstepmatlab_execfunc(scripthref,script_firstline,matpath,scriptname,prxdo
     # Parse script_firstline
     # First line of matlab script is expected to be:
     #   function ret = SCRIPTNAME(dc_param1_str, dc_param2_int, dc_param3_float, dc_param4_href)
-    firstlinegroups=re.match(r"""\s*function\s*(\[\s*)?ret\s*(]\s*)?=\s*\w+[(]\s*((\w+\s*,\s*)*)(\w+\s*)?[)]\s*""",line)
+    firstlinegroups=re.match(r"""\s*%\s*function\s*(\[\s*)?ret\s*(]\s*)?=\s*\w+[(]\s*((\w+\s*,\s*)*)(\w+\s*)?[)]\s*""",script_firstline)
 
     if firstlinegroups is None:
-        raise ValueError("Error parsing first line of MATLAB script %s: expected format: \"function ret = SCRIPTNAME(dc_param1_str, dc_param2_int, dc_param3_float, dc_param4_href)\"" % (scripthref.humanurl()))
+        raise ValueError("Error parsing first line of MATLAB script %s: %s expected format: \"function ret = SCRIPTNAME(dc_param1_str, dc_param2_int, dc_param3_float, dc_param4_href)\"" % (scripthref.humanurl(),script_firstline))
     
     trailing_comma_params = firstlinegroups.group(3)
     final_param = firstlinegroups.group(5)  # May be None if no params provided
@@ -539,11 +563,11 @@ def procstepmatlab_execfunc(scripthref,script_firstline,matpath,scriptname,prxdo
 
 
         # "Diary" directory/file for capturing MATLAB output
-        outputdir=tempfile.mkdtemp(prefix="pt_matlab_output")
-        diaryfilename=os.path.join(diarydir,"diary.txt")
-        retfilename=os.path.join(diarydir,"ret.txt")
+        tmpoutputdir=tempfile.mkdtemp(prefix="pt_matlab_output")
+        diaryfilename=os.path.join(tmpoutputdir,"diary.txt")
+        retfilename=os.path.join(tmpoutputdir,"ret.txt")
         
-
+        
         status="success"
 
         output.should_be_rwlocked_once()
@@ -558,17 +582,26 @@ def procstepmatlab_execfunc(scripthref,script_firstline,matpath,scriptname,prxdo
             (exctype, excvalue) = sys.exc_info()[:2] 
             
             
-            sys.stderr.write("%s while processing step %s element on element %s in file %s: %s\n" % (exctype.__name__,action,etxpath2human(elementpath,output.nsmap),output.filehref.getpath(),unicode(excvalue)))
+            diarytext="%s while processing step %s element on element %s in file %s: %s\n" % (exctype.__name__,action,etxpath2human(elementpath,output.nsmap),output.filehref.getpath(),unicode(excvalue))
+            sys.stderr.write(diarytext)
             traceback.print_exc()
             
             status="exception"
-            
+
+            if debugmode and sys.stdin.isatty() and sys.stderr.isatty():
+                # automatically start the debugger from an exception in debug mode (if stdin and stderr are ttys) 
+                import pdb # Note: Should we consider downloading/installing ipdb (ipython support for pdb)???
+                # run debugger in post-mortem mode. 
+                pdb.post_mortem()
+                pass
+
 
             pass
 
         
-        
-        
+        # delete tmpoutputdir
+        #shutil.rmtree(tmpoutputdir)
+
         output.should_be_rwlocked_once()
         
         rootprocess_el=output.restorepath(rootprocesspath)
@@ -623,7 +656,7 @@ def procstepmatlab_execfunc(scripthref,script_firstline,matpath,scriptname,prxdo
     pass
 
 
-def procstepmatlab(scripthref,prxdoc,out.output,steptag,scripttag,rootprocesspath,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,inputfilehref,debugmode,ipythonmodelist,comsol=False):
+def procstepmatlab(scripthref,prxdoc,output,steptag,scripttag,rootprocesspath,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,inputfilehref,debugmode,ipythonmodelist,comsol=False):
 
     # comsol parameter enables running Matlab through comsol server to run
     # COMSOL model creation scripts written in Matlab
@@ -651,7 +684,7 @@ def procstepmatlab(scripthref,prxdoc,out.output,steptag,scripttag,rootprocesspat
         pass
     
     scripttext_fh=open(scriptfullpath,"r")
-    scripttext = scripttext.read()
+    scripttext = scripttext_fh.read()
     scripttext_fh.close()
 
     script_firstline = scripttext.split("\n")[0]
