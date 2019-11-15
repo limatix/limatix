@@ -11,6 +11,8 @@ import inspect
 import numbers
 import traceback
 import collections
+import tempfile
+import re
 import ast
 import hashlib
 import fnmatch
@@ -175,11 +177,547 @@ def find_script_in_path(contexthref,scriptname):
     raise IOError("Could not find script %s in path %s" % (scriptname,unicode([ searchhref.humanurl() for searchhref in stephrefpaths ])))
 
 
-def procstepmatlab(*args,**kwargs):
+def escapematlab(to_escape,comsol=False):
+    """Escape special characters that can't go verbatim into a MATLAB quoted string.
+    if comsol flag is set, then we hex-escape the entire string because in passing MATLAB commands
+    through COMSOL spaces get converted to semicolons (?) and this is problematic"""
+    ret=[]
+
+    ind = 0
+
+    if not comsol:
+        while ind < len(to_escape):
+            if to_escape[ind]=='\'':
+                ret.append('\'\'')
+                pass
+            else:
+                ret.append(to_escape[ind])
+                pass
+            ind += 1
+            pass
+        pass
+    else:
+        # comsol
+        while ind < len(to_escape):
+            ret.append("\x%x" % (ord(to_escape[ind])))
+            ind += 1
+            pass
+        
+        pass
+    return "".join(ret)
+
+
+def matlab_retval_to_resulttuple(retval):
+    # retval from varible "ret" extracted from return from scipy.io.loadmat()
+    resultlist=[]
+
+    # Iterate over root cell array
+    
+    for el in retval.ravel():
+        assert(el.dtype == np.dtype('O'))
+        # Object... it is a sub-cell array
+        # First element of el should be either fieldname, or (fieldname,attribute dictionary) cell array
+        # Second element of el should be field value
+        assert(el.shape==(1,2))
+        fieldinfo = el[0,0]
+        fieldvalue = el[0,1]
+
+        # Is fieldinfo directly a string (Unicode)?
+        
+        if fieldinfo.dtype.char=='U':
+            python_fieldname = fieldinfo[0]
+
+            python_fieldinfo = python_fieldname
+            pass
+        else:
+            # fieldinfo is a cell array (fieldname, attribute dictionary)
+            assert(fieldinfo.dtype == np.dtype('O'))
+
+            
+            # Extract fieldname
+            assert(fieldinfo.shape==(1,2))
+            assert(fieldinfo[0,0].dtype.char=='U')
+            python_fieldname = fieldinfo[0,0][0]
+
+            # Extract attribute dictionary... should be an (n x 2) cell array where each row is a key value pair
+            fielddict = fieldinfo[0,1]
+            assert(fielddict.dtype == np.dtype('O'))
+
+            python_fielddict={}
+            
+            nrows = fielddict.shape[0]
+            assert(len(fielddict.shape)==2 and fielddict.shape[1]==2)
+
+            for rowcnt in range(nrows):
+                key = fielddict[rowcnt,0]
+                value = fielddict[rowcnt,1]
+
+                # key should be a string; value should be unicode or a float or integer of some type
+                assert(key.dtype.char=='U')
+                python_key = unicode(key[0])
+
+                if value.dtype.char=='U':
+                    # string/unicode value
+                    python_value = unicode(value[0])
+                    pass
+                else:
+                    # assume numeric -- stored as 2D array
+                    assert(value.shape==(1,1))
+                    numeric_value = value[0,0]
+
+                    # cast integral values to int, others to float
+                    if int(numeric_value)==numeric_value:
+                        python_value = int(numeric_value)
+                        pass
+                    else:
+                        python_value = float(numeric_value)
+                        pass
+                    pass
+
+                # python_key and python_value are set for this row
+                python_fielddict[python_key] = python_value
+                
+                pass
+            python_fieldinfo = (python_fieldname,python_fielddict)
+            pass
+        
+        # Ok. Got fieldinfo. Now get fieldvalue
+        if fieldvalue.dtype.char=='U':
+            # string/unicode value
+            python_fieldvalue = unicode(value[0])
+            pass
+        elif fieldvalue.dtype == np.dtype('O'):
+            # nested cell array -- interpret as an hrefvalue with a path
+            assert(fieldvalue.shape==(1,1))
+            assert(fieldvalue[0,0].dtype.char=='U')
+            hrefpath = fieldvalue[0,0][0]
+            hrefurl = pathname2url(hrefpath)
+            python_fieldvalue = dcv.hrefvalue(hrefurl,contexthref=dcv.hrefvalue("./"))            
+            
+            pass
+        else:
+            
+            # assume numeric -- stored as 2D array
+            assert(fieldvalue.shape==(1,1))
+            numeric_fieldvalue = fieldvalue[0,0]
+
+            # cast integral values to int, others to float
+            if int(numeric_fieldvalue)==numeric_fieldvalue:
+                python_fieldvalue = int(numeric_fieldvalue)
+                pass
+            else:
+                python_fieldvalue = float(numeric_fieldvalue)
+                pass
+            pass
+        
+        resultlist.append((python_fieldinfo,python_fieldvalue))
+        
+        pass
+    
+    return tuple(resultlist)
+
+
+def procstepmatlab_do_run(matpath,scriptname,diaryfilename,retfilename,argkw,ipythonmodelist,action,scripthref,status,comsol=False):
+    
+    # Need to generate MATLAB initialization string from argkw and ipythonmodelist
+    # ... MATLAB takes a sequence of commands to run.
+    # Need the parameter assignments, script name, 
+    matlabinitstrings = []
+
+    matlabinitstrings.append("processtrak=true;fprintf(1,\'%s\');" % (escapematlab("To store output and exit enter: save(\'%s\',\'ret\',\'-v7\');quit;" % (retfilename),comsol=comsol)))
+
+    # Add diary call to record output
+    matlabinitstrings.append("diary(\'%s\');" % (diaryfilename))
+
+    # Add parameter assignments
+    for argname in argkw:
+        argvalue = argkw[argname]
+
+        if isinstance(argvalue,basestr):
+            # a string!
+            matlabinitstrings.append("%s=\'%s\';" % (argname,escapematlab(argvalue,comsol=comsol)))
+            pass
+        elif isinstance(argvalue,int):
+            # an integer!
+            matlabinitstrings.append("%s=%d;" % (argname,argvalue))
+            pass
+        elif isinstance(argvalue,float):
+            # floating point number
+            matlabinitstrings.append("%s=%.32e" % (argname,argvalue))
+            pass
+        elif isinstance(argvalue,dcv.hrefvalue):
+            # hypertext reference -- passed as string path wrapped by a cell array
+            matlabinitstrings.append("%s={\'%s\'};" % (argname,escapematlab(argvalue.getpath(),comsol=comsol)))
+            pass
+        else:
+            raise ValueError("Parameter %s is of type %s which cannot be passed to MATLAB." % (argname,type(argvalue).__name__))
+        pass
+
+    # add call to script
+    matlabinitstrings,append("%s;" % (os.path.splitext(scriptname)[0]))
+    
+    # add save of 'ret' variable and exit on completion
+    if not ipythonmodelist[0]:
+        # Not ipythonmode -- auto save and quit
+        matlabinitstrings.append("save(\'%s\',\'ret\',\'-v7\');quit;" % (escapematlab(retfilename,comsol=comsol)));
+        pass
+    else:
+        matlabinitstrings.append("fprintf(1,\'%s\');" % (escapematlab("Store output and exit when done with: save(\'%s\',\'ret\',\'-v7\');quit;" % (retfilename),comsol=comsol)))        
+        pass
+    
+
+    matlabinitstring = "".join(matlabinitstrings)
+
+    # Run MATLAB
+    matlabenv=copy.copy(os.environ)
+    matlabenv["MATLABPATH"]=matpath
+
+    if comsol:
+
+        matproc = subprocess.Popen(["comsol","mphserver", "matlab",matlabinitstring],close_fds=True,env=matlabenv)
+
+        pass
+    else:
+        
+        matproc = subprocess.Popen(["matlab","-r",matlabinitstring],close_fds=True,env=matlabenv)
+        pass
+    
+    matproc.wait()
+
+    retval = None
+    
+    # Attempt to read in diary and ret files
+    if os.path.exists(diaryfilename):
+        diaryfh = open(diaryfilename,"r")
+        diarytext = diaryfh.read()
+        diaryfh.close()
+
+        if os.path.exists(retfilename):
+            import scipy.io
+            retfile = scipy.io.loadmat(retfilename)
+            retval = retfile["ret"]
+            pass
+        else:
+            diarytext += "\nMATLAB script failed to assign and return ret\n"
+            pass
+        pass
+    else:
+        status="exception"
+        diarytext="MATLAB execution failed!\n"
+        pass
+
+    if retval is not None:
+        # Interpret "ret" value as like a tuple-form resultdict represented with cell arrays
+        # Note -- a string-in-cell-array value is interpreted as a path to be converted to a hrefvalue
+
+        # Each MATLAB cell array manifests in retval (or an element of retval) as a 2D array of objects.
+        # elements of that 2D array could be another 2D array representing a cell array, a (2D?) array
+        # of float, or an array of unicode (strings)
+
+        resultdict = matlab_retval_to_resulttuple(retval)
+        
+        pass
+    
+    return (resultdict,status,diarytext)
+
+def procstepmatlab_runelement(matpath,scriptname,output,prxdoc,prxnsmap,steptag,rootprocesspath,stepprocesspath,elementpath,uniquematches,argnames,params,inputfilehref,ipythonmodelist,execfunc,action,scripthref,status,comsol=False):
     # *** output should be rwlock'd exactly ONCE when this is called
     # *** Output will be rwlock'd exactly ONCE on return
     #     (but may have been unlocked in the interim)
-    raise NotImplementedError("procstepmatlab")
+
+
+    run_matlab_unlocked = True
+
+    element=output.restorepath(elementpath)
+
+    print("Element %s\r" % (dcv.hrefvalue.fromelement(output,element).humanurl()),end="\r")
+    #print("Element %s\r" % (canonicalize_path.getelementhumanxpath(output,element,nsmap=prxnsmap)),end="\r")
+    sys.stdout.flush()
+
+    rootprocess_el=output.restorepath(rootprocesspath)
+    
+    provenance.starttrackprovenance()
+    try : # try-catch-finally block for starttrackprovenance()
+        
+        argkw = procstep_evalargs(output,prxdoc,prxnsmap,steptag,uniquematches,argnames,{},params,inputfilehref,element)    
+
+        
+        # unlock XML file if "run_matlab_unlocked" so parallel processes can mess with it
+        if run_matlab_unlocked: 
+            
+            output.unlock_rw() # release output lock 
+            try: 
+                (resultdict,status,diarytext)=procstepmatlab_do_run(matpath,scriptname,diaryfilename,retfilename,argkw,ipythonmodelist,action,scripthref,status,comsol=comsol)
+                pass
+            finally: 
+                output.lock_rw() # secure output lock ... otherwise
+                # an exception would be handled several levels above
+                # which assumes we are locked. 
+                pass
+            
+            del rootprocess_el
+            element=output.restorepath(elementpath)
+            
+            pass
+        else: 
+            (resultdict,status,diarytext)=procstepmatlab_do_run(matpath,scriptname,diaryfilename,retfilename,argkw,ipythonmodelist,action,scripthref,status,comsol=comsol)
+            # print("processtrak: print_current_used() after do_run of %s" % (str(execfunc)))
+            # provenance.print_current_used()
+            
+            
+            output.should_be_rwlocked_once() # Verify that after running, the output is still locked exactly once
+            element=output.restorepath(elementpath) # run function may have unlocked output temporarily so we need to restore the element from its path
+            pass
+        
+        if resultdict is None: 
+            resultdict={}  # no results provided
+            pass
+        
+        
+        applyresultdict(output,prxdoc,steptag,element,resultdict)
+    
+        pass
+    except:
+        raise
+    finally:
+        # print("processtrak: print_current_used()")
+        # provenance.print_current_used()
+
+        (modified_elements,referenced_elements)=provenance.finishtrackprovenance()
+        pass
+
+    # exit with output still in locked state. 
+    return (modified_elements,referenced_elements,status,diarytext)
+
+
+
+def procstepmatlab_execfunc(scripthref,script_firstline,matpath,scriptname,prxdoc,prxnsmap,output,steptag,scripttag,rootprocesspath,stepprocesspath,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,inputfilehref,debugmode,ipythonmodelist,action,comsol=False):
+
+    # Parse script_firstline
+    # First line of matlab script is expected to be:
+    #   function ret = SCRIPTNAME(dc_param1_str, dc_param2_int, dc_param3_float, dc_param4_href)
+    firstlinegroups=re.match(r"""\s*function\s*(\[\s*)?ret\s*(]\s*)?=\s*\w+[(]\s*((\w+\s*,\s*)*)(\w+\s*)?[)]\s*""",line)
+
+    if firstlinegroups is None:
+        raise ValueError("Error parsing first line of MATLAB script %s: expected format: \"function ret = SCRIPTNAME(dc_param1_str, dc_param2_int, dc_param3_float, dc_param4_href)\"" % (scripthref.humanurl()))
+    
+    trailing_comma_params = firstlinegroups.group(3)
+    final_param = firstlinegroups.group(5)  # May be None if no params provided
+
+    # Iterate over trailing_comma_params to get individual parameters
+    trailing_comma_param_list = re.findall(r"""(\w+)\s*,\s*""",trailing_comma_params)
+
+    argnames = trailing_comma_param_list + [ final_param ] # List of all parameters
+    
+
+    if uniquematchel is not None:
+        procstep_elementpath_generator = procstep_uniquematch_elementpath_generator
+        pass
+    else:
+        procstep_elementpath_generator = procstep_elementmatch_elementpath_generator
+        pass
+    
+
+    # output.unlock_rw() # release output lock
+
+    matchcnt=0
+
+    # Loop over each matching element
+    for (elementpath,uniquematches) in procstep_elementpath_generator(prxdoc,output,steptag,elementmatch,elementmatch_nsmap,uniquematchel,filters):
+        # elementpath is the path to the element we have found that we are
+        # supposed to be operating on
+        # uniquematches, if it is not None, and for is a list of elements
+        # that matched the key of the <prx:uniquematch> element
+        # giving rise to this element. 
+
+        
+        matchcnt+=1
+        modified_elements=set([])
+        referenced_elements=set([])
+
+        el_starttime=timestamp.now().isoformat()
+
+
+        # "Diary" directory/file for capturing MATLAB output
+        outputdir=tempfile.mkdtemp(prefix="pt_matlab_output")
+        diaryfilename=os.path.join(diarydir,"diary.txt")
+        retfilename=os.path.join(diarydir,"ret.txt")
+        
+
+        status="success"
+
+        output.should_be_rwlocked_once()
+
+        try : 
+            (modified_elements,referenced_elements,status,diarytext)=procstepmatlab_runelement(matpath,scriptname,output,prxdoc,prxnsmap,steptag,rootprocesspath,stepprocesspath,elementpath,uniquematches,argnames,params,inputfilehref,ipythonmodelist,action,scripthref,diaryfilename,retfilename,status,comsol=comsol)
+            pass
+        except KeyboardInterrupt: 
+            # Don't want to hold off keyboard interrupts!
+            raise
+        except: 
+            (exctype, excvalue) = sys.exc_info()[:2] 
+            
+            
+            sys.stderr.write("%s while processing step %s element on element %s in file %s: %s\n" % (exctype.__name__,action,etxpath2human(elementpath,output.nsmap),output.filehref.getpath(),unicode(excvalue)))
+            traceback.print_exc()
+            
+            status="exception"
+            
+
+            pass
+
+        
+        
+        
+        output.should_be_rwlocked_once()
+        
+        rootprocess_el=output.restorepath(rootprocesspath)
+        # Create lip:process element that contains lip:used tags listing all referenced elements
+        element=output.restorepath(elementpath)
+        # print "Reference location=%s" % (canonicalize_path.create_canonical_etxpath(output.filename,output.doc,rootprocess_el.getparent()))
+        # print "Target location=%s" % (canonicalize_path.create_canonical_etxpath(output.filename,output.doc,element))
+        # print "Relative location=%s" % (canonicalize_path.relative_etxpath_to(canonicalize_path.create_canonical_etxpath(output.filename,output.doc,rootprocess_el.getparent()),canonicalize_path.create_canonical_etxpath(output.filename,output.doc,element)))
+
+
+        process_el=provenance.writeprocessprovenance(output,rootprocesspath,stepprocesspath,referenced_elements)
+        
+        # !!!*** should add dcp:used tag referencing step definition with 
+        # prx file via sha256 hash of i18n canonicalization
+
+        # write timestamps
+        provenance.write_timestamp(output,process_el,"lip:starttimestamp",el_starttime)
+        provenance.write_timestamp(output,process_el,"lip:finishtimestamp")
+        provenance.write_process_info(output,process_el)  # We always write process info to ensure uniqueness of our UUID. It would be better to merge with parent elements before calculating UUID.
+        
+        
+
+        provenance.write_process_log(output,process_el,status,diarytext)
+
+        target_el=provenance.write_target(output,process_el,dcv.hrefvalue.fromelement(output,element).value())  # lip:target -- target of this particular iteration (ETXPath)
+
+        #if target_el.attrib["{http://www.w3.org/1999/xlink}href"].startswith(".#"):
+        #    import pdb
+        #    pdb.set_trace()
+        #
+        #target_hrefc = dcv.hrefvalue.fromelement(output,element).value()
+        #    target_context = output.getcontexthref().value()
+        #    target_hrefc.attempt_relative_url(target_context)
+        #    pass
+        
+        # Generate uuid
+        process_uuid=provenance.set_hash(output,rootprocess_el,process_el)
+    
+        # Mark all modified elements with our uuid
+        provenance.mark_modified_elements(output,modified_elements,process_uuid)
+
+
+        output.should_be_rwlocked_once() 
+
+        pass
+    
+    if matchcnt==0:
+        sys.stderr.write("Warning: step %s: no matching elements for output href %s\n" % (processtrak_prxdoc.getstepname(prxdoc,steptag),output.get_filehref().absurl()))
+        pass
+    
+
+    pass
+
+
+def procstepmatlab(scripthref,prxdoc,out.output,steptag,scripttag,rootprocesspath,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,inputfilehref,debugmode,ipythonmodelist,comsol=False):
+
+    # comsol parameter enables running Matlab through comsol server to run
+    # COMSOL model creation scripts written in Matlab
+    
+    # *** output should be rwlock'd exactly ONCE when this is called
+    # *** Output will be rwlock'd exactly ONCE on return
+    #     (but may have been unlocked in the interim)
+
+
+    scriptpath = scripthref.getpath()
+    
+    prxnsmap=dict(prxdoc.getroot().nsmap)
+
+
+    # adjust MATLABPATH so as to add script's directory 
+
+    scriptfullpath=os.path.abspath(scriptpath)
+    (scriptfulldir,scriptname)=os.path.split(scriptfullpath)
+
+    if "MATLABPATH" in os.environ:        
+        matpath = "%s:%s" % (scriptfulldir,os.environ["MATLABPATH"])
+        pass
+    else:
+        matpath=scriptfulldir
+        pass
+    
+    scripttext_fh=open(scriptfullpath,"r")
+    scripttext = scripttext.read()
+    scripttext_fh.close()
+
+    script_firstline = scripttext.split("\n")[0]
+
+    # First line of matlab script is expected to be:
+    #   function ret = SCRIPTNAME(dc_param1_str, dc_param2_int, dc_param3_float, dc_param4_href)
+    # href values are platform OS paths as a single element cell array. 
+    
+
+    # create <lip:process> tag for this step 
+    
+    # output lock should be locked exactly once by caller
+    output.should_be_rwlocked_once()
+    #output.lock_rw()  # secure output lock
+
+    rootprocess_el=output.restorepath(rootprocesspath)
+
+
+    stepprocess_el=output.addelement(rootprocess_el,"lip:process")
+    provenance.write_timestamp(output,stepprocess_el,"lip:starttimestamp")
+    
+    action=processtrak_prxdoc.getstepname(prxdoc,steptag)
+    provenance.write_action(output,stepprocess_el,action)
+    
+    
+    provenance.reference_pt_script(output,stepprocess_el,"lip:used",rootprocess_el.getparent(),scripthref,(None,None))
+    
+    provenance.write_process_info(output,stepprocess_el) # ensure uniqueness prior to uuid generation
+
+    # Generate uuid
+    stepprocess_uuid=provenance.set_hash(output,rootprocess_el,stepprocess_el)
+    stepprocesspath=output.savepath(stepprocess_el)
+
+
+    argkw={}
+
+    #initfunc=None
+    #
+    ## find "init" function or method
+    #if prxdoc.hasattr(steptag,"initfunction"):
+    #    initfunc=stepglobals[prxdoc.getattr(steptag,"initfunction")]
+    #    pass
+    #elif "initunlocked" in stepglobals:
+    #    initfunc=stepglobals["initunlocked"]
+    #    pass
+    #elif "init" in stepglobals : 
+    #    initfunc=stepglobals["init"]
+    #    pass
+    #
+    #if initfunc is not None:
+    #    procsteppython_execfunc(scripthref,pycode_text,pycode_lineno,prxdoc,prxnsmap,output,steptag,scripttag,rootprocesspath,stepprocesspath,stepglobals,initelementmatch,initelementmatch_nsmap,uniquematchel,params,[],inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist,initfunc,action)
+    #    pass
+    
+    
+    procstepmatlab_execfunc(scripthref,script_firstline,matpath,scriptname,prxdoc,prxnsmap,output,steptag,scripttag,rootprocesspath,stepprocesspath,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,inputfilehref,debugmode,ipythonmodelist,action,comsol=comsol)
+
+    print("") # add newline
+
+    # output.lock_rw()
+    stepprocess_el=output.restorepath(stepprocesspath)
+    provenance.write_timestamp(output,stepprocess_el,"lip:finishtimestamp")
+    # output.unlock_rw()
+
+    pass
+
+
 
 def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scripthref,pycode_text,pycode_lineno):
 
@@ -643,14 +1181,86 @@ def applyresultdict(output,prxdoc,steptag,element,resultdict):
         pass
     pass
 
+
+def procstep_evalargs(output,prxdoc,prxnsmap,steptag,uniquematches,argnames,argsdefaults,params,inputfilehref,element):
+    argkw={}
+        
+    #sys.stderr.write("argnames=%s\n" % (str(argnames)))
+    #sys.stderr.write("params.keys()=%s\n" % (str(params.keys())))
+        
+    for argname in argnames:
+        # argname often has a underscore-separated type suffix
+        if "_" in argname:
+            (argnamebase,argnametype)=argname.rsplit("_",1)
+            pass
+        else:
+            argnamebase=None
+            pass
+        
+        if argname in params:
+            # calling evaluate tracks provenance!
+            # returns XML element for auto-params or xpaths
+            # returns dc_value for fixed numeric params
+            # returns string for fixed string params
+            argkw[argname]=processtrak_stepparam.evaluate_params(params,argname,None,output,element,inputfilehref)
+            pass
+        elif argnamebase in params:
+            argkw[argname]=processtrak_stepparam.evaluate_params(params,argnamebase,argnametype,output,element,inputfilehref)
+            
+        elif argname=="_xmldoc":  # _xmldoc parameter gets output XML document
+            argkw[argname]=output         # supply output XML document
+            pass
+        elif argname=="_prxdoc":  # _xmldoc parameter gets output XML document
+            argkw[argname]=prxdoc         # supply output XML document
+            pass
+        elif argname=="_step":  # _xmldoc parameter gets output XML document
+            argkw[argname]=steptag         # supply output XML document
+            pass
+        elif argname=="_uniquematches":  # _uniquematches parameter gets list of elements matching the key of the <prx:uniquematch> and corresponding to this particular element
+            argkw[argname]=uniquematches   # supply uniquematches list
+            
+            pass
+        elif argname=="_inputfilename":  # _inputfilename parameter gets unquoted name (but not path) of input file
+            argkw[argname]=inputfilehref.get_bare_unquoted_filename()
+            pass
+        elif argname=="_element" or argname=="_tag": # _element (formerly _tag) parameter gets current tag we are operating on
+            argkw[argname]=element
+            pass
+        elif argname=="_dest_href":
+            # Get hrefvalue pointing at destination directory, where
+            # files should be written
+            destlist=output.xpath("dc:summary/dc:dest",namespaces=processtrak_common.prx_nsmap)
+            argkw[argname]=None
+            if len(destlist)==1:
+                argkw[argname]=dcv.hrefvalue.fromxml(output,destlist[0])
+                pass
+            pass
+        else :
+            # Try to extract it from a document tag
+            try : 
+                argkw[argname]=processtrak_stepparam.findparam(prxnsmap,output,element,argname)
+                pass
+            except NameError:
+                # if there is a default, use that
+                if argname in argsdefaults:
+                    argkw[argname]=argsdefaults[argname]
+                    pass
+                else:
+                    raise  # Let user know we can't find this!
+                pass
+            pass
+        pass
+    
+    
+    return argkw
+
 def procsteppython_runelement(output,prxdoc,prxnsmap,steptag,rootprocesspath,stepprocesspath,elementpath,uniquematches,stepglobals,argnames,argsdefaults,params,inputfilehref,ipythonmodelist,execfunc,action,scripthref,pycode_text,pycode_lineno):
     # *** output should be rwlock'd exactly ONCE when this is called
     # *** Output will be rwlock'd exactly ONCE on return
     #     (but may have been unlocked in the interim)
 
-
-
     element=output.restorepath(elementpath)
+
 
     print("Element %s\r" % (dcv.hrefvalue.fromelement(output,element).humanurl()),end="\r")
     #print("Element %s\r" % (canonicalize_path.getelementhumanxpath(output,element,nsmap=prxnsmap)),end="\r")
@@ -661,73 +1271,9 @@ def procsteppython_runelement(output,prxdoc,prxnsmap,steptag,rootprocesspath,ste
     provenance.starttrackprovenance()
     try : # try-catch-finally block for starttrackprovenance()
         
-        argkw={}
+        argkw = procstep_evalargs(output,prxdoc,prxnsmap,steptag,uniquematches,argnames,argsdefaults,params,inputfilehref,element)    
+
         
-        #sys.stderr.write("argnames=%s\n" % (str(argnames)))
-        #sys.stderr.write("params.keys()=%s\n" % (str(params.keys())))
-        
-        for argname in argnames:
-            # argname often has a underscore-separated type suffix
-            if "_" in argname:
-                (argnamebase,argnametype)=argname.rsplit("_",1)
-                pass
-            else:
-                argnamebase=None
-                pass
-            
-            if argname in params:
-                # calling evaluate tracks provenance!
-                # returns XML element for auto-params or xpaths
-                # returns dc_value for fixed numeric params
-                # returns string for fixed string params
-                argkw[argname]=processtrak_stepparam.evaluate_params(params,argname,None,output,element,inputfilehref)
-                pass
-            elif argnamebase in params:
-                argkw[argname]=processtrak_stepparam.evaluate_params(params,argnamebase,argnametype,output,element,inputfilehref)
-                
-            elif argname=="_xmldoc":  # _xmldoc parameter gets output XML document
-                argkw[argname]=output         # supply output XML document
-                pass
-            elif argname=="_prxdoc":  # _xmldoc parameter gets output XML document
-                argkw[argname]=prxdoc         # supply output XML document
-                pass
-            elif argname=="_step":  # _xmldoc parameter gets output XML document
-                argkw[argname]=steptag         # supply output XML document
-                pass
-            elif argname=="_uniquematches":  # _uniquematches parameter gets list of elements matching the key of the <prx:uniquematch> and corresponding to this particular element
-                argkw[argname]=uniquematches   # supply uniquematches list
-                
-                pass
-            elif argname=="_inputfilename":  # _inputfilename parameter gets unquoted name (but not path) of input file
-                argkw[argname]=inputfilehref.get_bare_unquoted_filename()
-                pass
-            elif argname=="_element" or argname=="_tag": # _element (formerly _tag) parameter gets current tag we are operating on
-                argkw[argname]=element
-                pass
-            elif argname=="_dest_href":
-                # Get hrefvalue pointing at destination directory, where
-                # files should be written
-                destlist=output.xpath("dc:summary/dc:dest",namespaces=processtrak_common.prx_nsmap)
-                argkw[argname]=None
-                if len(destlist)==1:
-                    argkw[argname]=dcv.hrefvalue.fromxml(output,destlist[0])
-                    pass
-                pass
-            else :
-                # Try to extract it from a document tag
-                try : 
-                    argkw[argname]=processtrak_stepparam.findparam(prxnsmap,output,element,argname)
-                    pass
-                except NameError:
-                    # if there is a default, use that
-                    if argname in argsdefaults:
-                        argkw[argname]=argsdefaults[argname]
-                        pass
-                    else:
-                        raise  # Let user know we can't find this!
-                    pass
-                pass
-            pass
         
         # unlock XML file if "rununlocked" so parallel processes can mess with it
 
@@ -1423,8 +1969,11 @@ def procstep(prxdoc,out,steptag,filters,overall_starttime,debugmode,stdouthandle
         if pycode_el is not None or scripthref.get_bare_unquoted_filename().endswith(".py"):
             procsteppython(scripthref,module_version,pycode_el,prxdoc,out.output,steptag,scripttag,out.processpath,initelementmatch,initelementmatch_nsmap,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,out.inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist)
             pass
+        elif scripthref.get_bare_unquoted_filename().endswith("_comsol.m"):
+            procstepmatlab(scripthref,prxdoc,out.output,steptag,scripttag,out.processpath,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,out.inputfilehref,debugmode,ipythonmodelist,comsol=True)
+            pass
         elif scripthref.get_bare_unquoted_filename().endswith(".m"):
-            procstepmatlab(scripthref.getpath(),prxdoc,out.output,steptag,scripttag,out.processpath,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,out.inputfilehref,debugmode,ipythonmodelist)
+            procstepmatlab(scripthref,prxdoc,out.output,steptag,scripttag,out.processpath,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,out.inputfilehref,debugmode,ipythonmodelist)
             pass
         pass
     except: 
