@@ -325,7 +325,7 @@ def matlab_retval_to_resulttuple(retval):
     return tuple(resultlist)
 
 
-def procstepmatlab_do_run(matpath,scriptname,diaryfilename,retfilename,argkw,ipythonmodelist,action,scripthref,status,comsol=False):
+def procstepmatlab_do_run(matlabcode_el_text,matpath,scriptname,diaryfilename,retfilename,argkw,ipythonmodelist,action,scripthref,status,comsol=False):
     
     # Need to generate MATLAB initialization string from argkw and ipythonmodelist
     # ... MATLAB takes a sequence of commands to run.
@@ -368,16 +368,24 @@ def procstepmatlab_do_run(matpath,scriptname,diaryfilename,retfilename,argkw,ipy
         matlabinitstrings.append("cd(sprintf(\'%s\'));" % (escapematlab(os.getcwd(),comsol=comsol)))
         pass
 
-    # add call to script
-    matlabinitstrings.append("%s;" % (os.path.splitext(scriptname)[0]))
-    
+
+    if matlabcode_el_text is None:
+        # add call to script
+        matlabinitstrings.append("%s;" % (os.path.splitext(scriptname)[0]))
+        pass
+    else:
+        # add matlab code as sprintf string, then eval() it.
+        matlabinitstrings.append("matlabcode_text = sprintf(\'%s\');" % (escapematlab(matlabcode_el_text,comsol=comsol)))
+        matlabinitstrings.append("eval(matlabcode_text);")
+        
+        pass
     # add save of 'ret' variable and exit on completion
     if not ipythonmodelist[0]:
         # Not ipythonmode -- auto save and quit
         matlabinitstrings.append("save(\'%s\',\'ret\',\'-v7\');quit;" % (retfilename))
         pass
     else:
-        matlabinitstrings.append("fprintf(1,\'%s\');" % (escapematlab("Store output and exit when done with: save(\'%s\',\'ret\',\'-v7\');quit;" % (retfilename),comsol=comsol)))        
+        matlabinitstrings.append("fprintf(1,\'%s\');" % (escapematlab("You can connect to the comsol server with comsol client if you would like.\nStore output and exit when done with: eval(retcommand)",comsol=comsol)))        
         pass
     
 
@@ -389,8 +397,13 @@ def procstepmatlab_do_run(matpath,scriptname,diaryfilename,retfilename,argkw,ipy
 
     if comsol:
 
-        execlist = ["comsol","mphserver", "matlab",matlabinitstring]
-
+        if os.name=='nt': # on Windows it's "comsolmphserver" not "comsol mphserver"
+            execlist = ["comsolmphserver", "matlab",matlabinitstring]
+            pass
+        else:
+            execlist = ["comsol","mphserver", "matlab",matlabinitstring]
+            pass
+        
         pass
     else:
         execlist = ["matlab","-r",matlabinitstring]
@@ -446,7 +459,7 @@ def procstepmatlab_do_run(matpath,scriptname,diaryfilename,retfilename,argkw,ipy
 
     return (resultdict,status,diarytext)
 
-def procstepmatlab_runelement(matpath,scriptname,output,prxdoc,prxnsmap,steptag,rootprocesspath,stepprocesspath,elementpath,uniquematches,argnames,params,inputfilehref,ipythonmodelist,action,scripthref,diaryfilename,retfilename,status,comsol=False):
+def procstepmatlab_runelement(matlabcode_el_text,matpath,scriptname,output,prxdoc,prxnsmap,steptag,rootprocesspath,stepprocesspath,elementpath,uniquematches,argnames,params,inputfilehref,ipythonmodelist,action,scripthref,diaryfilename,retfilename,status,comsol=False):
     # *** output should be rwlock'd exactly ONCE when this is called
     # *** Output will be rwlock'd exactly ONCE on return
     #     (but may have been unlocked in the interim)
@@ -473,7 +486,7 @@ def procstepmatlab_runelement(matpath,scriptname,output,prxdoc,prxnsmap,steptag,
             
             output.unlock_rw() # release output lock 
             try: 
-                (resultdict,status,diarytext)=procstepmatlab_do_run(matpath,scriptname,diaryfilename,retfilename,argkw,ipythonmodelist,action,scripthref,status,comsol=comsol)
+                (resultdict,status,diarytext)=procstepmatlab_do_run(matlabcode_el_text,matpath,scriptname,diaryfilename,retfilename,argkw,ipythonmodelist,action,scripthref,status,comsol=comsol)
                 pass
             finally: 
                 output.lock_rw() # secure output lock ... otherwise
@@ -486,7 +499,7 @@ def procstepmatlab_runelement(matpath,scriptname,output,prxdoc,prxnsmap,steptag,
             
             pass
         else: 
-            (resultdict,status,diarytext)=procstepmatlab_do_run(matpath,scriptname,diaryfilename,retfilename,argkw,ipythonmodelist,action,scripthref,status,comsol=comsol)
+            (resultdict,status,diarytext)=procstepmatlab_do_run(matlabcode_el_text,matpath,scriptname,diaryfilename,retfilename,argkw,ipythonmodelist,action,scripthref,status,comsol=comsol)
             # print("processtrak: print_current_used() after do_run of %s" % (str(execfunc)))
             # provenance.print_current_used()
             
@@ -517,7 +530,7 @@ def procstepmatlab_runelement(matpath,scriptname,output,prxdoc,prxnsmap,steptag,
 
 
 
-def procstepmatlab_execfunc(scripthref,script_firstline,matpath,scriptname,prxdoc,prxnsmap,output,steptag,scripttag,rootprocesspath,stepprocesspath,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,inputfilehref,debugmode,ipythonmodelist,action,comsol=False):
+def procstepmatlab_execfunc(scripthref,matlabcode_el_text,script_firstline,matpath,scriptname,prxdoc,prxnsmap,output,steptag,scripttag,rootprocesspath,stepprocesspath,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,inputfilehref,debugmode,ipythonmodelist,action,comsol=False):
 
     # Parse script_firstline
     # First line of matlab script is expected to be:
@@ -575,7 +588,7 @@ def procstepmatlab_execfunc(scripthref,script_firstline,matpath,scriptname,prxdo
         output.should_be_rwlocked_once()
 
         try : 
-            (modified_elements,referenced_elements,status,diarytext)=procstepmatlab_runelement(matpath,scriptname,output,prxdoc,prxnsmap,steptag,rootprocesspath,stepprocesspath,elementpath,uniquematches,argnames,params,inputfilehref,ipythonmodelist,action,scripthref,diaryfilename,retfilename,status,comsol=comsol)
+            (modified_elements,referenced_elements,status,diarytext)=procstepmatlab_runelement(matlabcode_el_text,matpath,scriptname,output,prxdoc,prxnsmap,steptag,rootprocesspath,stepprocesspath,elementpath,uniquematches,argnames,params,inputfilehref,ipythonmodelist,action,scripthref,diaryfilename,retfilename,status,comsol=comsol)
             pass
         except KeyboardInterrupt: 
             # Don't want to hold off keyboard interrupts!
@@ -658,7 +671,7 @@ def procstepmatlab_execfunc(scripthref,script_firstline,matpath,scriptname,prxdo
     pass
 
 
-def procstepmatlab(scripthref,prxdoc,output,steptag,scripttag,rootprocesspath,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,inputfilehref,debugmode,ipythonmodelist,comsol=False):
+def procstepmatlab(scripthref,matlabcode_el,prxdoc,output,steptag,scripttag,rootprocesspath,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,inputfilehref,debugmode,ipythonmodelist,comsol=False):
 
     # comsol parameter enables running Matlab through comsol server to run
     # COMSOL model creation scripts written in Matlab
@@ -684,12 +697,29 @@ def procstepmatlab(scripthref,prxdoc,output,steptag,scripttag,rootprocesspath,el
     else:
         matpath=scriptfulldir
         pass
-    
-    scripttext_fh=open(scriptfullpath,"r")
-    scripttext = scripttext_fh.read()
-    scripttext_fh.close()
 
-    script_firstline = scripttext.split("\n")[0]
+    if matlabcode_el is not None:
+        # inline MATLAB code
+        scripttext = matlabcode_el.text
+        matlabcode_el_text = scripttext
+        pass
+    else:
+        # Read MATLAB code from file to get header info
+        scripttext_fh=open(scriptfullpath,"r")
+        scripttext = scripttext_fh.read()
+        scripttext_fh.close()
+        
+        matlabcode_el_text = None        
+        pass
+    
+    scripttext_lines = scripttext.split("\n")
+    # ignore leading blank lines
+    lineidx=0
+    while scripttext_lines[lineidx].isspace() and lineidx < len(scripttext_lines)-1:
+        lineidx+=1
+        pass
+    
+    script_firstline = scripttext_lines[lineidx]
 
     # First line of matlab script is expected to be:
     #   function ret = SCRIPTNAME(dc_param1_str, dc_param2_int, dc_param3_float, dc_param4_href)
@@ -741,7 +771,7 @@ def procstepmatlab(scripthref,prxdoc,output,steptag,scripttag,rootprocesspath,el
     #    pass
     
     
-    procstepmatlab_execfunc(scripthref,script_firstline,matpath,scriptname,prxdoc,prxnsmap,output,steptag,scripttag,rootprocesspath,stepprocesspath,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,inputfilehref,debugmode,ipythonmodelist,action,comsol=comsol)
+    procstepmatlab_execfunc(scripthref,matlabcode_el_text,script_firstline,matpath,scriptname,prxdoc,prxnsmap,output,steptag,scripttag,rootprocesspath,stepprocesspath,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,inputfilehref,debugmode,ipythonmodelist,action,comsol=comsol)
 
     print("") # add newline
 
@@ -1970,6 +2000,8 @@ def procstep(prxdoc,out,steptag,filters,overall_starttime,debugmode,stdouthandle
 
                          
     pycode_el=None
+    matlabcode_el=None
+    comsolmatlabcode_el=None
     module_version = (None,None)
     if prxdoc.hasattr(scripttag,"xlink:href"): 
         #scriptpath=prxdoc.get_href_fullpath(contextnode=scripttag)
@@ -1981,9 +2013,11 @@ def procstep(prxdoc,out,steptag,filters,overall_starttime,debugmode,stdouthandle
         pass
     else: 
         pycode_el=prxdoc.child(scripttag,"prx:pycode") # set to pycode tag or None
+        matlabcode_el=prxdoc.child(scripttag,"prx:matlabcode") # set to matlabcode tag or None
+        comsolmatlabcode_el=prxdoc.child(scripttag,"prx:comsolmatlabcode") # set to comsolmatlabcode tag or None
         scripthref=prxdoc.filehref
-        if pycode_el is None: 
-            raise ValueError("script %s does not specify file or python code" % (prxdoc.tostring(scripttag)))
+        if pycode_el is None and matlabcode_el is None and comsolmatlabcode_el is None: 
+            raise ValueError("script %s does not specify cross reference, script name, python code, MATLAB code, or COMSOL MATLAB code" % (prxdoc.tostring(scripttag)))
         pass
 
     # Build parameter: dictionary by name of lists of stepparam objects
@@ -2006,11 +2040,11 @@ def procstep(prxdoc,out,steptag,filters,overall_starttime,debugmode,stdouthandle
         if pycode_el is not None or scripthref.get_bare_unquoted_filename().endswith(".py"):
             procsteppython(scripthref,module_version,pycode_el,prxdoc,out.output,steptag,scripttag,out.processpath,initelementmatch,initelementmatch_nsmap,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,out.inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist)
             pass
-        elif scripthref.get_bare_unquoted_filename().endswith("_comsol.m"):
-            procstepmatlab(scripthref,prxdoc,out.output,steptag,scripttag,out.processpath,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,out.inputfilehref,debugmode,ipythonmodelist,comsol=True)
+        elif comsolmatlabcode_el is not None or scripthref.get_bare_unquoted_filename().endswith("_comsol.m"):
+            procstepmatlab(scripthref,comsolmatlabcode_el,prxdoc,out.output,steptag,scripttag,out.processpath,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,out.inputfilehref,debugmode,ipythonmodelist,comsol=True)
             pass
-        elif scripthref.get_bare_unquoted_filename().endswith(".m"):
-            procstepmatlab(scripthref,prxdoc,out.output,steptag,scripttag,out.processpath,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,out.inputfilehref,debugmode,ipythonmodelist)
+        elif matlabcode_el is not None or scripthref.get_bare_unquoted_filename().endswith(".m"):
+            procstepmatlab(scripthref,matlabcode_el,prxdoc,out.output,steptag,scripttag,out.processpath,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,out.inputfilehref,debugmode,ipythonmodelist)
             pass
         pass
     except: 
