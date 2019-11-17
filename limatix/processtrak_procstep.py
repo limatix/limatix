@@ -332,7 +332,9 @@ def procstepmatlab_do_run(matpath,scriptname,diaryfilename,retfilename,argkw,ipy
     # Need the parameter assignments, script name, 
     matlabinitstrings = []
 
-    matlabinitstrings.append("processtrak=true;fprintf(1,\'%s\');" % (escapematlab("To store output and exit enter: save(\'%s\',\'ret\',\'-v7\');quit;" % (retfilename),comsol=comsol)))
+    matlabinitstrings.append("processtrak=true;retcommand=fprintf(1,\'%s\');" % (escapematlab("save(\'%s\',\'ret\',\'-v7\');quit;" % (retfilename),comsol=comsol)))
+    
+    matlabinitstrings.append("fprintf(1,\'%s\');" % (escapematlab("To store output and exit enter: eval(retcommand)",comsol=comsol)))
 
     # Add diary call to record output
     matlabinitstrings.append("diary(\'%s\');" % (diaryfilename))
