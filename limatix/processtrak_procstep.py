@@ -206,7 +206,12 @@ def escapematlab(to_escape,comsol=False):
     else:
         # comsol
         while ind < len(to_escape):
-            ret.append("\\x%x" % (ord(to_escape[ind])))
+            if to_escape[ind]=='%': # Even when passed as hex, percent signs still need escaped... but they are safe to print verbatim
+                ret.append("%%")
+                pass
+            else:
+                ret.append("\\x%x" % (ord(to_escape[ind])))
+                pass
             ind += 1
             pass
         
@@ -273,12 +278,15 @@ def matlab_retval_to_resulttuple(retval):
                     assert(value.shape==(1,1))
                     numeric_value = value[0,0]
 
-                    # cast integral values to int, others to float
-                    if int(numeric_value)==numeric_value:
+                    # cast integral values to int, others to float or complex
+                    if np.imag(numeric_value)==0.0 and int(numeric_value)==numeric_value:
                         python_value = int(numeric_value)
                         pass
-                    else:
+                    elif np.imag(numeric_value)==0.0:
                         python_value = float(numeric_value)
+                        pass
+                    else:
+                        python_value = complex(numeric_value)
                         pass
                     pass
 
@@ -292,7 +300,7 @@ def matlab_retval_to_resulttuple(retval):
         # Ok. Got fieldinfo. Now get fieldvalue
         if fieldvalue.dtype.char=='U':
             # string/unicode value
-            python_fieldvalue = unicode(value[0])
+            python_fieldvalue = unicode(fieldvalue[0])
             pass
         elif fieldvalue.dtype == np.dtype('O'):
             # nested cell array -- interpret as an hrefvalue with a path
@@ -310,11 +318,14 @@ def matlab_retval_to_resulttuple(retval):
             numeric_fieldvalue = fieldvalue[0,0]
 
             # cast integral values to int, others to float
-            if int(numeric_fieldvalue)==numeric_fieldvalue:
+            if np.imag(numeric_fieldvalue)==0.0 and int(numeric_fieldvalue)==numeric_fieldvalue:
                 python_fieldvalue = int(numeric_fieldvalue)
                 pass
+            elif np.imag(numeric_fieldvalue)==0.0:
+                python_value = float(numeric_fieldvalue)
+                pass
             else:
-                python_fieldvalue = float(numeric_fieldvalue)
+                python_fieldvalue = complex(numeric_fieldvalue)
                 pass
             pass
         
@@ -332,9 +343,9 @@ def procstepmatlab_do_run(matlabcode_el_text,matpath,scriptname,diaryfilename,re
     # Need the parameter assignments, script name, 
     matlabinitstrings = []
 
-    matlabinitstrings.append("processtrak=true;retcommand=fprintf(1,\'%s\');" % (escapematlab("save(\'%s\',\'ret\',\'-v7\');quit;" % (retfilename),comsol=comsol)))
+    matlabinitstrings.append("processtrak=true;retcommand=sprintf(\'%s\');" % (escapematlab("save(\'%s\',\'ret\',\'-v7\');quit;" % (retfilename),comsol=comsol)))
     
-    matlabinitstrings.append("fprintf(1,\'%s\');" % (escapematlab("To store output and exit enter: eval(retcommand)",comsol=comsol)))
+    matlabinitstrings.append("fprintf(1,\'%s\');" % (escapematlab("To store output and exit enter: eval(retcommand)\n",comsol=comsol)))
 
     # Add diary call to record output
     matlabinitstrings.append("diary(\'%s\');" % (diaryfilename))
@@ -353,7 +364,7 @@ def procstepmatlab_do_run(matlabcode_el_text,matpath,scriptname,diaryfilename,re
             pass
         elif isinstance(argvalue,float):
             # floating point number
-            matlabinitstrings.append("%s=%.32e" % (argname,argvalue))
+            matlabinitstrings.append("%s=%.32e;" % (argname,argvalue))
             pass
         elif isinstance(argvalue,dcv.hrefvalue):
             # hypertext reference -- passed as string path wrapped by a cell array
@@ -375,7 +386,9 @@ def procstepmatlab_do_run(matlabcode_el_text,matpath,scriptname,diaryfilename,re
         pass
     else:
         # add matlab code as sprintf string, then eval() it.
-        matlabinitstrings.append("matlabcode_text = sprintf(\'%s\');" % (escapematlab(matlabcode_el_text,comsol=comsol)))
+        #sys.stderr.write('matlabcode_el_text=\"%s\"\n' % (matlabcode_el_text))
+        matlabinitstrings.append("matlabcode_text=sprintf(\'%s\');" % (escapematlab(matlabcode_el_text,comsol=comsol)))
+
         matlabinitstrings.append("eval(matlabcode_text);")
         
         pass
@@ -385,7 +398,7 @@ def procstepmatlab_do_run(matlabcode_el_text,matpath,scriptname,diaryfilename,re
         matlabinitstrings.append("save(\'%s\',\'ret\',\'-v7\');quit;" % (retfilename))
         pass
     else:
-        matlabinitstrings.append("fprintf(1,\'%s\');" % (escapematlab("You can connect to the comsol server with comsol client if you would like.\nStore output and exit when done with: eval(retcommand)",comsol=comsol)))        
+        matlabinitstrings.append("fprintf(1,\'%s\');" % (escapematlab("You can connect to the comsol server with comsol client if you would like.\nStore output and exit when done with: eval(retcommand)\n",comsol=comsol)))        
         pass
     
 
@@ -398,10 +411,10 @@ def procstepmatlab_do_run(matlabcode_el_text,matpath,scriptname,diaryfilename,re
     if comsol:
 
         if os.name=='nt': # on Windows it's "comsolmphserver" not "comsol mphserver"
-            execlist = ["comsolmphserver", "matlab",matlabinitstring]
+            execlist = ["comsolmphserver","matlab",matlabinitstring,"-graphics"]
             pass
         else:
-            execlist = ["comsol","mphserver", "matlab",matlabinitstring]
+            execlist = ["comsol","mphserver","matlab",matlabinitstring,"-graphics"]
             pass
         
         pass
@@ -425,6 +438,12 @@ def procstepmatlab_do_run(matlabcode_el_text,matpath,scriptname,diaryfilename,re
         diaryfh = open(diaryfilename,"r")
         diarytext += diaryfh.read()
         diaryfh.close()
+
+        if unicode is not str: 
+            # python 2.7
+            diarytext=diarytext.decode('utf8') # decode any special characters
+            pass
+
 
         if os.path.exists(retfilename):
             import scipy.io
@@ -638,8 +657,12 @@ def procstepmatlab_execfunc(scripthref,matlabcode_el_text,script_firstline,matpa
         provenance.write_process_info(output,process_el)  # We always write process info to ensure uniqueness of our UUID. It would be better to merge with parent elements before calculating UUID.
         
         
+        # For some reason, diary text has weird control characters 
+        # especially ctrl-h (\x08)... which are incompatible with xml.
+        # Strip these
+        diarytext_stripped = diarytext.replace("\x08","")
 
-        provenance.write_process_log(output,process_el,status,diarytext)
+        provenance.write_process_log(output,process_el,status,diarytext_stripped)
 
         target_el=provenance.write_target(output,process_el,dcv.hrefvalue.fromelement(output,element).value())  # lip:target -- target of this particular iteration (ETXPath)
 

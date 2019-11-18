@@ -26,6 +26,8 @@ else:
 def evaluate_from_number(number,typename,paramname):
     if typename=="float":
         return float(number)
+    elif typename=="complex":
+        return complex(number)
     elif typename=="int":
         return int(number)
     else:
@@ -60,6 +62,8 @@ def evaluate_from_string(string,typename,paramname):
         return int(string)
     elif typename=="float":
         return float(string)
+    elif typename=="complex":
+        return complex(string)
     elif typename in literal_python_typedict:
         return literal_python_typedict[typename](ast.literal_eval(string))
     else:
@@ -70,7 +74,7 @@ def evaluate_from_string(string,typename,paramname):
     pass
 
 def evaluate_from_elements(xmldocu,elementlist,typename,paramname):
-    # typename can be str,float,int,bool : basic Python types
+    # typename can be str,float,complex,int,bool : basic Python types
     # list, tuple, dict, set : Python type interpreted by ast.literal_eval() -- may return None if that is given!
     # href, string, xmltree, numericunits, etc: dc_value types
     
@@ -82,6 +86,7 @@ def evaluate_from_elements(xmldocu,elementlist,typename,paramname):
     basic_python_typedict={
         "str": str,
         "float": float,
+        "complex": complex,
         "int": int_or_long,
     }
     literal_python_typedict={
