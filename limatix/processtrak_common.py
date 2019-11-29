@@ -744,11 +744,17 @@ def merge_output_file(prxdoc,outputdict,inputfilehref,overall_starttime):
     # Find last copyinput or mergeinput lip:process element
     open_or_lock_output(prxdoc,out)   
     try:
-        copy_or_merge_processes = out.output.xpath("lip:process/lip:process[lip:action='copyinput' or lip:action='mergeinput']")
 
-        copy_or_merge_process = copy_or_merge_processes[-1] # select the last (most recent) such process
+        # We don't just want to find the last mergeinput or copyinput step,
+        # because the merge doesn't guarantee that the merge's lip:process step will be after other steps.
+        #copy_or_merge_processes = out.output.xpath("lip:process/lip:process[lip:action='copyinput' or lip:action='mergeinput']")
+        #copy_or_merge_process = copy_or_merge_processes[-1] # select the last (most recent) such process
+        #copy_or_merge_uuid = copy_or_merge_process.attrib["uuid"]
 
-        copy_or_merge_uuid = copy_or_merge_process.attrib["uuid"]
+        # ... So instead we just pull off the provenance of the root
+        # element
+        copy_or_merge_uuid = strippedcopy.getroot().attrib["{http://limatix.org/provenance}wasgeneratedby"].split(";")[0].split("=")[1]
+        
 
         # Make copy of output stripping everything that doesn't have a
         # lip:wasgenerateby attribute specifying uuid=<copy_or_merge_uuid>.
@@ -756,7 +762,7 @@ def merge_output_file(prxdoc,outputdict,inputfilehref,overall_starttime):
         strippedcopy=copy.deepcopy(out.output.doc)
 
         copy_or_merge_wasgeneratedby = "uuid=%s" % (copy_or_merge_uuid)
-
+        
         # Root element should have the correct wasgeneratedby
         assert(copy_or_merge_wasgeneratedby in strippedcopy.getroot().attrib["{http://limatix.org/provenance}wasgeneratedby"].split(";"))
 
