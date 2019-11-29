@@ -113,7 +113,7 @@ def eval_status_inputfile(inputfile,inputfile_href,prxdoc,prxfilehref,outputdict
     # to actually execute anything with this outdoc in the outputdict, as
     # the output will be only opened as read-only
     if os.path.exists(outdoc.outputfilehref.getpath()):
-        processtrak_common.open_or_lock_output(prxdoc,outdoc,None,copyfileinfo=None,readonly=True)
+        processtrak_common.open_or_lock_output(prxdoc,outdoc,readonly=True)
         xlpdocu=outdoc.output
         pass
     else:
@@ -182,7 +182,7 @@ def eval_status_inputfile(inputfile,inputfile_href,prxdoc,prxfilehref,outputdict
         for step_el in all_step_elements:
             
             if step_el is None:   # "None" means the copyinput step
-                stepname="copyinput"
+                stepname="mergeinput" # use "mergeinput" instead of copyinput because we want the most recent (see fallback below)
                 step_valid_for_inputfile = True
                 pass
             else:
@@ -194,8 +194,16 @@ def eval_status_inputfile(inputfile,inputfile_href,prxdoc,prxfilehref,outputdict
             
             if not step_valid_for_inputfile:
                 continue
+
+            stepname_not_found = stepname not in actionproc_date_success_dict_matching_prxfile
+
+            if stepname_not_found and stepname=="mergeinput":
+                # try copyinput insted of mergeinput
+                stepname = "copyinput"
+                stepname_not_found = stepname not in actionproc_date_success_dict_matching_prxfile
+                
             
-            if stepname not in actionproc_date_success_dict_matching_prxfile:
+            if stepname_not_found:
                 neededflag=True
                 actionproc_date_status_success_dict_matching_prxfile[stepname]=(None,None,True,False,False,neededflag)
                 pass
@@ -224,6 +232,11 @@ def eval_status_inputfile(inputfile,inputfile_href,prxdoc,prxfilehref,outputdict
             pass
         
         actionprocs_missing_from_prx = actionproc_date_success_dict_matching_prxfile # whatever remains in the dictionary:
+
+        if "copyinput" in actionprocs_missing_from_prx:
+            # ignore "copyinput" because we already listed the copy step as "mergeinput"
+            del actionprocs_missing_from_prx["copyinput"]
+            pass
         
         # (actionproc,date,filterflag,failureflag)
         pass
@@ -240,7 +253,7 @@ def print_status(inputfiles_with_hrefs,prxdoc,prxfilehref,all_step_elements):
     """inputfiles_with_hrefs is a list of (inputfile, inputfile_href) tuples, 
     where inputfile is the name of an experiment log for which we want status.
 
-    step_elements is a list of step elements from the .prx files representing the steps of interest
+    all_step_elements is a list of step elements from the .prx files representing the steps of interest
 
     """
 
@@ -259,26 +272,41 @@ def print_status(inputfiles_with_hrefs,prxdoc,prxfilehref,all_step_elements):
         
         print("")
 
+        mergeinput_flag = False
+        
         print("Input file: %s" % (inputfile_href.humanurl()))
         print("---------------------------")            
+
+        xlpdocu=outputdict[inputfile_href].output
+        
         
         
         for step_el in all_step_elements:
             if step_el is None:   # "None" means the copyinput step
-                stepname="copyinput"
+                stepname="mergeinput" # use "mergeinput" as we want to find that if present
                 pass
             else:
                 stepname=processtrak_prxdoc.getstepname(prxdoc,step_el)
                 pass
 
-            if not stepname in actionproc_date_status_success_dict_matching_prxfile:
+            stepname_not_found = not stepname in actionproc_date_status_success_dict_matching_prxfile
+
+            if stepname_not_found and stepname=="mergeinput":
+                # try copyinput as alternative
+                stepname="copyinput"
+                stepname_not_found = not stepname in actionproc_date_status_success_dict_matching_prxfile
+                pass
+            
+            if stepname_not_found:
                 # if eval_status_inputfile() filtered the step name from 
                 # actionproc_date_status_success_dict_matching_prxfile then
                 # that means the step was not applicable to this inputfile
                 continue
 
-            xlpdocu=outputdict[inputfile_href].output
-
+            if stepname=="mergeinput":
+                mergeinput_flag=True
+                pass
+            
             if xlpdocu is None:
                 print("%20s NOT_EXECUTED NEEDED" % (stepname))
                 pass
@@ -311,37 +339,43 @@ def print_status(inputfiles_with_hrefs,prxdoc,prxfilehref,all_step_elements):
                     print("%20s %36s %s" % (stepname,date,flagstr))
                 pass
             
+            pass
+        if len(actionprocs_missing_from_prx.keys()) > 0:
+            print(" ")
+            print("Additional steps not found in .prx file")
+            print("---------------------------------------")
+            
+            for stepname in actionprocs_missing_from_prx:
+                print("%20s" % (stepname))
+                pass
+            pass
         
-            if len(actionprocs_missing_from_prx.keys()) > 0:
-                print(" ")
-                print("Additional steps not found in .prx file")
-                print("---------------------------------------")
-                
-                for stepname in actionprocs_missing_from_prx:
+        if len(actionprocs_not_matching_prxfile) > 0:
+            print(" ")
+            print("Additional steps from different .prx file")
+            print("---------------------------------------")
+            
+            try:
+                xlpdocu.lock_ro()
+                for actionproc in actionprocs_not_matching_prxfile:
+                    stepname = xlpdocu.xpathsinglecontextstr(actionproc,"lip:action")
                     print("%20s" % (stepname))
                     pass
                 pass
-        
-            if len(actionprocs_not_matching_prxfile) > 0:
-                print(" ")
-                print("Additional steps from different .prx file")
-                print("---------------------------------------")
-                
-                try:
-                    xlpdocu.lock_ro()
-                    for actionproc in actionprocs_not_matching_prxfile:
-                        stepname = xlpdocu.xpathsinglecontextstr(actionproc,"lip:action")
-                        print("%20s" % (stepname))
-                        pass
-                    pass
-                finally:
-                    xlpdocu.unlock_ro()
-                    pass
-                    
-                    
+            finally:
+                xlpdocu.unlock_ro()
                 pass
-                
+            
+            
+
             pass
+        if mergeinput_flag:
+            print("")
+            print("WARNING: mergeinput step was used. For maximum reliability recommend")
+            print("         rerunning with copyinput step")
+            pass
+        
+        
         pass
         
     

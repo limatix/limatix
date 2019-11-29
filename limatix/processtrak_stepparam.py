@@ -326,7 +326,7 @@ def findparam_concrete(prxnsmap,outdoc,element,arg_nspre,argname,argtype,paramde
     if paramdebug:
         print("    Searching in %s for " % (outdoc.get_filehref().humanurl()),end="")
         if arg_nspre is not None:
-            print("%s:%s " % (,arg_nspre,argname),end="")
+            print("%s:%s " % (arg_nspre,argname),end="")
             pass
         else:
             print("%s " % (argname),end="")
@@ -334,7 +334,7 @@ def findparam_concrete(prxnsmap,outdoc,element,arg_nspre,argname,argtype,paramde
         if argtype is not None:
             print("of type %s " % (argtype))
             pass
-        print("starting at %s:" dcv.hrefvalue.fromelement(outdoc,element).gethumanfragment())
+        print("starting at %s:" % (dcv.hrefvalue.fromelement(outdoc,element).gethumanfragment()))
         pass
     
     namespaces={}
@@ -388,7 +388,7 @@ def findparam(prxnsmap,outdoc,element,argname,paramdebug):
 
         # Argname  may be base_type
         try: 
-            ret=findparam_concrete(prxnsmap,outdoc,element,None,argnamebase,argnametype)
+            ret=findparam_concrete(prxnsmap,outdoc,element,None,argnamebase,argnametype,paramdebug)
             return ret
         except NameError:
             pass
@@ -397,7 +397,7 @@ def findparam(prxnsmap,outdoc,element,argname,paramdebug):
         # argname maybe prefix_base
         (argnameprefix,argnamebase_noprefix)=argname.split("_",1)
         try: 
-            ret=findparam_concrete(prxnsmap,outdoc,element,argnameprefix,argnamebase_noprefix,None)
+            ret=findparam_concrete(prxnsmap,outdoc,element,argnameprefix,argnamebase_noprefix,None,paramdebug)
             return ret
         except NameError:
             pass

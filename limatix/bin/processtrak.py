@@ -304,7 +304,7 @@ def main(args=None):
         print("---------------------------")
         for step_el in steps:
             if step_el is None:   # "None" means the copyinput step 
-                print("copyinput      (WILL OVERWRITE CURRENT OUTPUT)")
+                print("copyinput (WILL OVERWRITE CURRENT OUTPUT) or mergeinput")
                 pass
             else:
                 print(processtrak_prxdoc.getstepname(prxdoc,step_el))

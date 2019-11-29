@@ -737,6 +737,20 @@ class xmldoc(object):
             pass
         pass
 
+    def replace_document(self,newdoc):
+        """Replace underlying LXML document of an open xmldoc with something different. 
+        Note that this does NOT write any provenance info. """
+        
+
+        assert(self.doc is not None)
+
+        self.doc=newdoc
+        self.modified=True
+        self.possible_root_ids=set([id(newdoc.getroot())])
+        
+        pass
+
+    
     def suggest_namespace_rootnode(self,prefix,url):
         """Add a namespace prefix definition to the root 
         element (if that prefix is not already used)

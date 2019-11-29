@@ -478,7 +478,7 @@ def procstepmatlab_do_run(matlabcode_el_text,matpath,scriptname,diaryfilename,re
 
     return (resultdict,status,diarytext)
 
-def procstepmatlab_runelement(matlabcode_el_text,matpath,scriptname,output,prxdoc,prxnsmap,steptag,rootprocesspath,stepprocesspath,elementpath,uniquematches,argnames,params,inputfilehref,ipythonmodelist,action,scripthref,diaryfilename,retfilename,status,comsol=False):
+def procstepmatlab_runelement(matlabcode_el_text,matpath,scriptname,output,prxdoc,prxnsmap,steptag,rootprocesspath,stepprocesspath,elementpath,uniquematches,argnames,params,inputfilehref,ipythonmodelist,paramdebug,action,scripthref,diaryfilename,retfilename,status,comsol=False):
     # *** output should be rwlock'd exactly ONCE when this is called
     # *** Output will be rwlock'd exactly ONCE on return
     #     (but may have been unlocked in the interim)
@@ -549,7 +549,7 @@ def procstepmatlab_runelement(matlabcode_el_text,matpath,scriptname,output,prxdo
 
 
 
-def procstepmatlab_execfunc(scripthref,matlabcode_el_text,script_firstline,matpath,scriptname,prxdoc,prxnsmap,output,steptag,scripttag,rootprocesspath,stepprocesspath,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,inputfilehref,debugmode,ipythonmodelist,action,comsol=False):
+def procstepmatlab_execfunc(scripthref,matlabcode_el_text,script_firstline,matpath,scriptname,prxdoc,prxnsmap,output,steptag,scripttag,rootprocesspath,stepprocesspath,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,inputfilehref,debugmode,ipythonmodelist,paramdebug,action,comsol=False):
 
     # Parse script_firstline
     # First line of matlab script is expected to be:
@@ -607,7 +607,7 @@ def procstepmatlab_execfunc(scripthref,matlabcode_el_text,script_firstline,matpa
         output.should_be_rwlocked_once()
 
         try : 
-            (modified_elements,referenced_elements,status,diarytext)=procstepmatlab_runelement(matlabcode_el_text,matpath,scriptname,output,prxdoc,prxnsmap,steptag,rootprocesspath,stepprocesspath,elementpath,uniquematches,argnames,params,inputfilehref,ipythonmodelist,action,scripthref,diaryfilename,retfilename,status,comsol=comsol)
+            (modified_elements,referenced_elements,status,diarytext)=procstepmatlab_runelement(matlabcode_el_text,matpath,scriptname,output,prxdoc,prxnsmap,steptag,rootprocesspath,stepprocesspath,elementpath,uniquematches,argnames,params,inputfilehref,ipythonmodelist,paramdebug,action,scripthref,diaryfilename,retfilename,status,comsol=comsol)
             pass
         except KeyboardInterrupt: 
             # Don't want to hold off keyboard interrupts!
@@ -794,7 +794,7 @@ def procstepmatlab(scripthref,matlabcode_el,prxdoc,output,steptag,scripttag,root
     #    pass
     
     
-    procstepmatlab_execfunc(scripthref,matlabcode_el_text,script_firstline,matpath,scriptname,prxdoc,prxnsmap,output,steptag,scripttag,rootprocesspath,stepprocesspath,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,inputfilehref,debugmode,ipythonmodelist,action,comsol=comsol)
+    procstepmatlab_execfunc(scripthref,matlabcode_el_text,script_firstline,matpath,scriptname,prxdoc,prxnsmap,output,steptag,scripttag,rootprocesspath,stepprocesspath,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,inputfilehref,debugmode,ipythonmodelist,paramdebug,action,comsol=comsol)
 
     print("") # add newline
 
@@ -2122,8 +2122,14 @@ def procstep(prxdoc,out,steptag,filters,overall_starttime,debugmode,stdouthandle
         
         pass
 
-    processtrak_common.open_or_lock_output(prxdoc,out,overall_starttime,copyfileinfo=None) # procsteppython/procstepmatlab are called with output locked exactly once
-    try : 
+    processtrak_common.open_or_lock_output(prxdoc,out)
+    
+    try: 
+        out.processpath = processtrak_common.add_process_to_output(prxdoc,out.output,
+                                                                   out.inputfilehref,out.outputfilehref,
+                                                                   overall_starttime,copyfileinfo=None)
+        # procsteppython/procstepmatlab are called with output locked exactly once
+        
         if pycode_el is not None or scripthref.get_bare_unquoted_filename().endswith(".py"):
             procsteppython(scripthref,module_version,pycode_el,prxdoc,out.output,steptag,scripttag,out.processpath,initelementmatch,initelementmatch_nsmap,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,out.inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist,paramdebug)
             pass

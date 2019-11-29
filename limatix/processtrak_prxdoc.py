@@ -11,6 +11,8 @@ from lxml import etree
 def findstep(prxdoc,stepname):
     if stepname=="copyinput":
         return None  # None is a shorthand for the copyinput step
+    if stepname=="mergeinput":
+        return "mergeinput" # Mergeinput is a special case of for the step object
     for step in prxdoc.xpath("prx:step"):
         name=getstepname(prxdoc,step)
         if name==stepname:
