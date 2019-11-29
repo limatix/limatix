@@ -169,6 +169,8 @@ Flags:
   --steps             Don't do anything; just list available steps
   --status            Don't do anything; Show status of steps
   --files             Don't do anything; just list available files
+  --param-debug       Enable printing parameter selection logic when running
+                      steps
     """)
     pass
 
@@ -192,6 +194,7 @@ def main(args=None):
     listfiles=False
     status=False
     needed=False
+    paramdebug=False
     debugmode=False
     ipythonmodelist=[False] # ipythonmode is contained within a list so it is mutable by functions and these changes will be persistent
     
@@ -246,6 +249,9 @@ def main(args=None):
         elif arg=='-h' or arg=="--help":
             usage()
             sys.exit(0)
+            pass
+        elif arg=="--param-debug":
+            paramdebug=True
             pass
         elif arg[0]=='-':
             raise ValueError("Unknown command line switch %s" % (arg))
@@ -364,10 +370,10 @@ def main(args=None):
     
     # Run the specified steps, on the specified files
     if needed:
-        processtrak_common.outputdict_run_needed_steps(prxdoc,prxfilehref,outputdict,useinputfiles_with_hrefs,all_step_elements,steps,filters,overall_starttime,debugmode,stdouthandler,stderrhandler,ipythonmodelist)    
+        processtrak_common.outputdict_run_needed_steps(prxdoc,prxfilehref,outputdict,useinputfiles_with_hrefs,all_step_elements,steps,filters,overall_starttime,debugmode,stdouthandler,stderrhandler,ipythonmodelist,paramdebug)    
         pass
     else:
-        processtrak_common.outputdict_run_steps(prxdoc,outputdict,useinputfiles_with_hrefs,steps,filters,overall_starttime,debugmode,stdouthandler,stderrhandler,ipythonmodelist)    
+        processtrak_common.outputdict_run_steps(prxdoc,outputdict,useinputfiles_with_hrefs,steps,filters,overall_starttime,debugmode,stdouthandler,stderrhandler,ipythonmodelist,paramdebug)    
         pass
     
     pass
