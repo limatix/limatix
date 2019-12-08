@@ -1400,7 +1400,7 @@ def procstep_evalargs(output,prxdoc,prxnsmap,steptag,uniquematches,argnames,args
                     if paramdebug:
                         print("    Parameter %s not found and no default assigned" % (argname))
                         pass
-                    raise NameError("No value found for parameter %s (try enabling --param-debug)") # Let user know we can't find this!
+                    raise NameError("No value found for parameter %s (try enabling --param-debug)" % (argname)) # Let user know we can't find this!
                 pass
             pass
         pass
@@ -1830,8 +1830,10 @@ def procsteppython(scripthref,module_version,pycode_el,prxdoc,output,steptag,scr
 
     prxnsmap=dict(prxdoc.getroot().nsmap)
 
-    stepglobals={}
+    action=processtrak_prxdoc.getstepname(prxdoc,steptag)
 
+    stepglobals={}
+    stepglobals["__processtrak_stepname"]=action
 
     # !!!*** NON-REENTRANT
     # Temporarily adjust sys.path so as to add script's directory 
@@ -1901,8 +1903,7 @@ def procsteppython(scripthref,module_version,pycode_el,prxdoc,output,steptag,scr
     stepprocess_el=output.addelement(rootprocess_el,"lip:process")
     provenance.write_timestamp(output,stepprocess_el,"lip:starttimestamp")
     
-    action=processtrak_prxdoc.getstepname(prxdoc,steptag)
-    provenance.write_action(output,stepprocess_el,action)
+    provenance.write_action(output,stepprocess_el,action) # action is step name, assigned at top of function
     
     for module in (set(sys.modules.keys()) & modules):  # go through modules
         provenance.reference_pymodule(output,stepprocess_el,"lip:used",rootprocess_el.getparent(),module,warnlevel="none")
@@ -2134,7 +2135,7 @@ def procstep(prxdoc,out,steptag,filters,overall_starttime,debugmode,stdouthandle
             procsteppython(scripthref,module_version,pycode_el,prxdoc,out.output,steptag,scripttag,out.processpath,initelementmatch,initelementmatch_nsmap,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,out.inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist,paramdebug)
             pass
         elif comsolmatlabcode_el is not None or scripthref.get_bare_unquoted_filename().endswith("_comsol.m"):
-            procstepmatlab(scripthref,comsolmatlabcode_el,prxdoc,out.output,steptag,scripttag,out.processpath,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,out.inputfilehref,debugmode,ipythonmodelist,paramdebugcomsol=True)
+            procstepmatlab(scripthref,comsolmatlabcode_el,prxdoc,out.output,steptag,scripttag,out.processpath,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,out.inputfilehref,debugmode,ipythonmodelist,paramdebug,comsol=True)
             pass
         elif matlabcode_el is not None or scripthref.get_bare_unquoted_filename().endswith(".m"):
             procstepmatlab(scripthref,matlabcode_el,prxdoc,out.output,steptag,scripttag,out.processpath,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,out.inputfilehref,debugmode,ipythonmodelist,paramdebug)

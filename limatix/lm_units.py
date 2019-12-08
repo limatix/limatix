@@ -467,7 +467,7 @@ def parseunits_right(unitstr):
 
 findpower_right=re.compile(r"""(.*?)(\^)([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?)$""")
 findfloat_right=re.compile(r"""(.*?)([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?)$""")
-findunitname_right=re.compile(r"""(.*?)([a-zA-Z%]+)$""")
+findunitname_right=re.compile(r"""(.*?)([a-zA-Z_%]+)$""")
                               
 def parseunitpower_right(unitstr):
     power=1.0

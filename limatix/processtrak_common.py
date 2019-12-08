@@ -308,7 +308,7 @@ def create_outputfile(prxdoc,inputfilehref,nominal_outputfilehref,outputfilehref
 
                 # Ensure prx:outputfile tag has a hyperlink
                 if not outdoc.hasattr(outdoc_outputfiletag,"xlink:href"):
-                    outputdict[outdoc_inputfilehref].nominal_outputfilehref.xmlrepr(outdoc,outdoc_outputfiletag)
+                    outputdict[outdoc_inputfilehref].outputfilehref.xmlrepr(outdoc,outdoc_outputfiletag)
                     pass
 
                 pass
