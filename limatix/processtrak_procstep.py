@@ -180,8 +180,8 @@ def find_script_in_path(contexthref,scriptname):
 
 def escapematlab(to_escape,comsol=False):
     """Escape special characters that can't go verbatim into a MATLAB quoted string passed to sprintf. 
-    if comsol flag is set, then we hex-escape the entire string because in passing MATLAB commands
-    through COMSOL spaces get converted to semicolons (?) and this is problematic"""
+    in COMSOL mode we hex-escape the entire string because in passing MATLAB commands through COMSOL spaces get 
+    converted to semicolons (?) and this is problematic."""
     ret=[]
 
     ind = 0
@@ -190,6 +190,14 @@ def escapematlab(to_escape,comsol=False):
         while ind < len(to_escape):
             if to_escape[ind]=='\'':
                 ret.append('\'\'')
+                pass
+            elif to_escape[ind]=='\n':
+                ret.append('\'\'')
+                ret.append('n')
+                pass
+            elif to_escape[ind]=='\r':
+                ret.append('\'\'')
+                ret.append('r')
                 pass
             elif to_escape[ind]=='%':
                 ret.append('%%')
