@@ -573,7 +573,7 @@ def procstepmatlab_execfunc(scripthref,matlabcode_el_text,script_firstline,matpa
     # Iterate over trailing_comma_params to get individual parameters
     trailing_comma_param_list = re.findall(r"""(\w+)\s*,\s*""",trailing_comma_params)
 
-    argnames = trailing_comma_param_list + [ final_param ] # List of all parameters
+    argnames = trailing_comma_param_list + [ final_param.strip() ] # List of all parameters
     
 
     if uniquematchel is not None:
