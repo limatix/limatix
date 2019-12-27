@@ -134,8 +134,18 @@ def evaluate_from_elements(xmldocu,elementlist,typename,paramname,useparamname,p
         if paramdebug:
             print("        Found single element %s with value %s; cast to type %s" % (useparamname,xmldocu.gettext(elementlist[0]),typename))
             pass
-        
-        return literal_python_typedict[typename](ast.literal_eval(xmldocu.gettext(elementlist[0])))
+
+        valuetext = xmldocu.gettext(elementlist[0])        
+        # accommodate inconsistency between case of 
+        # XPath true/false vs. Python True/False
+        if typename=="bool" and valuetext == "true":
+            valuetext="True"
+            pass
+        elif typename=="bool" and valuetext == "false":
+            valuetext="False"
+            pass
+
+        return literal_python_typedict[typename](ast.literal_eval(valuetext))
     elif typename=="nodeset":
         #import pdb as pythondb
         #pythondb.set_trace()
