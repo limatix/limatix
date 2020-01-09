@@ -723,7 +723,7 @@ def procstepmatlab(scripthref,matlabcode_el,prxdoc,output,steptag,scripttag,root
     (scriptfulldir,scriptname)=os.path.split(scriptfullpath)
 
     if "MATLABPATH" in os.environ:        
-        matpath = "%s:%s" % (scriptfulldir,os.environ["MATLABPATH"])
+        matpath = "%s%s%s" % (scriptfulldir,os.pathsep,os.environ["MATLABPATH"])
         pass
     else:
         matpath=scriptfulldir
