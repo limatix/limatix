@@ -74,6 +74,13 @@ if not hasattr(builtins,"basestring"):
     basestring=str
     pass
 
+if not hasattr(builtins,"long"):
+    # python3
+    long=int
+    pass
+    
+
+
 # import dg_units
 
 from . import timestamp
@@ -366,7 +373,7 @@ def procstepmatlab_do_run(matlabcode_el_text,matpath,scriptname,diaryfilename,re
             # a string!
             matlabinitstrings.append("%s=sprintf(\'%s\');" % (argname,escapematlab(argvalue,comsol=comsol)))
             pass
-        elif isinstance(argvalue,int):#  or isinstance(argvalue,long): # Python 3 no longer distinguishes long and int
+        elif isinstance(argvalue,int) or isinstance(argvalue,long): # Python 3 no longer distinguishes long and int
             # an integer!
             matlabinitstrings.append("%s=%d;" % (argname,argvalue))
             pass
