@@ -76,24 +76,24 @@ class infiledicts(object):
         pass
 
     @classmethod
-    def fromhreflist(cls,inputfilehrefs,repository_root=None):
+    def fromhreflist(cls,inputfilehrefs,repository_root=None,ignore_locking=False):
         ifd=cls()
         
         for inputfilehref in inputfilehrefs:
             if check_inside_root(repository_root,inputfilehref):
-                ifd.open_href(inputfilehref)
+                ifd.open_href(inputfilehref,ignore_locking=ignore_locking)
                 pass
             pass
         return ifd
 
-    def open_href(self,inputfilehref):
+    def open_href(self,inputfilehref,ignore_locking=False):
 
         inputfilehref=inputfilehref.fragless()
         
         if inputfilehref in self.all:
             return self.all[inputfilehref]
         
-        ifo=inputfile.open_href(inputfilehref)
+        ifo=inputfile.open_href(inputfilehref,ignore_locking=ignore_locking)
         if ifo.ftype==ifo.IFT_XLG:
             self.xlg[inputfilehref]=ifo
             pass
@@ -165,7 +165,7 @@ class inputfile(object):
         pass
 
     @classmethod
-    def open_href(cls,inputfilehref):
+    def open_href(cls,inputfilehref,ignore_locking=False):
         #barefilename=inputfilehref.get_bare_unquoted_filename()
         #(basename,ext)=posixpath.splitext(barefilename)
 
@@ -174,7 +174,13 @@ class inputfile(object):
         ftype=cls.IFT_OTHERUNK
         xmldocu=None
         try:
-            xmldocu=xmldoc.xmldoc.loadhref(inputfilehref,nsmap=nsmap,readonly=True,use_locking=True,nodialogs=True)
+            if ignore_locking:
+                
+                xmldocu=xmldoc.xmldoc.loadhref(inputfilehref,nsmap=nsmap,readonly=True,use_locking=False,nodialogs=True)
+                pass
+            else:
+                xmldocu=xmldoc.xmldoc.loadhref(inputfilehref,nsmap=nsmap,readonly=True,use_locking=True,nodialogs=True)
+                pass
             try: 
                 ftype=cls.detect_ftype(xmldocu)
                 pass
@@ -233,7 +239,7 @@ class inputfile(object):
     pass
 
 
-def add_to_traverse(repository_root,infiles,pending,completed,newhref):
+def add_to_traverse(repository_root,infiles,pending,completed,newhref,ignore_locking=False):
 
     newhref=newhref.fragless()
 
@@ -245,7 +251,7 @@ def add_to_traverse(repository_root,infiles,pending,completed,newhref):
 
     if newhref not in pending and newhref not in completed:
         try:
-            infiles.open_href(newhref)  # adds to dicts if not already present
+            infiles.open_href(newhref,ignore_locking=ignore_locking)  # adds to dicts if not already present
             pending.add(newhref)
             pass
         except (URLError,HTTPError,IOError):
@@ -257,7 +263,7 @@ def add_to_traverse(repository_root,infiles,pending,completed,newhref):
 
     
 
-def traverse_one(infiles,infileobj,pending,completed,dests,hrefs,recursive=False,include_processed=True,repository_root=None):
+def traverse_one(infiles,infileobj,pending,completed,dests,hrefs,recursive=False,include_processed=True,repository_root=None,ignore_locking=False):
     # go through infile, searching for links
 
 
@@ -284,7 +290,7 @@ def traverse_one(infiles,infileobj,pending,completed,dests,hrefs,recursive=False
                     hrefs.add(xlphref)
                     pass
                 if recursive:
-                    add_to_traverse(repository_root,infiles,pending,completed,xlphref)
+                    add_to_traverse(repository_root,infiles,pending,completed,xlphref,ignore_locking=ignore_locking)
                     pass
                 pass
             pass
@@ -324,12 +330,12 @@ def traverse_one(infiles,infileobj,pending,completed,dests,hrefs,recursive=False
                     pass
                 
                 if recursive:
-                    add_to_traverse(repository_root,infiles,pending,completed,prx_inputfile_href.fragless())
+                    add_to_traverse(repository_root,infiles,pending,completed,prx_inputfile_href.fragless(),ignore_locking=ignore_locking)
                     pass
                 
                 # follow link to output whether or not recursive is set
                 if include_processed:
-                    add_to_traverse(repository_root,infiles,pending,completed,prx_outputdict[prx_inputfile_href].outputfilehref.fragless())
+                    add_to_traverse(repository_root,infiles,pending,completed,prx_outputdict[prx_inputfile_href].outputfilehref.fragless(),ignore_locking=ignore_locking)
                     pass
                 
                 pass
@@ -354,7 +360,7 @@ def traverse_one(infiles,infileobj,pending,completed,dests,hrefs,recursive=False
                         hrefs.add(href)
                         pass
                     if recursive:
-                        add_to_traverse(repository_root,infiles,pending,completed,href)
+                        add_to_traverse(repository_root,infiles,pending,completed,href,ignore_locking=ignore_locking)
                         pass
                     pass
                 pass
@@ -382,7 +388,7 @@ def check_inside_root(repository_root,href):
     return True
 
 
-def traverse(infiles,infilehrefs=None,recursive=False,need_href_set=False,include_processed=True,repository_root=None):
+def traverse(infiles,infilehrefs=None,recursive=False,need_href_set=False,include_processed=True,repository_root=None,ignore_locking=False):
     # infiles is infiledict object, infilehrefs is list of hrefs
     # if repository root is given, only add hrefs that appear to be within the root
     
@@ -404,14 +410,14 @@ def traverse(infiles,infilehrefs=None,recursive=False,need_href_set=False,includ
 
     
     for infilehref in infilehrefs:
-        add_to_traverse(repository_root,infiles,pending,completed,infilehref)
+        add_to_traverse(repository_root,infiles,pending,completed,infilehref,ignore_locking=ignore_locking)
         pass
     
     # print("traversepending(%s)" % ([str(infilehref) for infilehref in pending]))
     while len(pending) > 0:
         for href in list(pending):
             if not href.ismem(): # ignore mem:// url's 
-                traverse_one(infiles,infiles.all[href],pending,completed,dests,hrefs,recursive=recursive,include_processed=include_processed,repository_root=repository_root)
+                traverse_one(infiles,infiles.all[href],pending,completed,dests,hrefs,recursive=recursive,include_processed=include_processed,repository_root=repository_root,ignore_locking=ignore_locking)
                 pass
             pass
         pass

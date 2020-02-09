@@ -58,12 +58,13 @@ def git_dir_context(repo):
     return (rootpath,cdup,prefix)
 
 def add_usage():
-    print("""Usage: %s add [-h] [-a] [--dry-run] <inputfiles...>
+    print("""Usage: %s add [-h] [-a] [--dry-run] [--ignore-locking] <inputfiles...>
 Stage modified and new raw data/script files for commit
    -h                This help
    -a                Search for .xlg, .prx, and .py files within
                      current directory to add
    --dry-run         Do not actually perform the changes
+   --ignore-locking  Do not lock the input files when reading them
    
 NOTE: This is intended for raw data, experiment logs, scripts and instructions,
       and will only stage files for a branch that does NOT contain "processed"
@@ -71,12 +72,12 @@ NOTE: This is intended for raw data, experiment logs, scripts and instructions,
 """ % (sys.argv[0]))
     pass
 
-def get_unprocessed(input_file_hrefs,cdup):
+def get_unprocessed(input_file_hrefs,cdup,ignore_locking):
     repository_root=dc_value.hrefvalue(pathname2url(cdup) + '/',contexthref=".")
 
-    input_files=processtrak_cleanup.infiledicts.fromhreflist(input_file_hrefs,repository_root=repository_root)
+    input_files=processtrak_cleanup.infiledicts.fromhreflist(input_file_hrefs,repository_root=repository_root,ignore_locking=ignore_locking)
 
-    (completed_set,desthref_set,href_set)=processtrak_cleanup.traverse(input_files,recursive=True,need_href_set=True,include_processed=False,repository_root=repository_root)
+    (completed_set,desthref_set,href_set)=processtrak_cleanup.traverse(input_files,recursive=True,need_href_set=True,include_processed=False,repository_root=repository_root,ignore_locking=ignore_locking)
 
     allhrefs_no_dest = [ href for href in (completed_set | href_set)-desthref_set if not href.isabs() ]
     allhrefs_rootrel_no_dest = [ href.attempt_relative_href(pathname2url(cdup)+'/') for href in allhrefs_no_dest  ]
@@ -96,18 +97,18 @@ def get_unprocessed(input_file_hrefs,cdup):
 
     return (unprocessedexistingpaths,xlpexistingpaths)
 
-def get_processed(input_file_hrefs_unprocessed,input_file_hrefs,cdup):
+def get_processed(input_file_hrefs_unprocessed,input_file_hrefs,cdup,ignore_locking):
     repository_root=dc_value.hrefvalue(pathname2url(cdup) + '/',contexthref=".")
 
-    input_files_up=processtrak_cleanup.infiledicts.fromhreflist(input_file_hrefs_unprocessed,repository_root=repository_root)
+    input_files_up=processtrak_cleanup.infiledicts.fromhreflist(input_file_hrefs_unprocessed,repository_root=repository_root,ignore_locking=ignore_locking)
 
 
     
-    (unprocessed_completed_set,unprocessed_desthref_set,unprocessed_href_set)=processtrak_cleanup.traverse(input_files_up,recursive=True,need_href_set=True,include_processed=False,repository_root=repository_root)
+    (unprocessed_completed_set,unprocessed_desthref_set,unprocessed_href_set)=processtrak_cleanup.traverse(input_files_up,recursive=True,need_href_set=True,include_processed=False,repository_root=repository_root,ignore_locking=ignore_locking)
 
-    input_files_pr=processtrak_cleanup.infiledicts.fromhreflist(input_file_hrefs,repository_root=repository_root)
+    input_files_pr=processtrak_cleanup.infiledicts.fromhreflist(input_file_hrefs,repository_root=repository_root,ignore_locking=ignore_locking)
 
-    (completed_set,desthref_set,href_set)=processtrak_cleanup.traverse(input_files_pr,recursive=True,need_href_set=True,include_processed=True,repository_root=repository_root)
+    (completed_set,desthref_set,href_set)=processtrak_cleanup.traverse(input_files_pr,recursive=True,need_href_set=True,include_processed=True,repository_root=repository_root,ignore_locking=ignore_locking)
 
     #import pdb
     #pdb.set_trace()
@@ -143,6 +144,7 @@ def add(args):
     positionals=[]
     all=False
     dryrun=False
+    ignore_locking=False
     
     while argc < len(args):
         arg=args[argc]
@@ -155,6 +157,9 @@ def add(args):
             sys.exit(0)
         elif arg=="--dry-run":
             dryrun=True
+            pass
+        elif arg=="--ignore-locking":
+            ignore_locking=True
             pass
         elif arg.startswith('-'):
             raise ValueError("Unknown parameter: \"%s\"" % (arg))
@@ -193,7 +198,7 @@ def add(args):
     #import pdb 
     #pdb.set_trace()
 
-    (unprocessedpaths,xlppaths)=get_unprocessed(input_file_hrefs,cdup)
+    (unprocessedpaths,xlppaths)=get_unprocessed(input_file_hrefs,cdup,ignore_locking)
 
     print("Adding paths for commit:")
     for unprocessedpath in unprocessedpaths:
@@ -221,7 +226,7 @@ def add(args):
     pass
 
 def add_processed_usage():
-    print("""Usage: %s add-processed [-h] [-a] [--dry-run] <inputfiles...>
+    print("""Usage: %s add-processed [-h] [-a] [--ignore-locking] <inputfiles...>
 Stage modified and new processing output files for commit.
 These should only be committed to a branch with "processed" in 
 the name.
@@ -229,6 +234,7 @@ the name.
    -a                Search for .xlg, .prx, and .py files within
                      current directory to add
    --dry-run         Do not actually perform the changes
+   --ignore-locking  Do not lock the input files when reading them
    
 NOTE: This is intended for processing output only,
       and will only stage files for a branch that DOES contain "processed"
@@ -242,7 +248,8 @@ def add_processed(args):
     positionals=[]
     all=False
     dryrun=False
-    
+    ignore_locking=False
+
     while argc < len(args):
         arg=args[argc]
 
@@ -254,6 +261,9 @@ def add_processed(args):
             sys.exit(0)
         elif arg=="--dry-run":
             dryrun=True
+            pass
+        elif arg=="--ignore-locking":
+            ignore_locking=True
             pass
         elif arg.startswith('-'):
             raise ValueError("Unknown parameter: \"%s\"" % (arg))
@@ -285,7 +295,7 @@ def add_processed(args):
 
     input_file_hrefs=[ dc_value.hrefvalue(pathname2url(input_file_name),contexthref=dc_value.hrefvalue(pathname2url(cdup)+'/')) for input_file_name in to_consider_pathname_fixup ]
     
-    (unprocessedpaths,xlppaths)=get_unprocessed(input_file_hrefs_unprocessed,cdup)
+    (unprocessedpaths,xlppaths)=get_unprocessed(input_file_hrefs_unprocessed,cdup,ignore_locking)
 
     # Check that all unprocessedpaths are unmodified
     unprocessedpaths_fixup = [ input_file_name if os.path.split(input_file_name)[0]!='.' else os.path.split(input_file_name)[1] for input_file_name in unprocessedpaths ]
@@ -352,7 +362,7 @@ def add_processed(args):
         sys.exit(1)
         pass
 
-    processedpaths=get_processed(input_file_hrefs_unprocessed,input_file_hrefs,cdup)
+    processedpaths=get_processed(input_file_hrefs_unprocessed,input_file_hrefs,cdup,ignore_locking)
 
     print("Adding paths for commit:")
     for processedpath in processedpaths:
