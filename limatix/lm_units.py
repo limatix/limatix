@@ -821,7 +821,10 @@ def printunits(Comb,longflag=False):
 
                 # Just this first Factor
                 FactorPrefix=IsSiPrefix(math.log10(Factor.Coefficient),False)
-                FactorPlusCombPrefix=IsSiPrefix(math.log10(Comb.Coefficient**(1.0/Factor.Power)*Factor.Coefficient),longflag)
+                FactorPlusCombPrefix=None
+                if Comb.Coefficient > 0.0:
+                    FactorPlusCombPrefix=IsSiPrefix(math.log10(Comb.Coefficient**(1.0/Factor.Power)*Factor.Coefficient),longflag)
+                    pass
                 if Factor.Unit is not None and Factor.Unit.SiPrefixFlag and FactorPrefix is not None and FactorPlusCombPrefix is not None:
                     # Print combined prefix
                     buff+=FactorPlusCombPrefix
