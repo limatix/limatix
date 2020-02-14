@@ -450,11 +450,16 @@ def create_outputfile(prxdoc,inputfilehref,nominal_outputfilehref,outputfilehref
                     
                     pass
                 
+                stylesheet_param_names = prxdoc.listattrs(xslttag,noprovenance=True)
+                stylesheet_param_names_nullnamespace = [ paramname for paramname in stylesheet_param_names if paramname.find(":") < 0 ]
+
+                stylesheet_params={ paramname: etree.XSLT.strparam( prxdoc.getattr(xslttag,paramname,noprovenance=True)) }
+                
                 stylesheet=etree.parse(filename)
                 stylesheet_transform=etree.XSLT(stylesheet)
                 
                 # Replace outdoc with transformed copy
-                outdoc=xmldoc.xmldoc.frometree(stylesheet_transform(outdoc.doc),nsmap=prx_nsmap,readonly=False,contexthref=outdoc.getcontexthref())
+                outdoc=xmldoc.xmldoc.frometree(stylesheet_transform(outdoc.doc,**stylesheet_params),nsmap=prx_nsmap,readonly=False,contexthref=outdoc.getcontexthref())
                 pass
 
             

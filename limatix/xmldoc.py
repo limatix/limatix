@@ -2733,6 +2733,57 @@ class xmldoc(object):
         element.getparent().remove(element)
         pass
 
+    def listattrs(self,element,namespaces=None,noprovenance=False):
+        """List the attributes of the specified element or path
+        Use namespace prefixes as usual. Any attributes in unknown 
+        namespaces will be ignored
+
+        element:      The element itself, or path to it from the main tag,
+                  or None to get attributes of the main tag
+        namespaces: Additional namespaces for attribute evaluation
+
+        returns: list of attribute names with prefixes
+        """
+        
+        if isinstance(element,basestring):
+            element=self.find(element);
+            pass
+        if element is None:
+            element=self.doc.getroot()
+            pass
+
+        if not noprovenance:
+            provenance.xmldocelementaccessed(self,element)
+            pass
+        
+        self.element_in_doc(element)
+
+        nsdict=copy.copy(self.namespaces)
+        nsdict.update(namespaces)
+
+        reverse_nsdict = { nsurl: nspre for (nspre,nsurl) in nsdict.items() }
+
+        attrlist = []
+        
+        for attrname in attrib:
+            if attrname[0]=='{': # prefixed namespace
+                closebraceoffset = attrname.find('}')
+                if attrname[1:closebraceoffset] in reverse_nsdict:
+                    # Found suitable prefix
+                    prefixedattrname = reverse_nsdict[attrname[1:closebraceoffset]] + ":" + attrname[(closebraceoffset+1):]
+                    pass
+                else:
+                    # Did not find suitable prefix -- ignore this attribute
+                    continue                
+                pass
+            else:
+                # No namespace 
+                prefixedattrname = attrname
+                pass
+            attrlist.append(prefixedattrname)
+            pass
+        return attrlist
+    
     def getattr(self,tag,attrname,default=IndexError("Attribute not found"),namespaces=None,noprovenance=False) :
         """Get the attribute of the specified element or path
         Use namespace prefixes as usual. 
