@@ -2759,13 +2759,15 @@ class xmldoc(object):
         self.element_in_doc(element)
 
         nsdict=copy.copy(self.namespaces)
-        nsdict.update(namespaces)
+        if namespaces is not None:
+            nsdict.update(namespaces)
+            pass
 
         reverse_nsdict = { nsurl: nspre for (nspre,nsurl) in nsdict.items() }
 
         attrlist = []
         
-        for attrname in attrib:
+        for attrname in element.attrib:
             if attrname[0]=='{': # prefixed namespace
                 closebraceoffset = attrname.find('}')
                 if attrname[1:closebraceoffset] in reverse_nsdict:
