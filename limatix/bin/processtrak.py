@@ -315,7 +315,7 @@ def main(args=None):
         pass  
 
 
-    inputfiles_with_hrefs=processtrak_common.getinputfiles(prxdoc)
+    (inputfiles_element,inputfiles_with_hrefs)=processtrak_common.getinputfiles(prxdoc)
 
     
         
@@ -370,10 +370,10 @@ def main(args=None):
     
     # Run the specified steps, on the specified files
     if needed:
-        processtrak_common.outputdict_run_needed_steps(prxdoc,prxfilehref,outputdict,useinputfiles_with_hrefs,all_step_elements,steps,filters,overall_starttime,debugmode,stdouthandler,stderrhandler,ipythonmodelist,paramdebug)    
+        processtrak_common.outputdict_run_needed_steps(prxdoc,prxfilehref,outputdict,inputfiles_element,useinputfiles_with_hrefs,all_step_elements,steps,filters,overall_starttime,debugmode,stdouthandler,stderrhandler,ipythonmodelist,paramdebug)    
         pass
     else:
-        processtrak_common.outputdict_run_steps(prxdoc,outputdict,useinputfiles_with_hrefs,steps,filters,overall_starttime,debugmode,stdouthandler,stderrhandler,ipythonmodelist,paramdebug)    
+        processtrak_common.outputdict_run_steps(prxdoc,outputdict,inputfiles_element,useinputfiles_with_hrefs,steps,filters,overall_starttime,debugmode,stdouthandler,stderrhandler,ipythonmodelist,paramdebug)    
         pass
     
     pass

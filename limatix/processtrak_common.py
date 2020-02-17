@@ -228,8 +228,53 @@ def find_xslt_in_path(contexthref,xsltname):
     
     raise IOError("Could not find xslt transform %s in path %s" % (xsltname,unicode(xsltpath)))
 
+def create_outputfile_process_xslt(prxdoc,xslttag,inputfileselement,inputfileelement,source_doc):
 
-def create_outputfile(prxdoc,inputfilehref,nominal_outputfilehref,outputfilehref,outputdict):
+    if prxdoc.hasattr(xslttag,"xlink:href"):
+        filename=dcv.hrefvalue.fromxml(prxdoc,xslttag).getpath()
+        pass
+    else:
+        filename=find_xslt_in_path(prxdoc.getcontexthref(),prxdoc.getattr(xslttag,"name")).getpath()
+        
+        pass
+
+    stylesheet_param_names = prxdoc.listattrs(xslttag,noprovenance=True)
+    stylesheet_param_names_nullnamespace = [ paramname for paramname in stylesheet_param_names if paramname.find(":") < 0 ]
+
+    # Provide any attributes of the <xslt> element as string parameters to the
+    # stylesheet. Also provide $inputfile parameter that is the <prx:inputfile>
+    # element and the $inputfiles parameter that is the <prx:inputfiles> tree
+    
+    stylesheet_params={ paramname: etree.XSLT.strparam( prxdoc.getattr(xslttag,paramname,noprovenance=True)) }
+
+    # Since LXML XSLT can't directly pass node-sets as parameters,
+    # We provde the $inputfile parameter by creating an extension
+    # XPath function that returns the <prx:inputfile> and
+    # pass an XPath call to that function
+
+    return_prx_inputfiles = lambda context: copy.deepcopy(inputfileselement)
+    return_prx_inputfile = lambda context: copy.deepcopy(inputfileelement)
+
+    # We need a function namespace... make that unique by using
+    # id(return_prx_inputfile) in it
+    nsuri = "http://limatix.org/processtrak/create_outputfile/%d" % (id(return_prx_inputfile))
+    #ns=etree.FunctionNamespace(nsuri)
+    #ns["inputfile"] = return_prx_inputfile
+    rpi_ext = { (nsuri,"inputfiles"): return_prx_inputfiles,
+                (nsuri,"inputfiles"): return_prx_inputfile }
+    
+    stylesheet_params["inputfile"] = etree.XPath("co:inputfile()",namespaces={"co": nsuri },extensions=rpi_ext)
+    stylesheet_params["inputfiles"] = etree.XPath("co:inputfiles()",namespaces={"co": nsuri },extensions=rpi_ext)
+    
+    stylesheet=etree.parse(filename)
+    stylesheet_transform=etree.XSLT(stylesheet,extensions=rpi_ext)
+
+    # transform source_doc
+    outdoc=xmldoc.xmldoc.frometree(stylesheet_transform(source_doc.doc,**stylesheet_params),nsmap=prx_nsmap,readonly=False,contexthref=source_doc.getcontexthref())
+    return outdoc
+
+
+def create_outputfile(prxdoc,inputfiles_element,inputfilehref,nominal_outputfilehref,outputfilehref,outputdict):
     """Create the output XML file from the raw input by running any filters, etc. 
     It will be presumed that the output XML file will eventually be referred to by nominal_outputfilehref, 
     but the actual file written will be outputfilehref"""
@@ -319,18 +364,7 @@ def create_outputfile(prxdoc,inputfilehref,nominal_outputfilehref,outputfilehref
         # a transformation to apply? 
         xslttag=prxdoc.xpathsinglecontext(outputdict[inputfilehref].inputfileelement,"prx:xslt",default=None)
         if xslttag is not None:
-            if prxdoc.hasattr(xslttag,"xlink:href"):
-                filename=dcv.hrefvalue.fromxml(prxdoc,xslttag).getpath()
-                pass
-            else:
-                filename=find_xslt_in_path(prxdoc.getcontexthref(),prxdoc.getattr(xslttag,"name")).getpath()
-                    
-                pass
-            stylesheet=etree.parse(filename)
-            stylesheet_transform=etree.XSLT(stylesheet)
-
-            # Replace outdoc with transformed copy
-            outdoc=xmldoc.xmldoc.frometree(stylesheet_transform(outdoc.doc),nsmap=prx_nsmap,readonly=False,contexthref=outdoc.getcontexthref())
+            outdoc = create_outputfile_process_xslt(prxdoc,xslttag,inputfileselement,outputdict[inputfilehref].inputfileelement,outdoc)
             pass
 
         # Write out selected portion under new file name outputfilehref
@@ -442,24 +476,8 @@ def create_outputfile(prxdoc,inputfilehref,nominal_outputfilehref,outputfilehref
             # a transformation to apply? 
             xslttag=prxdoc.xpathsinglecontext(outputdict[inputfilehref].inputfileelement,"prx:xslt",default=None)
             if xslttag is not None:
-                if prxdoc.hasattr(xslttag,"xlink:href"):
-                    filename=dcv.hrefvalue.fromxml(prxdoc,xslttag).getpath()
-                    pass
-                else:
-                    filename=find_xslt_in_path(prxdoc.getcontexthref(),prxdoc.getattr(xslttag,"name")).getpath()
-                    
-                    pass
-                
-                stylesheet_param_names = prxdoc.listattrs(xslttag,noprovenance=True)
-                stylesheet_param_names_nullnamespace = [ paramname for paramname in stylesheet_param_names if paramname.find(":") < 0 ]
-
-                stylesheet_params={ paramname: etree.XSLT.strparam( prxdoc.getattr(xslttag,paramname,noprovenance=True)) }
-                
-                stylesheet=etree.parse(filename)
-                stylesheet_transform=etree.XSLT(stylesheet)
-                
                 # Replace outdoc with transformed copy
-                outdoc=xmldoc.xmldoc.frometree(stylesheet_transform(outdoc.doc,**stylesheet_params),nsmap=prx_nsmap,readonly=False,contexthref=outdoc.getcontexthref())
+                outdoc = create_outpufile_process_xslt(prxdoc,xslttag,outputdict[inputfilehref].inputfileelement,outdoc)
                 pass
 
             
@@ -518,22 +536,11 @@ def create_outputfile(prxdoc,inputfilehref,nominal_outputfilehref,outputfilehref
             
             pass
         elif xslttag is not None:
-
-            if prxdoc.hasattr(xslttag,"xlink:href"):
-                filename=dcv.hrefvalue.fromxml(prxdoc,xslttag).getpath()
-                pass
-            else:
-                filename=find_xslt_in_path(prxdoc.getcontexthref(),prxdoc.getattr(xslttag,"name")).getpath()
-                
-                pass
-                
-            stylesheet=etree.parse(filename)
-            stylesheet_transform=etree.XSLT(stylesheet)
-            
             indoc=xmldoc.xmldoc.loadhref(inputfilehref,nsmap=prx_nsmap,readonly=True)
+            outdoc = create_outputfile_process_xslt(prxdoc,xslttag,inputfileselement,outputdict[inputfilehref].inputfileelement,indoc)
+            
 
-            # transform indoc
-            outdoc=xmldoc.xmldoc.frometree(stylesheet_transform(indoc.doc),nsmap=prx_nsmap,readonly=False,contexthref=indoc.getcontexthref())
+)
             # Write out under new file name outputfilehref
             assert(outputfilehref != inputfilehref)
             outdoc.set_href(outputfilehref,readonly=False)
@@ -706,7 +713,7 @@ def strip_elements_notgeneratedby(etree_element,wasgeneratedby):
     pass
 
 
-def merge_output_file(prxdoc,outputdict,inputfilehref,overall_starttime):
+def merge_output_file(prxdoc,outputdict,inputfiles_element,inputfilehref,overall_starttime):
 
 
     out=outputdict[inputfilehref]
@@ -733,7 +740,7 @@ def merge_output_file(prxdoc,outputdict,inputfilehref,overall_starttime):
     temp_outputfilehref = dcv.hrefvalue(temp_outputfilename,outputdirhref)
 
     # Create empty output file from input file, stored in temp_outputfilehref, but pretending to be out.outputfilehref
-    (inputfilecanonhash,inputfiletimestamp)=create_outputfile(prxdoc,inputfilehref,out.outputfilehref,temp_outputfilehref,outputdict)
+    (inputfilecanonhash,inputfiletimestamp)=create_outputfile(prxdoc,inputfiles_element,inputfilehref,out.outputfilehref,temp_outputfilehref,outputdict)
 
     temp_output = xmldoc.xmldoc.loadhref(temp_outputfilehref,readonly=False,num_backups=0,use_locking=False,nsmap=outputnsmap) 
     
@@ -808,7 +815,7 @@ def merge_output_file(prxdoc,outputdict,inputfilehref,overall_starttime):
     pass
     
 
-def initialize_output_file(prxdoc,outputdict,inputfilehref,overall_starttime,force=False):
+def initialize_output_file(prxdoc,outputdict,inputfiles_element,inputfilehref,overall_starttime,force=False):
 
 
     out=outputdict[inputfilehref]
@@ -820,7 +827,7 @@ def initialize_output_file(prxdoc,outputdict,inputfilehref,overall_starttime,for
         # Need to create outputfile by copying or running inputfilter
         cf_starttime=timestamp.now().isoformat()
 
-        (inputfilecanonhash,inputfiletimestamp)=create_outputfile(prxdoc,inputfilehref,out.outputfilehref,out.outputfilehref,outputdict)
+        (inputfilecanonhash,inputfiletimestamp)=create_outputfile(prxdoc,inputfiles_element,inputfilehref,out.outputfilehref,out.outputfilehref,outputdict)
 
         # Will mark provenance of each element of output file
         open_or_lock_output(prxdoc,out)   
@@ -862,6 +869,7 @@ def finalize_output_file(prxdoc,outputdict,inputfilehref):
 def getinputfiles(prxdoc):
     # Returns list of (inputfileelement,inputfilehref) tuples
     
+    inputfiles_element=prxdoc.xpathsingle("prx:inputfiles")
     inputfiles=prxdoc.xpath("prx:inputfiles/prx:inputfile")
     inputfiles_with_hrefs = [ (inputfile,dcv.hrefvalue.fromxml(prxdoc,inputfile)) for inputfile in inputfiles ]
 
@@ -876,12 +884,11 @@ def getinputfiles(prxdoc):
         # got an output file for the .prx file
         # This means we have to define the inputfiles segment as
         # an inputfile... via a hypertext reference with fragment
-        inputfiles_element=prxdoc.xpathsingle("prx:inputfiles")
         inputfiles.insert(0,inputfiles_element)
         inputfiles_with_hrefs.insert(0,(inputfiles_element,dcv.hrefvalue.fromelement(prxdoc,inputfiles_element)))
         pass
 
-    return inputfiles_with_hrefs
+    return (inputfiles_element,inputfiles_with_hrefs)
 
 
 def build_outputdict(prxdoc,useinputfiles_with_hrefs):
@@ -921,7 +928,7 @@ def build_outputdict(prxdoc,useinputfiles_with_hrefs):
         pass
     return outputdict
 
-def outputdict_run_steps(prxdoc,outputdict,useinputfiles_with_hrefs,steps,filters,overall_starttime,debugmode,stdouthandler,stderrhandler,ipythonmodelist,paramdebug):
+def outputdict_run_steps(prxdoc,outputdict,inputfiles_element,useinputfiles_with_hrefs,steps,filters,overall_starttime,debugmode,stdouthandler,stderrhandler,ipythonmodelist,paramdebug):
     # delayed import to avoid circular reference
     from . import processtrak_procstep
     
@@ -930,7 +937,7 @@ def outputdict_run_steps(prxdoc,outputdict,useinputfiles_with_hrefs,steps,filter
     
     # # Initialize any output files that don't exist
     # for inputfilehref in outputdict:
-    #     initialize_output_file(prxdoc,outputdict,inputfilehref,overall_starttime)
+    #     initialize_output_file(prxdoc,outputdict,inputfiles_element,inputfilehref,overall_starttime)
     #     pass
 
 
@@ -945,10 +952,10 @@ def outputdict_run_steps(prxdoc,outputdict,useinputfiles_with_hrefs,steps,filter
                 # Initialize output file 
                 print("\nProcessing step %s on %s->%s" % (processtrak_prxdoc.getstepname(prxdoc,step),inputfilehref.humanurl(),outputdict[inputfilehref].outputfilehref.humanurl()))
 
-                initialize_output_file(prxdoc,outputdict,inputfilehref,overall_starttime,force=True)
+                initialize_output_file(prxdoc,outputdict,inputfiles_element,inputfilehref,overall_starttime,force=True)
                 pass
             elif (isinstance(step,str) or isinstance(step,unicode)) and step=="mergeinput":
-                merge_output_file(prxdoc,outputdict,inputfilehref,overall_starttime)
+                merge_output_file(prxdoc,outputdict,inputfiles_element,inputfilehref,overall_starttime)
                 pass
             else: 
                 # print("\nProcessing step %s on URL %s." % (processtrak_prxdoc.getstepname(prxdoc,step),output.get_filehref().absurl())) 
@@ -966,7 +973,7 @@ def outputdict_run_steps(prxdoc,outputdict,useinputfiles_with_hrefs,steps,filter
         pass
     pass
 
-def outputdict_run_needed_steps(prxdoc,prxfilehref,outputdict,useinputfiles_with_hrefs,all_step_elements,steps,filters,overall_starttime,debugmode,stdouthandler,stderrhandler,ipythonmodelist,paramdebug):
+def outputdict_run_needed_steps(prxdoc,prxfilehref,outputdict,inputfiles_element,useinputfiles_with_hrefs,all_step_elements,steps,filters,overall_starttime,debugmode,stdouthandler,stderrhandler,ipythonmodelist,paramdebug):
     # delayed import to avoid circular reference
     from . import processtrak_procstep,processtrak_status
 
@@ -977,7 +984,7 @@ def outputdict_run_needed_steps(prxdoc,prxfilehref,outputdict,useinputfiles_with
     
     # # Initialize any output files that don't exist
     # for inputfilehref in outputdict:
-    #     initialize_output_file(prxdoc,outputdict,inputfilehref,overall_starttime)
+    #     initialize_output_file(prxdoc,outputdict,inputfiles_element,inputfilehref,overall_starttime)
     #     pass
 
 
@@ -1029,7 +1036,7 @@ def outputdict_run_needed_steps(prxdoc,prxfilehref,outputdict,useinputfiles_with
                         # Initialize output file 
                         print("\nProcessing step %s on %s->%s" % (processtrak_prxdoc.getstepname(prxdoc,step_el),inputfilehref.humanurl(),outputdict[inputfilehref].outputfilehref.humanurl()))
                         
-                        initialize_output_file(prxdoc,outputdict,inputfilehref,overall_starttime,force=True)
+                        initialize_output_file(prxdoc,outputdict,inputfiles_element,inputfilehref,overall_starttime,force=True)
                         pass
                     else: 
                         # print("\nProcessing step %s on URL %s." % (processtrak_prxdoc.getstepname(prxdoc,step_el),output.get_filehref().absurl())) 
