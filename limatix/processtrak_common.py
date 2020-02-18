@@ -228,7 +228,7 @@ def find_xslt_in_path(contexthref,xsltname):
     
     raise IOError("Could not find xslt transform %s in path %s" % (xsltname,unicode(xsltpath)))
 
-def create_outputfile_process_xslt(prxdoc,xslttag,inputfileselement,inputfileelement,source_doc):
+def create_outputfile_process_xslt(prxdoc,xslttag,inputfiles_element,inputfile_element,source_doc):
 
     if prxdoc.hasattr(xslttag,"xlink:href"):
         filename=dcv.hrefvalue.fromxml(prxdoc,xslttag).getpath()
@@ -242,33 +242,39 @@ def create_outputfile_process_xslt(prxdoc,xslttag,inputfileselement,inputfileele
     stylesheet_param_names_nullnamespace = [ paramname for paramname in stylesheet_param_names if paramname.find(":") < 0 ]
 
     # Provide any attributes of the <xslt> element as string parameters to the
-    # stylesheet. Also provide $inputfile parameter that is the <prx:inputfile>
-    # element and the $inputfiles parameter that is the <prx:inputfiles> tree
+    # stylesheet. 
+
+    stylesheet_params={ paramname: etree.XSLT.strparam( prxdoc.getattr(xslttag,paramname,noprovenance=True)) for paramname in stylesheet_param_names_nullnamespace }
+
+    # Also provide prx:inputfile() XPath function that returns the <prx:inputfile>
+    # element and prx:inputfiles() XPath function that returns the <prx:inputfiles> tree
     
-    stylesheet_params={ paramname: etree.XSLT.strparam( prxdoc.getattr(xslttag,paramname,noprovenance=True)) }
 
     # Since LXML XSLT can't directly pass node-sets as parameters,
-    # We provde the $inputfile parameter by creating an extension
+    # We provde the prx:inputfile() and prx:inputfiles() parameter by 
+    # creating an extension
     # XPath function that returns the <prx:inputfile> and
-    # pass an XPath call to that function
 
-    return_prx_inputfiles = lambda context: copy.deepcopy(inputfileselement)
-    return_prx_inputfile = lambda context: copy.deepcopy(inputfileelement)
+    return_prx_inputfiles = lambda context: copy.deepcopy(inputfiles_element)
+    return_prx_inputfile = lambda context: copy.deepcopy(inputfile_element)
 
     # We need a function namespace... make that unique by using
     # id(return_prx_inputfile) in it
-    nsuri = "http://limatix.org/processtrak/create_outputfile/%d" % (id(return_prx_inputfile))
-    #ns=etree.FunctionNamespace(nsuri)
+    #nsuri = "couri" # "http://limatix.org/processtrak/create_outputfile/%d" % (id(return_prx_inputfile))
+    #ns=etree.FunctionNamespace(None)#nsuri)
     #ns["inputfile"] = return_prx_inputfile
-    rpi_ext = { (nsuri,"inputfiles"): return_prx_inputfiles,
-                (nsuri,"inputfiles"): return_prx_inputfile }
+    #ns["inputfiles"] = return_prx_inputfiles
+    rpi_ext = { 
+        (prx_nsmap["prx"],"inputfiles"): return_prx_inputfiles,
+        (prx_nsmap["prx"],"inputfile"): return_prx_inputfile 
+    }
     
-    stylesheet_params["inputfile"] = etree.XPath("co:inputfile()",namespaces={"co": nsuri },extensions=rpi_ext)
-    stylesheet_params["inputfiles"] = etree.XPath("co:inputfiles()",namespaces={"co": nsuri },extensions=rpi_ext)
+    #stylesheet_params["inputfile"] = etree.XPath("co:inputfile()",namespaces={"co": nsuri },extensions=rpi_ext)
+    #stylesheet_params["inputfiles"] = "inputfiles()" # etree.XPath("co:inputfiles()",namespaces={"co": nsuri }) # ,extensions=rpi_ext)
     
     stylesheet=etree.parse(filename)
     stylesheet_transform=etree.XSLT(stylesheet,extensions=rpi_ext)
-
+    
     # transform source_doc
     outdoc=xmldoc.xmldoc.frometree(stylesheet_transform(source_doc.doc,**stylesheet_params),nsmap=prx_nsmap,readonly=False,contexthref=source_doc.getcontexthref())
     return outdoc
@@ -364,7 +370,7 @@ def create_outputfile(prxdoc,inputfiles_element,inputfilehref,nominal_outputfile
         # a transformation to apply? 
         xslttag=prxdoc.xpathsinglecontext(outputdict[inputfilehref].inputfileelement,"prx:xslt",default=None)
         if xslttag is not None:
-            outdoc = create_outputfile_process_xslt(prxdoc,xslttag,inputfileselement,outputdict[inputfilehref].inputfileelement,outdoc)
+            outdoc = create_outputfile_process_xslt(prxdoc,xslttag,inputfiles_element,outputdict[inputfilehref].inputfileelement,outdoc)
             pass
 
         # Write out selected portion under new file name outputfilehref
@@ -477,7 +483,7 @@ def create_outputfile(prxdoc,inputfiles_element,inputfilehref,nominal_outputfile
             xslttag=prxdoc.xpathsinglecontext(outputdict[inputfilehref].inputfileelement,"prx:xslt",default=None)
             if xslttag is not None:
                 # Replace outdoc with transformed copy
-                outdoc = create_outpufile_process_xslt(prxdoc,xslttag,outputdict[inputfilehref].inputfileelement,outdoc)
+                outdoc = create_outputfile_process_xslt(prxdoc,xslttag,inputfiles_element,outputdict[inputfilehref].inputfileelement,outdoc)
                 pass
 
             
@@ -537,10 +543,10 @@ def create_outputfile(prxdoc,inputfiles_element,inputfilehref,nominal_outputfile
             pass
         elif xslttag is not None:
             indoc=xmldoc.xmldoc.loadhref(inputfilehref,nsmap=prx_nsmap,readonly=True)
-            outdoc = create_outputfile_process_xslt(prxdoc,xslttag,inputfileselement,outputdict[inputfilehref].inputfileelement,indoc)
+            outdoc = create_outputfile_process_xslt(prxdoc,xslttag,inputfiles_element,outputdict[inputfilehref].inputfileelement,indoc)
             
-
-)
+            
+            
             # Write out under new file name outputfilehref
             assert(outputfilehref != inputfilehref)
             outdoc.set_href(outputfilehref,readonly=False)
