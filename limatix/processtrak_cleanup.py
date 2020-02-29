@@ -299,7 +299,7 @@ def traverse_one(infiles,infileobj,pending,completed,dests,hrefs,recursive=False
             # XLG and XLP files can have dest references
             # and we are tracking those
             # print("got xlg or xlp. infileobj.href=%s" % (infileobj.href.humanurl()))
-            desttags=infileobj.xmldocu.xpath("dc:summary/dc:dest[@xlink:href]")
+            desttags=infileobj.xmldocu.xpath("//dc:dest[@xlink:href]")
             for desttag in desttags:
                 #print("got desttag!")
                 desthref=dc_value.hrefvalue.fromxml(infileobj.xmldocu,desttag)
