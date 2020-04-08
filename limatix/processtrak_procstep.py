@@ -626,6 +626,9 @@ def procstepmatlab_execfunc(scripthref,matlabcode_el_text,script_firstline,matpa
             pass
         except KeyboardInterrupt: 
             # Don't want to hold off keyboard interrupts!
+            # sync output... Should be a better way to do this, since it is locked
+            output.unlock_rw()
+            output.lock_rw()
             raise
         except: 
             (exctype, excvalue) = sys.exc_info()[:2] 
@@ -636,6 +639,10 @@ def procstepmatlab_execfunc(scripthref,matlabcode_el_text,script_firstline,matpa
             traceback.print_exc()
             
             status="exception"
+
+            # sync output... Should be a better way to do this, since it is locked
+            output.unlock_rw()
+            output.lock_rw()
 
             if debugmode and sys.stdin.isatty() and sys.stderr.isatty():
                 # automatically start the debugger from an exception in debug mode (if stdin and stderr are ttys) 
@@ -1722,6 +1729,7 @@ def procsteppython_execfunc(scripthref,pycode_text,pycode_lineno,prxdoc,prxnsmap
 
     matchcnt=0
 
+
     # Loop over each matching element
     for (elementpath,uniquematches) in procstep_elementpath_generator(prxdoc,output,steptag,elementmatch,elementmatch_nsmap,uniquematchel,filters):
         # elementpath is the path to the element we have found that we are
@@ -1751,6 +1759,11 @@ def procsteppython_execfunc(scripthref,pycode_text,pycode_lineno,prxdoc,prxnsmap
             pass
         except KeyboardInterrupt: 
             # Don't want to hold off keyboard interrupts!
+
+            # sync output... Should be a better way to do this, since it is locked
+            output.unlock_rw()
+            output.lock_rw()
+
             raise
         except: 
             (exctype, excvalue) = sys.exc_info()[:2] 
@@ -1761,6 +1774,10 @@ def procsteppython_execfunc(scripthref,pycode_text,pycode_lineno,prxdoc,prxnsmap
             
             status="exception"
             
+            # sync output... Should be a better way to do this, since it is locked
+            output.unlock_rw()
+            output.lock_rw()
+
             if debugmode and sys.stdin.isatty() and sys.stderr.isatty():
                 # automatically start the debugger from an exception in debug mode (if stdin and stderr are ttys) 
                 import pdb # Note: Should we consider downloading/installing ipdb (ipython support for pdb)???
@@ -1828,6 +1845,7 @@ def procsteppython_execfunc(scripthref,pycode_text,pycode_lineno,prxdoc,prxnsmap
         del errcapt
 
         output.should_be_rwlocked_once() 
+
 
         pass
     
