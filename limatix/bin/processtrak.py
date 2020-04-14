@@ -150,14 +150,14 @@ from limatix import processtrak_status
 
 
 def usage():
-    print ("""Usage: %s [-s step1name] [-s step2name]  [-a] [-d] [-p dir] [-l xpathconstraint1] [-l xpathconstraint2] [-f inputfile] ... process.prx
+    print ("""Usage: %s [-s step1name] [-s step2name]  [-a] [-d] [-p dir] [-l xpathconstraint1] [-l xpathconstraint2] [-f inputfileurl] ... process.prx
 process.prx specifies processing steps.
       
 Flags:
   -s                  Run only listed steps (multiple OK)
   -a                  Run all steps
   -d                  Drop into debugger in case of exception executing step
-  -f                  Operate only on the specified input files (multiple OK)
+  -f                  Operate only on the specified input file url (multiple OK)
   -l                  Apply additional xpath filters (multiple OK)
   -i                  Use ipython interactive mode to execute script
   --git-add           Stage changes to .prx and input files for commit
@@ -180,7 +180,7 @@ def main(args=None):
         args=sys.argv
         pass
     
-    argv_inputfiles=set([])
+    argv_inputfileurls=set([])
 
     overall_starttime=timestamp.now().isoformat()
 
@@ -213,8 +213,8 @@ def main(args=None):
             filters.append(args[argc+1])
             argc+=1
             pass
-        elif arg=="-f": # -f <inputfile>: Operate only on the specified file
-            argv_inputfiles.add(args[argc+1])
+        elif arg=="-f": # -f <inputfile>: Operate only on the specified input url
+            argv_inputfileurls.add(args[argc+1])
             argc+=1
             pass
         elif arg=="--files": # just list files
@@ -321,19 +321,19 @@ def main(args=None):
         
     if listfiles:
         print("")
-        print("List of files for -f option")
-        print("---------------------------")
+        print("List of input file urls for -f option")
+        print("-------------------------------------")
         for (inputfile,inputfilehref) in inputfiles_with_hrefs:
-            print(inputfilehref.getpath())
+            print(inputfilehref.humanurl())
             pass
         
         sys.exit(0)
         pass
 
 
-    for argv_inputfile in argv_inputfiles:
-        if argv_inputfile not in [ inputfilehref.getpath() for (inputfile,inputfilehref) in inputfiles_with_hrefs ]:
-            sys.stderr.write("Specified input file %s is not listed in %s\nTry listing available files with --files.\n" % (argv_inputfile,prxfilehref.absurl()))
+    for argv_inputfileurl in argv_inputfileurls:
+        if argv_inputfileurl not in [ inputfilehref.humanurl() for (inputfile,inputfilehref) in inputfiles_with_hrefs ]:
+            sys.stderr.write("Specified input file url %s is not listed in %s\nTry listing available input file urls with --files.\n" % (argv_inputfile,prxfilehref.absurl()))
             sys.exit(1)
             pass
         pass
@@ -344,7 +344,7 @@ def main(args=None):
     # those input files
 
     
-    useinputfiles_with_hrefs = [ (inputfile,inputfile_href) for (inputfile,inputfile_href) in inputfiles_with_hrefs if len(argv_inputfiles)==0 or inputfile_href.getpath() in argv_inputfiles ]
+    useinputfiles_with_hrefs = [ (inputfile,inputfile_href) for (inputfile,inputfile_href) in inputfiles_with_hrefs if len(argv_inputfileurls)==0 or inputfile_href.humanurl() in argv_inputfileurls ]
 
     
     
