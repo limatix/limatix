@@ -286,102 +286,7 @@ def create_outputfile(prxdoc,inputfiles_element,inputfilehref,nominal_outputfile
     but the actual file written will be outputfilehref"""
     
     # print("inputfilehref=%s" % (inputfilehref.humanurl()))
-    if inputfilehref.has_fragment():
-        # input file url has a fragment... we're only supposed
-        # to extract a portion of the file
-
-        timestamp=datetime.datetime.fromtimestamp(os.path.getmtime(inputfilehref.getpath()),lm_timestamp.UTC()).isoformat()
-
-        if inputfilehref.fragless()==prxdoc.get_filehref():
-            inputfilecontent=prxdoc  # special case where input file is .prx file
-            pass
-        else: 
-            inputfilecontent=xmldoc.xmldoc.loadfile(inputfilehref.getpath())
-            pass
-        
-        inputfileportion=inputfilehref.evaluate_fragment(inputfilecontent)
-        if len(inputfileportion)==0:
-            raise ValueError("Input URL %s fragment reference failed to resolve" % (inputfilehref.humanurl()))
-        elif len(inputfileportion) > 1:
-            raise ValueError("Input URL %s fragment reference resolved to multiple elements" % (inputfilehref.humanurl()))
-
-        
-        #print("inputfilehref=%s" % (inputfilehref.humanurl()))
-        #print("inputfileportion=%s" % (etree.tostring(inputfileportion[0])))
-        #import pdb as pythondb
-        #pythondb.set_trace()
-        outdoc=xmldoc.xmldoc.copy_from_element(inputfilecontent,inputfileportion[0],nsmap=prx_nsmap)   # NOTE: prx_nsmap doesn't make much difference here because the nsmap of the element is copied in. prx_nsmap just makes our prefixes available through xmldoc
-
-        # Create canonicalization from unmodified outdoc so that we can hash it
-        outdoc_canon=StringIO()
-        outdoc.doc.write_c14n(outdoc_canon,exclusive=False,with_comments=True)
-        canonhash=hashlib.sha256(outdoc_canon.getvalue()).hexdigest()
-
-
-        if inputfileportion[0] is outputdict[inputfilehref].inputfileelement:
-            # special case where this input file href with fragment
-            # points to its very tag -- the <inputfiles> tag in the prxfile
-            # auto-populate corresponding <outputfile> tags
-            
-            # i.e. modify outdoc to make sure there is an <outputfile> tag with an xlink:href
-            # for each inputfile
-
-            assert(inputfilecontent.gettag(inputfileportion[0])=="prx:inputfiles")
-            
-            outdoc_inputfiletags=[ outdoc.getroot() ]  # treat the root <inputfiles> tag as an inputfile
-            outdoc_inputfiletags.extend(outdoc.xpath("prx:inputfile"))
-
-            for outdoc_inputfiletag in outdoc_inputfiletags:
-                if outdoc_inputfiletag is outdoc.getroot() and not outdoc.hasattr(outdoc_inputfiletag,"xlink:href"):
-                    # root prx:inputfiles tag has no xlink:href
-                    assert(outdoc.gettag(outdoc_inputfiletag)=="prx:inputfiles")
-                    outdoc_inputfilehref = inputfilehref   # subsegment of input file 
-                    pass
-                
-                elif outdoc.hasattr(outdoc_inputfiletag,"xlink:href") and outdoc_inputfiletag is not outdoc.getroot():                    
-                    outdoc_inputfilehref = dcv.hrefvalue.fromxml(outdoc,outdoc_inputfiletag) # specified input file
-                    pass
-                else:
-                    raise ValueError("Bad <prx:inputfiles> or <prx:inputfile> tag at %s" % (dcv.hrefvalue.fromelement(outdoc,outdoc_inputfiletag).humanurl()))
-
-                #print("outdoc_inputfilehref:")
-                #print(outdoc_inputfilehref)
-                #print("outputdict keys:")
-                #print(outputdict.keys())
-
-                assert(outdoc_inputfilehref in outputdict)  # all of these input file references should be keys to the output dict because outputdict was made from the originals!
-
-                # Find or create prx:outputfile tag
-                outdoc_outputfiletag = outdoc.child(outdoc_inputfiletag,"prx:outputfile")
-                if outdoc_outputfiletag is None:
-                    outdoc_outputfiletag=outdoc.addelement(outdoc_inputfiletag,"prx:outputfile")
-                    pass
-
-                # Ensure prx:outputfile tag has a hyperlink
-                if not outdoc.hasattr(outdoc_outputfiletag,"xlink:href"):
-                    outputdict[outdoc_inputfilehref].outputfilehref.xmlrepr(outdoc,outdoc_outputfiletag)
-                    pass
-
-                pass
-            
-            pass
-        
-        # Did the user provide a prx:xslt href indicating 
-        # a transformation to apply? 
-        xslttag=prxdoc.xpathsinglecontext(outputdict[inputfilehref].inputfileelement,"prx:xslt",default=None)
-        if xslttag is not None:
-            outdoc = create_outputfile_process_xslt(prxdoc,xslttag,inputfiles_element,outputdict[inputfilehref].inputfileelement,outdoc)
-            pass
-
-        # Write out selected portion under new file name outputfilehref
-        assert(outputfilehref != inputfilehref)
-        outdoc.set_href(outputfilehref,readonly=False)
-        outdoc.close()
-        
-                
-        
-        pass
-    elif inputfilehref.get_bare_unquoted_filename().lower().endswith(".xls") or inputfilehref.get_bare_unquoted_filename().lower().endswith(".xlsx"):
+    if inputfilehref.get_bare_unquoted_filename().lower().endswith(".xls") or inputfilehref.get_bare_unquoted_filename().lower().endswith(".xlsx"):
         try:
             import xlrd
             import xlrd.sheet
@@ -496,6 +401,101 @@ def create_outputfile(prxdoc,inputfiles_element,inputfilehref,nominal_outputfile
         except ImportError:
 
             raise(ImportError("Need to install xlrd package in order to import .xls or .xlsx files"))
+        
+        pass
+    elif inputfilehref.has_fragment():
+        # input file url has a fragment... we're only supposed
+        # to extract a portion of the file
+
+        timestamp=datetime.datetime.fromtimestamp(os.path.getmtime(inputfilehref.getpath()),lm_timestamp.UTC()).isoformat()
+
+        if inputfilehref.fragless()==prxdoc.get_filehref():
+            inputfilecontent=prxdoc  # special case where input file is .prx file
+            pass
+        else: 
+            inputfilecontent=xmldoc.xmldoc.loadfile(inputfilehref.getpath())
+            pass
+        
+        inputfileportion=inputfilehref.evaluate_fragment(inputfilecontent)
+        if len(inputfileportion)==0:
+            raise ValueError("Input URL %s fragment reference failed to resolve" % (inputfilehref.humanurl()))
+        elif len(inputfileportion) > 1:
+            raise ValueError("Input URL %s fragment reference resolved to multiple elements" % (inputfilehref.humanurl()))
+
+        
+        #print("inputfilehref=%s" % (inputfilehref.humanurl()))
+        #print("inputfileportion=%s" % (etree.tostring(inputfileportion[0])))
+        #import pdb as pythondb
+        #pythondb.set_trace()
+        outdoc=xmldoc.xmldoc.copy_from_element(inputfilecontent,inputfileportion[0],nsmap=prx_nsmap)   # NOTE: prx_nsmap doesn't make much difference here because the nsmap of the element is copied in. prx_nsmap just makes our prefixes available through xmldoc
+
+        # Create canonicalization from unmodified outdoc so that we can hash it
+        outdoc_canon=StringIO()
+        outdoc.doc.write_c14n(outdoc_canon,exclusive=False,with_comments=True)
+        canonhash=hashlib.sha256(outdoc_canon.getvalue()).hexdigest()
+
+
+        if inputfileportion[0] is outputdict[inputfilehref].inputfileelement:
+            # special case where this input file href with fragment
+            # points to its very tag -- the <inputfiles> tag in the prxfile
+            # auto-populate corresponding <outputfile> tags
+            
+            # i.e. modify outdoc to make sure there is an <outputfile> tag with an xlink:href
+            # for each inputfile
+
+            assert(inputfilecontent.gettag(inputfileportion[0])=="prx:inputfiles")
+            
+            outdoc_inputfiletags=[ outdoc.getroot() ]  # treat the root <inputfiles> tag as an inputfile
+            outdoc_inputfiletags.extend(outdoc.xpath("prx:inputfile"))
+
+            for outdoc_inputfiletag in outdoc_inputfiletags:
+                if outdoc_inputfiletag is outdoc.getroot() and not outdoc.hasattr(outdoc_inputfiletag,"xlink:href"):
+                    # root prx:inputfiles tag has no xlink:href
+                    assert(outdoc.gettag(outdoc_inputfiletag)=="prx:inputfiles")
+                    outdoc_inputfilehref = inputfilehref   # subsegment of input file 
+                    pass
+                
+                elif outdoc.hasattr(outdoc_inputfiletag,"xlink:href") and outdoc_inputfiletag is not outdoc.getroot():                    
+                    outdoc_inputfilehref = dcv.hrefvalue.fromxml(outdoc,outdoc_inputfiletag) # specified input file
+                    pass
+                else:
+                    raise ValueError("Bad <prx:inputfiles> or <prx:inputfile> tag at %s" % (dcv.hrefvalue.fromelement(outdoc,outdoc_inputfiletag).humanurl()))
+
+                #print("outdoc_inputfilehref:")
+                #print(outdoc_inputfilehref)
+                #print("outputdict keys:")
+                #print(outputdict.keys())
+
+                assert(outdoc_inputfilehref in outputdict)  # all of these input file references should be keys to the output dict because outputdict was made from the originals!
+
+                # Find or create prx:outputfile tag
+                outdoc_outputfiletag = outdoc.child(outdoc_inputfiletag,"prx:outputfile")
+                if outdoc_outputfiletag is None:
+                    outdoc_outputfiletag=outdoc.addelement(outdoc_inputfiletag,"prx:outputfile")
+                    pass
+
+                # Ensure prx:outputfile tag has a hyperlink
+                if not outdoc.hasattr(outdoc_outputfiletag,"xlink:href"):
+                    outputdict[outdoc_inputfilehref].outputfilehref.xmlrepr(outdoc,outdoc_outputfiletag)
+                    pass
+
+                pass
+            
+            pass
+        
+        # Did the user provide a prx:xslt href indicating 
+        # a transformation to apply? 
+        xslttag=prxdoc.xpathsinglecontext(outputdict[inputfilehref].inputfileelement,"prx:xslt",default=None)
+        if xslttag is not None:
+            outdoc = create_outputfile_process_xslt(prxdoc,xslttag,inputfiles_element,outputdict[inputfilehref].inputfileelement,outdoc)
+            pass
+
+        # Write out selected portion under new file name outputfilehref
+        assert(outputfilehref != inputfilehref)
+        outdoc.set_href(outputfilehref,readonly=False)
+        outdoc.close()
+        
+                
         
         pass
     else:

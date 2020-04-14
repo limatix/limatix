@@ -333,7 +333,7 @@ def main(args=None):
 
     for argv_inputfileurl in argv_inputfileurls:
         if argv_inputfileurl not in [ inputfilehref.humanurl() for (inputfile,inputfilehref) in inputfiles_with_hrefs ]:
-            sys.stderr.write("Specified input file url %s is not listed in %s\nTry listing available input file urls with --files.\n" % (argv_inputfile,prxfilehref.absurl()))
+            sys.stderr.write("Specified input file url %s is not listed in %s\nTry listing available input file urls with --files.\n" % (argv_inputfileurl,prxfilehref.absurl()))
             sys.exit(1)
             pass
         pass
