@@ -1521,10 +1521,12 @@ def procstep_elementmatch_elementpath_generator(prxdoc,output,steptag,elementmat
         pass
     # Add filters to elementmatch
     
-    for elementfilter in filters:
-        elementmatch+="[%s]" % (elementfilter)
+    if len(filters) > 0:
+        elementmatch = "(%s)" % (elementmatch) # so that filter predicate operates on entire set of selected elements, not just on those selected by the last step in the path
+        for elementfilter in filters:
+            elementmatch+="[%s]" % (elementfilter)
+            pass
         pass
-
     # Search for matching elements
 
     # sys.stderr.write("elementmatch=%s\n" % (elementmatch))
