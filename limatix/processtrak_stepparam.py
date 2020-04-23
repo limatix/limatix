@@ -121,24 +121,18 @@ def evaluate_from_element(xmldocu,element,basetypename,paramname,useparamname,pa
 
 
     if basetypename in basic_python_typedict:
-        if len(elementlist) > 1:
-            raise ValueError("Got %d values for parameter %s" % (len(elementlist),paramname))
-        elif len(elementlist) == 0:
-            raise NameError("No element found")
         if paramdebug:
-            print("        Found single element %s with value %s; cast to type %s" % (useparamname,xmldocu.gettext(elementlist[0]),basetypename))
+            print("        Found single element %s with value %s; cast to type %s" % (useparamname,xmldocu.gettext(element),basetypename))
             pass
-        return basic_python_typedict[basetypename](xmldocu.gettext(elementlist[0]))
+        return basic_python_typedict[basetypename](xmldocu.gettext(element))
     elif basetypename in literal_python_typedict:
-        if len(elementlist) > 1:
-            raise ValueError("Got %d values for parameter %s" % (len(elementlist),paramname))
-        elif len(elementlist) == 0:
-            raise NameError("No element found")
+
+
         if paramdebug:
-            print("        Found single element %s with value %s; cast to type %s" % (useparamname,xmldocu.gettext(elementlist[0]),basetypename))
+            print("        Found single element %s with value %s; cast to type %s" % (useparamname,xmldocu.gettext(element),basetypename))
             pass
 
-        valuetext = xmldocu.gettext(elementlist[0])        
+        valuetext = xmldocu.gettext(element)        
         # accommodate inconsistency between case of 
         # XPath true/false vs. Python True/False
         if basetypename=="bool" and valuetext == "true":
@@ -150,26 +144,16 @@ def evaluate_from_element(xmldocu,element,basetypename,paramname,useparamname,pa
 
         return literal_python_typedict[basetypename](ast.literal_eval(valuetext))
     elif basetypename is None:
-        if len(elementlist) > 1:
-            raise ValueError("Got %d values for parameter %s" % (len(elementlist),paramname))
-        elif len(elementlist) == 0:
-            raise NameError("No element found")
         if paramdebug:
             print("        Found single %s element as node" % (useparamname))
             pass
-        return elementlist[0]
+        return element
     elif basetypename+"value" in dir(dcv) and issubclass(getattr(dcv,basetypename+"value"),dcv.value):
-        if len(elementlist) > 1:
-            raise ValueError("Got %d values for parameter %s" % (len(elementlist),paramname))
-        elif len(elementlist) == 0:
-            raise NameError("No element found")
         if paramdebug:
             print("        Interpreting single %s element as single element of dcv.%svalue" % (useparamname,basetypename))
             pass
-        return getattr(dcv,basetypename+"value").fromxml(xmldocu,elementlist[0])
+        return getattr(dcv,basetypename+"value").fromxml(xmldocu,element)
     elif basetypename=="doc":
-        if len(elementlist) == 0:
-            raise NameError("No element found")
         if paramdebug:
             print("        returning containing document")
             pass
@@ -186,15 +170,14 @@ def evaluate_from_elements(xmldocu,elementlist,typename,paramname,useparamname,p
     # can also be basetype from evaluate_from_element followed by "list"
     # can also be "nodeset"
 
-    if typename is not None and typename.endswith("list"):
+    if typename is not None and len(typename) > 4 and typename.endswith("list"):
+        # NOTE: Just bare "list" interpreted directly in evaluate_from_element with ast.parse()...
+        # if you want a list of nodes, specify as "nodeset"
         basetypename=typename[:-4]
         listflag=True
         if paramdebug:
             print("        Parameter %s interpreted as a list of %s" % (paramname,basetypename))
-        pass
-    elif typename == "list":  # behavior of "_list" and "_nodeset" are handled differently but overall effect should be the same
-        basetypename=None 
-        listflag=True
+            pass
         pass
     else:
         basetypename=typename
@@ -220,11 +203,13 @@ def evaluate_from_elements(xmldocu,elementlist,typename,paramname,useparamname,p
         return retlist
     else:
         # Single element: elementlist should be length 1
+
         if len(elementlist) > 1:
             raise ValueError("Got %d values for parameter %s" % (len(elementlist),paramname))
         elif len(elementlist) == 0:
             raise NameError("No element found for parameter %s" % (paramname))
         else:
+
             return evaluate_from_element(xmldocu,elementlist[0],basetypename,paramname,useparamname,paramdebug)
         pass
     pass
