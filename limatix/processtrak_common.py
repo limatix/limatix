@@ -17,12 +17,11 @@ import datetime
 
 from lxml import etree
 
-try:
-    from cStringIO import StringIO
-    pass
-except ImportError:
-    from io import StringIO
-    pass
+#try:
+#    from cStringIO import StringIO
+#    pass
+#except ImportError:
+from io import BytesIO
 
 
 import shutil
@@ -430,7 +429,7 @@ def create_outputfile(prxdoc,inputfiles_element,inputfilehref,nominal_outputfile
         outdoc=xmldoc.xmldoc.copy_from_element(inputfilecontent,inputfileportion[0],nsmap=prx_nsmap)   # NOTE: prx_nsmap doesn't make much difference here because the nsmap of the element is copied in. prx_nsmap just makes our prefixes available through xmldoc
 
         # Create canonicalization from unmodified outdoc so that we can hash it
-        outdoc_canon=StringIO()
+        outdoc_canon=BytesIO()
         outdoc.doc.write_c14n(outdoc_canon,exclusive=False,with_comments=True)
         canonhash=hashlib.sha256(outdoc_canon.getvalue()).hexdigest()
 
