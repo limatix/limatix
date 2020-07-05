@@ -832,6 +832,7 @@ def procstepmatlab(scripthref,matlabcode_el,prxdoc,output,steptag,scripttag,root
 def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scripthref,pycode_text,pycode_lineno):
 
     if not ipythonmodelist[0]:
+        stepglobals["__processtrak_interactive"] = False # interactive mode can be disabled but no reenabled, so if we get here it is False permanently and safe to set globally
         resultdict=runfunc(**argkw)
         return resultdict
     else:
@@ -1042,7 +1043,8 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
             
             kernel.shell.push({"abort": abort}) # provide abort function
             kernel.shell.push({"cont": False}) # continue defaults to False
-
+            kernel.shell.push({"__processtrak_interactive":  True })
+            
 
 
             
