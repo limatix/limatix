@@ -1055,7 +1055,7 @@ class dgcontroller(object):
         # print "requestval %s = %s" % (param.xmlname,str(newvalue))
 
         if not issubclass(self.controlparam.paramtype,dc_value.hrefvalue):
-            raise ValueError("paramdb2.perform_save(%s):  Method only applies to parameters of hrefvalue type" (self.controlparam.xmlname))
+            raise ValueError("paramdb2.perform_save(%s):  Method only applies to parameters of hrefvalue type" % (self.controlparam.xmlname))
         
         self.state=param.CONTROLLER_STATE_REQUEST_PENDING
         self.numpending+=1
