@@ -24,6 +24,26 @@ except ImportError:
     from urllib.parse import unquote
     pass
 
+try: 
+    from  pkg_resources import resource_string
+    from  pkg_resources import iter_entry_points
+    pass
+except TypeError:
+    # work round problem running pychecker
+    pass
+
+try: 
+    import builtins  # python3
+    pass
+except ImportError: 
+    import __builtin__ as builtins # python2
+    pass
+
+if not hasattr(builtins,"basestring"):
+    basestring=str  # python3
+    unicode=str # python3
+    pass
+
 
 from . import paramdbfile
 
@@ -70,7 +90,7 @@ from . import xmlexplog
 from . import paramdb2_editor
 from . import checklistdb
 from . import checklistdbwin
-
+from . import pkgdir
 
 
 
@@ -922,6 +942,8 @@ class explogwindow(gtk.Window):
             #
             #loadconfigchooser.set_current_folder(os.path.abspath(os.path.join(__data_prefix__, 'conf')))
 
+            loadconfigchooser.set_current_folder(os.path.join(pkgdir,"limatix_conf"))
+            
             primaryconfighrefpaths = dc2_misc.get_confighrefpaths(primary=True)
 
             allconfighrefpaths = dc2_misc.get_confighrefpaths()
@@ -1268,7 +1290,24 @@ class explogwindow(gtk.Window):
         checklistchooser.add_filter(chffilter)
 
         if central:
-            checklistchooser.set_current_folder(os.path.abspath(os.path.join(__data_prefix__, 'checklists')))
+            
+            #checklistchooser.set_current_folder(os.path.abspath(os.path.join(__data_prefix__, 'checklists')))
+            checklistchooser.set_current_folder(os.path.join(pkgdir, 'limatix_checklists'))
+            steppath=[]
+            for entrypoint in iter_entry_points("limatix.checklist_search_path"):
+                steppathfunc=entrypoint.load()
+                add_to_steppath=steppathfunc()
+
+                if isinstance(add_to_steppath,basestring):
+                    sys.stderr.write("explogwindow: Error enumerating limatix.checklist_search_path entry points: Got string from %s:%s; expected list or tuple\n" % (entrypoint.module_name,entrypoint.name))
+                    continue
+                steppath.extend(add_to_steppath)
+                pass
+
+            for steppathentry in steppath:
+                checklistchooser.add_shortcut_folder(steppathentry)
+                pass
+
             pass
         else:
             if self.explog is not None:

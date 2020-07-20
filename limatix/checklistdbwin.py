@@ -476,8 +476,16 @@ class checklistdbwin(gtk.Window):
         context=self.treeview.get_tooltip_context(x,y,keyboard_mode)
         if not context:
             return False
-        else: 
-            (model,path,tviter)=context
+        else:
+            if len(context)==3: # pygtk2
+                (model,path,tviter)=context
+                pass
+            else:
+                model=context.model
+                path=context.path
+                tviter=context.iter
+                pass
+            
             #sys.stderr.write("query_tooltip got context\n")
 
             # Determine column
@@ -487,7 +495,7 @@ class checklistdbwin(gtk.Window):
                     return False
                 (pathjunk,column)=cursor
                 pass
-            else: 
+            elif model is not None: 
                 #sys.stderr.write("query_tooltip mouse mode x=%d, y=%d\n" % (x,y))
 
                 path_at_pos=self.treeview.get_path_at_pos(x,y)

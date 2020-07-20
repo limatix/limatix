@@ -1,4 +1,4 @@
-# writespreadsheet.py:
+# limatix_writespreadsheet.py:
 # a processtrak script that writes your
 # experiment log or a tabular portion of your
 # experiment log to a .ods spreadsheet
@@ -357,7 +357,8 @@ class prx_lookupfcn_ext(object):
         # create dummy xmldoc in given context
         dummydoc=xmldoc.xmldoc.newdoc("dummy",nsmap={ "xlink": "http://www.w3.org/1999/xlink" },contexthref=contextxmldoc.getcontexthref())
 
-        hrefval=dc_value.hrefvalue(sourcelink.attrib["{http://www.w3.org/1999/xlink}href"],contexthref=self.finddocument(sourcelink).getcontexthref())
+        #hrefval=dc_value.hrefvalue(sourcelink.attrib["{http://www.w3.org/1999/xlink}href"],contexthref=self.finddocument(sourcelink).getcontexthref())
+        hrefval=dc_value.hrefvalue(sourcelink.attrib["{http://www.w3.org/1999/xlink}href"],contexthref=contextxmldoc.getcontexthref())
         hrefval.xmlrepr(dummydoc,dummydoc.getroot())
         xlinktext=dummydoc.getattr(dummydoc.getroot(),"xlink:href")
         return xlinktext
@@ -412,8 +413,10 @@ class prx_lookupfcn_ext(object):
                 pass
             pass
         if xmldoc is None:
-            #sys.stderr.write("docroot=%s; docdb=%s\n" % (str(docroot),str(self.docdb)))
-            #raise ValueError("prx extension function called with context or node that is not in docdb")
+            sys.stderr.write("docroot=%s; docdb=%s\n" % (str(docroot),str(self.docdb)))
+            import pdb
+            pdb.set_trace()
+            raise ValueError("prx extension function called with context or node that is not in docdb")
             # if we couldn't find it the correct answer is almost
             # always xlpdocu
             #return self.xlpdocu

@@ -76,8 +76,8 @@ except (IOError,NameError):
     __install_prefix__="/usr/local"
     pass
 
-def getconfigurlpath():
-    return [ pathname2url(os.path.join(__install_prefix__,"share","limatix","conf")) ]
+#def getconfigurlpath():
+#    return [ pathname2url(os.path.join(__install_prefix__,"share","limatix","conf")) ]
 
 
 

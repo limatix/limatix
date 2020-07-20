@@ -892,7 +892,7 @@ class complexunitsvalue(value) :
                 
         if isinstance(val,basestring):
             if units is None:
-                matchobj=re.match(R""" *([\(]? *([-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?) *[+-] *([-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?[ij]?) *?[\)]?) *[[]?([^\][]*)[]]?""",val)
+                matchobj=re.match(R""" *([\(]? *([-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?) *[+-] *([-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?[ij]?) *?[\)]?) *[\[]?([^\]\[]*)[\]]?""",val)
                 if matchobj is not None :
                     self.val=complex(matchobj.group(1))
                     self.unit=lm_units.parseunits(matchobj.group(10))
@@ -1343,7 +1343,7 @@ class numericunitsvalue(value) :
         
         if isinstance(val,basestring):
             if units is None:
-                matchobj=re.match(R""" *(([-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?)|([-+]?[iI][nN][fF])|([nN][aA][nN])) *[[]?([^\][]*)[]]?""",val);
+                matchobj=re.match(R""" *(([-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?)|([-+]?[iI][nN][fF])|([nN][aA][nN])) *[\[]?([^\]\[]*)[\]]?""",val);
                 if matchobj is not None :
                     self.val=float(matchobj.group(1))
                     self.unit=lm_units.parseunits(matchobj.group(8))

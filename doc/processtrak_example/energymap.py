@@ -109,9 +109,14 @@ def run(_xmldoc,_tag,_dest_href,frequency_float,leftlong_float,rightlong_float,b
     outkml="%s_9.0f%fl%fr%fb%ft%f.kml" % (os.path.splitext(os.path.split(_xmldoc.filehref.getpath())[1])[0],hzlow+hzstep*freqidx,leftlong_float,rightlong_float,botlat_float,toplat_float)
     outkml_href=hrefvalue(outkml,_dest_href)  #os.path.join(os.path.split(rflogpath)[0],outkml)
     
-    PILimg=scipy.misc.toimage(amplmtx.transpose(),cmin=amplmtx.min(),cmax=amplmtx.max())
+    #PILimg=scipy.misc.toimage(amplmtx.transpose(),cmin=amplmtx.min(),cmax=amplmtx.max())
+    # rescale amplmtx
+    amplmtx_scaled = 255.9999*(amplmtx - amplmtx.min())/(amplmtx.max()-amplmtx.min())
+    PILimg = PIL.Image.fromarray(np.ascontiguousarray(amplmtx_scaled.transpose().astype(np.uint8)),mode='L')
+    
 
-    infotext="min=%3.0f dB; max=%3.0f dB f=%.1f MHz" % (amplmtx.min(),amplmtx.max(),frequency_float/1.e6)
+    
+    infotext="min=%3.0f dB\nmax=%3.0f dB\nf=%.1f MHz" % (amplmtx.min(),amplmtx.max(),frequency_float/1.e6)
     draw=PIL.ImageDraw.Draw(PILimg)
     draw.text((0,0),infotext,255 ,font=PIL.ImageFont.load_default()) #(255,255,255)
     draw.text((0,18),infotext,0,font=PIL.ImageFont.load_default())
