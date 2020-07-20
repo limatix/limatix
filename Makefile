@@ -16,6 +16,7 @@ SUBDIRS=xslt #matlab
 
 
 
+
 PROGS=dc_checklist dc_glade datacollect2 dc_paramdb2 dc_ricohphoto processtrak dc_checkprovenance dc_xlg2dpd dc_chx2chf dc_getpath
 
 
@@ -131,15 +132,15 @@ dist:
 	#git checkout master
 	#git merge --no-ff develop
 	#git tag -f `cat VERSION` -a -m `cat VERSION`
-
+	#
 	#tar -cvzf /tmp/realclean-limatix-`cat VERSION`.tar.gz $(DIST_FILES)
-
+	#
 	#tar $(PUBEXCLUDE) -cvzf /tmp/realclean-limatix-pub-`cat VERSION`.tar.gz $(DIST_FILES)
-
-	@for archive in  limatix-`cat VERSION`  ; do mkdir /tmp/$$archive ; tar -C /tmp/$$archive  -x -f /tmp/realclean-$$archive.tar.gz ; make -C /tmp/$$archive all ; make -C /tmp/$$archive distclean ; tar -C /tmp -c -v -z -f /home/sdh4/research/software/archives/$$archive.tar.gz $$archive ; ( cd /tmp; zip -r /home/sdh4/research/software/archives/$$archive.zip $$archive ) ;  done
+	#
+	#@for archive in  limatix-`cat VERSION`  ; do mkdir /tmp/$$archive ; tar -C /tmp/$$archive  -x -f /tmp/realclean-$$archive.tar.gz ; make -C /tmp/$$archive all ; make -C /tmp/$$archive distclean ; tar -C /tmp -c -v -z -f /home/sdh4/research/software/archives/$$archive.tar.gz $$archive ; ( cd /tmp; zip -r /home/sdh4/research/software/archives/$$archive.zip $$archive ) ;  done
 	#git checkout develop
 	#git merge --no-ff master
-
+	#
 	#mv VERSION VERSIONtmp
 	#awk -F . '{ print $$1 "." $$2 "." $$3+1 "-devel"}' <VERSIONtmp >VERSION  # increment version number and add trailing-devel
 	#rm -f VERSIONtmp
@@ -147,3 +148,12 @@ dist:
 	#git commit -a
 	#@echo "If everything worked, you should do a git push --all ; git push --tags"
 	#@echo "Then on github define a new release... Include mention of downloading the built archives. Upload the saved archive as a "binary"
+	#
+	mkdir /tmp/limatix_rel$$PPID
+	git clone . /tmp/limatix_rel$$PPID/limatix-$(VERSION)
+	git clone limatix/canonicalize_path /tmp/limatix_rel$$PPID/limatix-$(VERSION)/limatix/canonicalize_path
+	git clone limatix/dc_lxml_treesync /tmp/limatix_rel$$PPID/limatix-$(VERSION)/limatix/dc_lxml_treesync
+	(cd /tmp/limatix_rel$$PPID; zip  -r limatix-$(VERSION).zip limatix-$(VERSION)/ --exclude "limatix-$(VERSION)/.git/*" --exclude "limatix-$(VERSION)/limatix/canonicalize_path/.git/*" --exclude "limatix-$(VERSION)/limatix/dc_lxml_treesync/.git/*")
+	@echo 'created archive for limatix' $(VERSION)
+	@echo 'described as' `git describe --tags`
+	@echo 'Wrote archive as'  /tmp/limatix_rel$$PPID/limatix-$(VERSION).zip
