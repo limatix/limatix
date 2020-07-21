@@ -119,6 +119,14 @@ except IOError:
     __install_prefix__="/usr/local"
     pass
 
+
+def check_importability(py_module_name):
+    try:
+        import pkgutil.util
+        return pkgutil.find_loader(py_module_name) is not None
+    except ModuleNotFoundError:
+        return False
+    return False
 # getstepurlpath now in __init__.py
 #def getstepurlpath():
 #    return [ pathname2url(os.path.join(__install_prefix__,"share","limatix","pt_steps")) ]
@@ -856,8 +864,7 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
         #sip.setapi('QUrl', 2)
         #from PyQt4 import QtGui   # force IPython to use PyQt4 by importing it first
 
-        qt_version=4 # default to qt4
-
+        
         # RHEL6 compatibility  -- if running under Python 2.6, just import IPython, get PyQt4
         if sys.version_info < (2,7):
             from IPython.qt.console.rich_ipython_widget import RichIPythonWidget
@@ -869,6 +876,9 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
             from IPython.qt.inprocess import QtInProcessKernelManager
             from IPython.lib import guisupport
             app = guisupport.get_app_qt4() 
+            
+            qt_version=4 # default to qt4
+            using_pyside=False
 
             pass
         else: 
@@ -880,38 +890,65 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
 
             if LooseVersion(IPython.__version__) >= LooseVersion('4.0.0'):
                 # Recent Jupyter/ipython: Import from qtconsole
-
+                
                 # Just get what ever is already imported if present:
-                if "PySide" in sys.modules:
-                    import PySide.QtCore
-                    pass
-                elif "PySide2" in sys.modules:
-                    import PySide2.QtCore
-                    qt_version=5
-                    pass
-                else:
-                    # Try new import
-                    # Force PySide bindings
-                    try:
-                        # Try PySide1 first
-                        import PySide.QtCore 
+                def figure_imported_qt():
+                    qt_version=4 # default to qt4
+                    using_pyside=False
+
+                    if "PySide.QtCore" in sys.modules:
+                        import PySide.QtCore
+                        using_pyside=True
                         pass
-                    except ModuleNotFoundError: # or ImportError on Python2
-                        # Try PySide2 (qt5) if PySide1 not found
+                    elif "PySide2.QtCore" in sys.modules:
                         import PySide2.QtCore
                         qt_version=5
+                        using_pyside=True
                         pass
+                    elif "PyQt4.QtCore" in sys.modules:
+                        import PyQt4.QtCore
+                        pass
+                    elif "PyQt5.QtCore" in sys.modules:
+                        import PyQt5.QtCore
+                        qt_version=5
+                        pass
+                    else:
+                        qt_version=None
+                        using_pyside=None
+                        pass
+                    return (qt_version,using_pyside)
+                (qt_version,using_pyside)=figure_imported_qt()
+
+                if qt_version is None:
+                    # Try new import
+                    # Let matplotlib backend availability determine which version
+                    if check_importability("matplotlib.backends.backend_qt5agg"):
+                        if check_importability("PySide2") or check_importability("PyQt5"):
+                            from matplotlib.backends import backend_qt5agg
+                            pass
+                        pass
+
+                    if check_importability("matplotlib.backends.backend_qt4agg"):
+                        if check_importability("PySide") or check_importability("PyQt4"):
+                            from matplotlib.backends import backend_qt4agg
+                            pass
+                        pass
+
+                    (qt_version,using_pyside)=figure_imported_qt()
+                    
                     pass
                 pass
             
             import matplotlib
             if qt_version==4:
+                #print("Using qt4")
                 matplotlib.use('Qt4Agg')
-                if 'backend.qt4' in matplotlib.rcParams.keys():
+                if 'backend.qt4' in matplotlib.rcParams.keys() and using_pyside:
                     matplotlib.rcParams['backend.qt4']='PySide'
                     pass
                 pass
             else:
+                #print("Using qt5")
                 matplotlib.use('Qt5Agg')
                 pass
             
