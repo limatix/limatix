@@ -78,7 +78,12 @@ if not hasattr(builtins,"long"):
     # python3
     long=int
     pass
-    
+
+if not hasattr(builtins,"ModuleNotFoundError"):
+    # python2
+    ModuleNotFoundError=ImportError
+    pass
+
 
 
 # import dg_units
@@ -851,52 +856,133 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
         #sip.setapi('QUrl', 2)
         #from PyQt4 import QtGui   # force IPython to use PyQt4 by importing it first
 
+        qt_version=4 # default to qt4
+
         # RHEL6 compatibility  -- if running under Python 2.6, just import IPython, get PyQt4
         if sys.version_info < (2,7):
             from IPython.qt.console.rich_ipython_widget import RichIPythonWidget
             from IPython.qt.inprocess import QtInProcessKernelManager
-            pass
-        else: 
-
-            # Under more recent OS's: Make matplotlib use PySide
-            # http://stackoverflow.com/questions/6723527/getting-pyside-to-work-with-matplotlib
-            import matplotlib
-            matplotlib.use('Qt4Agg')
-            if 'backend.qt4' in matplotlib.rcParams.keys():
-                matplotlib.rcParams['backend.qt4']='PySide'
-                pass
-            pass
-
-        import IPython
-        from IPython.core.interactiveshell import DummyMod
-
-        if LooseVersion(IPython.__version__) >= LooseVersion('4.0.0'):
-            # Recent Jupyter/ipython: Import from qtconsole
-            # Force PySide bindings
-            import PySide.QtCore
-            from qtconsole.qt import QtGui
-            from qtconsole.inprocess import QtInProcessKernelManager
-
-            # Obtain the running QApplication instance
-            app=QtGui.QApplication.instance()
-            if app is None:
-                # Start our own if necessary
-                app=QtGui.QApplication([])
-                pass
+            import IPython
+            from IPython.core.interactiveshell import DummyMod
             
-            pass
-        else:
+            # (Old versions of IPython only)
             from IPython.qt.inprocess import QtInProcessKernelManager
             from IPython.lib import guisupport
             app = guisupport.get_app_qt4() 
 
             pass
+        else: 
+
+            # Under more recent OS's: Make matplotlib use PySide
+            # http://stackoverflow.com/questions/6723527/getting-pyside-to-work-with-matplotlib
+            import IPython
+            from IPython.core.interactiveshell import DummyMod
+
+            if LooseVersion(IPython.__version__) >= LooseVersion('4.0.0'):
+                # Recent Jupyter/ipython: Import from qtconsole
+
+                # Just get what ever is already imported if present:
+                if "PySide" in sys.modules:
+                    import PySide.QtCore
+                    pass
+                elif "PySide2" in sys.modules:
+                    import PySide2.QtCore
+                    qt_version=5
+                    pass
+                else:
+                    # Try new import
+                    # Force PySide bindings
+                    try:
+                        # Try PySide1 first
+                        import PySide.QtCore 
+                        pass
+                    except ModuleNotFoundError: # or ImportError on Python2
+                        # Try PySide2 (qt5) if PySide1 not found
+                        import PySide2.QtCore
+                        qt_version=5
+                        pass
+                    pass
+                pass
+            
+            import matplotlib
+            if qt_version==4:
+                matplotlib.use('Qt4Agg')
+                if 'backend.qt4' in matplotlib.rcParams.keys():
+                    matplotlib.rcParams['backend.qt4']='PySide'
+                    pass
+                pass
+            else:
+                matplotlib.use('Qt5Agg')
+                pass
+            
+
+            if LooseVersion(IPython.__version__) >= LooseVersion('4.0.0'):
+                # Recent Jupyter/ipython: Import from qtconsole            
+                from qtconsole.qt import QtGui
+                from qtconsole.inprocess import QtInProcessKernelManager
+                
+                # Obtain the running QApplication instance
+                app=QtGui.QApplication.instance()
+                if app is None:
+                    # Start our own if necessary
+                    app=QtGui.QApplication([])
+                    pass
+                
+                pass
+            else:
+                # (Old versions of IPython only)
+                from IPython.qt.inprocess import QtInProcessKernelManager
+                from IPython.lib import guisupport
+                app = guisupport.gget_app_qt4() 
+                pass
+            
+            pass
+
+        if qt_version==4:
+            kernel_gui = 'qt4'
+            pass
+        elif qt_version==5:
+            kernel_gui = 'qt'
+            pass
+        else:
+            assert(0) # invalid kernel_gui
+            pass
         
+
         kernel_manager = QtInProcessKernelManager()
         kernel_manager.start_kernel()
         kernel = kernel_manager.kernel
-        kernel.gui = 'qt4'
+        kernel.gui = kernel_gui
 
+        if LooseVersion(IPython.__version__) >= LooseVersion('7.0.0'):
+            kernel.start()
+
+            if not hasattr(kernel,"io_loop"):
+                # Some versions of ipykernel (e.g. 5.1.4 )
+                # the InProcessKernel start() method
+                # doesn't call its superclass to (apparently)
+                # override registration of dispatcher streams.
+                # but this means that the  the io_loop and
+                # msg_queue also don't get setup, which is problematic.
+                # In the streams are None/Empty so the stream ops
+                # are no-ops
+
+                #print("k.c_s = %s" % (str(kernel.control_stream)))
+                #print("len(k.s_s) = %d" % (len(kernel.shell_streams)))
+                
+                import ipykernel.kernelbase
+                # Call the base class method directly 
+                ipykernel.kernelbase.Kernel.start(kernel)
+                pass
+            ## Set IOLoop for kernel
+            ## similar to example in https://psyplot.readthedocs.io/projects/psyplot-gui/en/latest/_modules/psyplot_gui/console.html
+            #from zmq.eventloop import ioloop as zmq_ioloop
+            #from tornado import ioloop as tdo_ioloop
+            #zmq_ioloop.install()
+            #kernel.io_loop = tdo_ioloop.IOLoop.current()
+            pass
+        
+        
         #sys.stderr.write("id(stepglobals)=%d" % (id(stepglobals)))
 
         # Make ipython use our globals as its global dictionary
@@ -908,7 +994,7 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
         # Should we attempt to run the function here?
         
         # (gui, backend) = kernel.shell.enable_matplotlib("qt4") #,import_all=False) # (args.gui, import_all=import_all)
-        (gui, backend, clobbered) = kernel.shell.enable_pylab("qt4",import_all=False) # (args.gui, import_all=import_all)
+        (gui, backend, clobbered) = kernel.shell.enable_pylab(kernel_gui,import_all=False) # (args.gui, import_all=import_all)
 
         # kernel.shell.push(stepglobals) # provide globals as variables -- no longer necessary as it's using our namespace already
         
@@ -1062,7 +1148,15 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
 
             runfunc_lines=code_container.body
 
-            kernel.shell.push({"runfunc_lines": runfunc_lines,"scripthref": scripthref},interactive=False) # provide processed syntax tree for debugging purposes
+            shell_vars = {"runfunc_lines": runfunc_lines,"scripthref": scripthref}
+            if LooseVersion(IPython.__version__) >= LooseVersion('7.0.0'):
+                # provide _ipycompiler for run_ast_nodes
+                import IPython.core.compilerop
+                _ipycompiler = IPython.core.compilerop.CachingCompiler()
+                shell_vars["_ipycompiler"]=_ipycompiler
+                pass
+            
+            kernel.shell.push(shell_vars,interactive=False) # provide processed syntax tree for debugging purposes
             
             # kernel.shell.run_code(compile("kernel.shell.run_ast_nodes(runfunc_lines,scriptpath,interactivity='all')","None","exec"))
             if LooseVersion(IPython.__version__) >= LooseVersion('4.0.0'):
@@ -1080,7 +1174,14 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
                 
             
             def runcode():
-                control.execute("kernel.shell.run_ast_nodes(runfunc_lines,scripthref.getpath(),interactivity='none')")
+                if LooseVersion(IPython.__version__) >= LooseVersion('7.0.0'):
+                    # IPython 7 and above use async/await
+                    control.execute("await kernel.shell.run_ast_nodes(runfunc_lines,scripthref.getpath(),interactivity='none',compiler=_ipycompiler)")
+                    pass
+                else:
+                    control.execute("kernel.shell.run_ast_nodes(runfunc_lines,scripthref.getpath(),interactivity='none')")
+                    pass
+                
                 # QTimer.singleShot(25,showret) # get callback 25ms into main loop
                 # showret disabled because it prevents you from running the 
                 # debugger in post-mortem mode to troubleshoot an exception:
