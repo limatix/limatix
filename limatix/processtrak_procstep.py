@@ -122,7 +122,7 @@ except IOError:
 
 def check_importability(py_module_name):
     try:
-        import pkgutil.util
+        import pkgutil
         return pkgutil.find_loader(py_module_name) is not None
     except ModuleNotFoundError:
         return False
