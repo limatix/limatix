@@ -938,6 +938,11 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
                     
                     pass
                 pass
+            else:
+                # prehistoric IPython version ( < 4.... assume qt4 with pyside)
+                qt_version=4
+                using_pyside=True
+                pass
             
             import matplotlib
             if qt_version==4:
@@ -970,7 +975,7 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
                 # (Old versions of IPython only)
                 from IPython.qt.inprocess import QtInProcessKernelManager
                 from IPython.lib import guisupport
-                app = guisupport.gget_app_qt4() 
+                app = guisupport.get_app_qt4() 
                 pass
             
             pass
