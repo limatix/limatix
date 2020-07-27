@@ -1,4 +1,5 @@
-
+doc/processtrak_example/.*xlp.bak*
+doc/processtrak_example/*.xlp
 build/*
 dist/*
 *egg*
