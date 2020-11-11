@@ -328,7 +328,7 @@ class explogwindow(gtk.Window):
         # don't forget to put parallel remdoc entries in unsyncexplog
         self.paramdb["perfby"].controller.adddoc(self.explog,"dc:summary/dc:perfby")
         self.paramdb["date"].controller.adddoc(self.explog,"dc:summary/dc:date")
-        self.paramdb["dest"].controller.adddoc(self.explog,"dc:summary/dc:dest")
+        self.paramdb["dest"].controller.adddoc(self.explog,"dc:dest")
 
         # import pdb as pythondb
         # pythondb.set_trace()
