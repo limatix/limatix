@@ -3909,6 +3909,9 @@ class synced(object):
                 # No element -- append one to the parent
             
                 (parent,separator,elname)=xmlpath.rpartition("/")
+                if parent=="": 
+                    parent="." # empty parent means root element, which is obtained through doc.find(".")
+                    pass
                 xmlel=xmldocobj.addelement(parent,elname)
                 pass
             else :
