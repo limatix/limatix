@@ -35,8 +35,8 @@ from ..dc_gtksupp import paramhandler
 __pychecker__="no-import no-argsused no-constCond"
 
 # gtk superclass should be first of multiple inheritances
-class booleanreadout(gtk.CheckButton,paramhandler):
-    __gtype_name__="booleanreadout"
+class booleanparamreadout(gtk.CheckButton,paramhandler):
+    __gtype_name__="booleanparamreadout"
     __gproperties__ = {
         # set command will be dg-param plus a space plus parameter
         # query command will be dg-param plus a question mark.
@@ -61,7 +61,7 @@ class booleanreadout(gtk.CheckButton,paramhandler):
         }
     __proplist = ["paramname"] 
 
-    __booleanreadout_unique=None
+    __booleanparamreadout_unique=None
     paramdb=None
     param=None
     requestident=None
