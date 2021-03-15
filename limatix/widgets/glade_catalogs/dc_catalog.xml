@@ -20,6 +20,19 @@
       </properties>
     </glade-widget-class>
 
+    <glade-widget-class name="booleanparamreadout" generic-name="booleanparamreadout" title="Boolean parameter readout (using paramdb2)">
+      <properties>
+
+        <property id="paramname" query="True" default="" name="paramdb2 entry to set">
+	  <spec>glade_standard_string_spec</spec>
+ 	  <tooltip>paramdb2 entry to set</tooltip>
+        </property>
+
+	<!-- adjust superclass (GtkCheckButton) properties -->
+	<property id="can_focus" default="True"/>
+      </properties>
+    </glade-widget-class>
+
     <glade-widget-class name="imagereadout" generic-name="imagereadout" title="datacollect2 image parameter viewer (using paramdb2)">
       <properties>
 
@@ -170,6 +183,7 @@
   <glade-widget-group name="datacollect_widgets" title="Datacollect Widgets (operate against paramdb entries)">
     <glade-widget-class-ref name="adjustparamreadout"/>
     <glade-widget-class-ref name="labelled_adjustparamreadout"/>
+    <glade-widget-class-ref name="booleanparamreadout"/>
     <glade-widget-class-ref name="selectableparamreadout"/>
     <glade-widget-class-ref name="labelled_selectableparamreadout"/>
     <glade-widget-class-ref name="paragraphparam"/>

@@ -1978,6 +1978,172 @@ class integervalue(value) :
 
 
 
+
+
+
+class booleanvalue(value) :
+    val=None  #!!! private
+
+    # val may be None
+    
+    def __reduce__(self):
+        # lm_units is complicated to pickle, so instead, let's just 
+        # pass this value as its actual value string and recreate it
+        # as a new value object on the other side
+        arg1 = self.__class__
+        arg2 = (str(self.val),)
+        return (arg1, arg2)
+        
+    def __init__(self,val,defunits=None) :
+        # self.name=name;
+
+        
+        if isinstance(val,basestring):
+            if val=="None" or val=="":
+                self.val=None
+                pass
+            else : 
+                self.val=bool(val)                
+                pass
+            pass
+        elif hasattr(val,"value"):
+            # val is already a dc_value object
+            self.val=val.value()
+            assert(isinstance(self.val,bool))
+            pass
+        elif val is None:
+            self.val=None
+            pass
+        else :
+            self.val=bool(val);
+            pass
+
+        
+        self.final=True
+        pass
+
+
+    def isblank(self): 
+        return self.val is None
+
+    def numvalue(self):
+        return self.value()*1.0;
+
+    def value(self):
+        return self.val;
+
+
+    def format(self,formatstr=None):
+        # NOTE: Will not operate correctly if val is None and formatstr is specified
+        
+        if formatstr is None:
+            if self.val is None:
+                return ""
+            return str(self.val)
+        
+
+        # print "formatstr=%s" % (formatstr)
+        # if you get a 
+        # TypeError: not all arguments converted during string formatting
+        # on this next line, then you probably forgot the % in the %f or %g
+        # in your initialization of displayfmt in the .dcc file
+        return (formatstr) % (self.val)
+
+    def comsolstr(self):
+        return str(self.val)
+    
+    def __str__(self) :
+        if self.val is None:
+            return ""
+
+        return str(self.val)
+    
+    @classmethod
+    def fromxml(cls,xmldocu,element,defunits=None,contextdir=None,noprovenance=False):
+        # NOTE: if xml_attribute is provided, xmldocu must be also.
+        if xmldocu is not None and not noprovenance:
+            provenance.xmldocelementaccessed(xmldocu,element)
+            pass
+
+        #if xml_attribute is None:
+        elementtext=element.text
+        #pass
+        #else: 
+        #    elementtext=xmldocu.getattr(element,xml_attribute,"")
+        #    pass
+
+        return cls(elementtext)
+
+
+    def xmlrepr(self,xmldocu,element,defunits=None):
+        # clear out any old attributes
+        oldattrs=element.attrib.keys()
+        for oldattr in oldattrs:
+            if oldattr.startswith(DCV):
+                del element.attrib[oldattr]
+                pass
+            pass
+
+
+        #if xml_attribute is None: 
+        # set text
+        element.text=str(self.val)
+        #    pass
+        #else: 
+        #    xmldocu.setattr(element,xml_attribute,str(self.val))
+        #    pass
+            
+            
+        
+        if xmldocu is not None:
+            xmlstorevalueclass(xmldocu,element,self.__class__)
+
+            xmldocu.modified=True
+            provenance.elementgenerated(xmldocu,element)
+            pass
+            
+        pass
+    
+    
+    def __eq__(self,other) :
+        if self.val is None:
+            return False
+
+        assert(not hasattr(other,"units")) # don't support comparison between booleanvalue and numericunitsvalue at this point
+        # if we want to support that later we could build off the code in numericunitsvalue
+        
+
+        otherval=other.value()
+        return self.val==bool(otherval)
+
+
+    
+    def __add__(self,other):
+        raise ValueError("Attempting to add a boolean")
+
+    def __sub__(self,other):
+        raise ValueError("Attempting to subtract a boolean")
+    
+    def __mul__(self,other):
+        raise ValueError("Attempting to multiply a boolean")
+        
+    
+    def __div__(self,other):
+        raise ValueError("Attempting to divide a boolean")
+
+    def __truediv__(self,other):
+        raise ValueError("Attempting to divide a boolean")
+
+    def __floordiv__(self,other):
+        raise ValueError("Attempting to divide a boolean")
+
+    pass
+
+
+
+
+
+
 class heatingvalue(numericunitsvalue) :
     pixbuf=None;
     def __init__(self,val,units=None,pixbuf=None) :
