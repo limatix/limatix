@@ -279,7 +279,7 @@ def create_outputfile_process_xslt(prxdoc,xslttag,inputfiles_element,inputfile_e
     return outdoc
 
 
-def create_outputfile(prxdoc,inputfiles_element,inputfilehref,nominal_outputfilehref,outputfilehref,outputdict):
+def create_outputfile(prxdoc,inputfiles_element,inputfilehref,nominal_outputfilehref,outputfilehref,outputdict,ignore_locking):
     """Create the output XML file from the raw input by running any filters, etc. 
     It will be presumed that the output XML file will eventually be referred to by nominal_outputfilehref, 
     but the actual file written will be outputfilehref"""
@@ -621,7 +621,7 @@ def open_or_lock_output(prxdoc,out,readonly=False):
         return
 
     
-    out.output=xmldoc.xmldoc.loadhref(out.outputfilehref,readonly=readonly,num_backups=1,use_locking=True,nsmap=outputnsmap) # ,debug=True) # !!!*** Remove debug mode eventually for performance reasons
+    out.output=xmldoc.xmldoc.loadhref(out.outputfilehref,readonly=readonly,num_backups=1,use_locking=not(out.ignore_locking),nsmap=outputnsmap) # ,debug=True) # !!!*** Remove debug mode eventually for performance reasons
 
     pass
 
@@ -745,7 +745,7 @@ def merge_output_file(prxdoc,outputdict,inputfiles_element,inputfilehref,overall
     temp_outputfilehref = dcv.hrefvalue(temp_outputfilename,outputdirhref)
 
     # Create empty output file from input file, stored in temp_outputfilehref, but pretending to be out.outputfilehref
-    (inputfilecanonhash,inputfiletimestamp)=create_outputfile(prxdoc,inputfiles_element,inputfilehref,out.outputfilehref,temp_outputfilehref,outputdict)
+    (inputfilecanonhash,inputfiletimestamp)=create_outputfile(prxdoc,inputfiles_element,inputfilehref,out.outputfilehref,temp_outputfilehref,outputdict,out.ignore_locking)
 
     temp_output = xmldoc.xmldoc.loadhref(temp_outputfilehref,readonly=False,num_backups=0,use_locking=False,nsmap=outputnsmap) 
     
@@ -832,7 +832,7 @@ def initialize_output_file(prxdoc,outputdict,inputfiles_element,inputfilehref,ov
         # Need to create outputfile by copying or running inputfilter
         cf_starttime=timestamp.now().isoformat()
 
-        (inputfilecanonhash,inputfiletimestamp)=create_outputfile(prxdoc,inputfiles_element,inputfilehref,out.outputfilehref,out.outputfilehref,outputdict)
+        (inputfilecanonhash,inputfiletimestamp)=create_outputfile(prxdoc,inputfiles_element,inputfilehref,out.outputfilehref,out.outputfilehref,outputdict,out.ignore_locking)
 
         # Will mark provenance of each element of output file
         open_or_lock_output(prxdoc,out)   
@@ -896,7 +896,7 @@ def getinputfiles(prxdoc):
     return (inputfiles_element,inputfiles_with_hrefs)
 
 
-def build_outputdict(prxdoc,useinputfiles_with_hrefs):
+def build_outputdict(prxdoc,useinputfiles_with_hrefs,ignore_locking):
     outputdict=collections.OrderedDict()
     
     
@@ -929,7 +929,7 @@ def build_outputdict(prxdoc,useinputfiles_with_hrefs):
                 raise ValueError("Output file %s is the same as input file %s" % (outputfilehref.getpath(),inputfilehref.getpath()))
             pass
 
-        outputdict[inputfilehref]=outputdoc(inputfilehref=inputfilehref,inputfileelement=inputfileelement,outputfilehref=outputfilehref)
+        outputdict[inputfilehref]=outputdoc(inputfilehref=inputfilehref,inputfileelement=inputfileelement,outputfilehref=outputfilehref,ignore_locking=ignore_locking)
         pass
     return outputdict
 
@@ -1071,7 +1071,8 @@ class outputdoc(object):
     inputfileelement=None  # element in in-memory copy of .prx file
 
     processpath=None # path to the lip:process tag for our overall process
-
+    ignore_locking=None
+    
     def __init__(self,**kwargs):
         for key in kwargs:
             assert(hasattr(self,key))            

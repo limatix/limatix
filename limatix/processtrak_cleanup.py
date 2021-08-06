@@ -315,7 +315,7 @@ def traverse_one(infiles,infileobj,pending,completed,dests,hrefs,recursive=False
             # ... We follow links to .xlp files whether or not the recursive flag is set as long as we are doing include_processed
             
             (prx_inputfiles_element,prx_inputfiles_with_hrefs)=processtrak_common.getinputfiles(infileobj.xmldocu)
-            prx_outputdict=processtrak_common.build_outputdict(infileobj.xmldocu,prx_inputfiles_with_hrefs)
+            prx_outputdict=processtrak_common.build_outputdict(infileobj.xmldocu,prx_inputfiles_with_hrefs,ignore_locking)
 
             for prx_inputfile_href in prx_outputdict:
                 if hrefs is not None:

@@ -113,7 +113,7 @@ def eval_status_inputfile(inputfile,inputfile_href,prxdoc,prxfilehref,outputdict
     # to actually execute anything with this outdoc in the outputdict, as
     # the output will be only opened as read-only
     if os.path.exists(outdoc.outputfilehref.getpath()):
-        processtrak_common.open_or_lock_output(prxdoc,outdoc,readonly=True)
+        processtrak_common.open_or_lock_output(prxdoc,outdoc,ignore_locking,readonly=True)
         xlpdocu=outdoc.output
         pass
     else:
@@ -249,7 +249,7 @@ def eval_status_inputfile(inputfile,inputfile_href,prxdoc,prxfilehref,outputdict
         
     return (actionproc_date_status_success_dict_matching_prxfile,actionprocs_missing_from_prx,actionprocs_not_matching_prxfile)
 
-def print_status(inputfiles_with_hrefs,prxdoc,prxfilehref,all_step_elements):
+def print_status(inputfiles_with_hrefs,prxdoc,prxfilehref,all_step_elements,ignore_locking):
     """inputfiles_with_hrefs is a list of (inputfile, inputfile_href) tuples, 
     where inputfile is the name of an experiment log for which we want status.
 
@@ -258,7 +258,7 @@ def print_status(inputfiles_with_hrefs,prxdoc,prxfilehref,all_step_elements):
     """
 
     # Build private dictionary by input file of output files
-    outputdict=processtrak_common.build_outputdict(prxdoc,inputfiles_with_hrefs)
+    outputdict=processtrak_common.build_outputdict(prxdoc,inputfiles_with_hrefs,ignore_locking)
     
     for (inputfile,inputfile_href) in inputfiles_with_hrefs:
 
