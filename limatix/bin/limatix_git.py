@@ -2,6 +2,7 @@ import sys
 import subprocess
 import os
 import os.path
+import fnmatch
 
 try:
     # py2.x
@@ -128,12 +129,51 @@ def filename_is_xlg_prx_py(filename):
     ext=os.path.splitext(filename)[1].lower()
     return ext==".xlg" or ext==".prx" or ext==".py"
 
+def passes_gitignore(gitignore_lines,filename):
+    for gitignore_line in gitignore_lines:
+        if fnmatch.fnmatchcase(filename,gitignore_line):
+            return False
+        pass
+    return True
+
+def find_recursive(pathlist,rootpath,gitignore_lines,curpath):
+    for name in os.listdir(os.path.join(rootpath,curpath)):
+        newpath = os.path.join(curpath,name)
+        if os.path.isdir(os.path.join(rootpath,newpath)):
+            if passes_gitignore(gitignore_lines,name) and passes_gitignore(gitignore_lines,newpath):
+                find_recursive(pathlist,rootpath,gitignore_lines,newpath)
+                pass
+            pass
+        else:
+            if filename_is_xlg_prx_py(name) and passes_gitignore(gitignore_lines,name) and passes_gitignore(gitignore_lines,newpath):
+                pathlist.append(name)
+                pass
+            pass
+
+        pass
+
+    
+    pass
+
+
 def find_recursive_xlg_prx_py(rootpath):
     pathlist=[]
     
-    for (dirpath,dirnames,filenames) in os.walk(rootpath):
-        pathlist.extend([ os.path.join(dirpath,filename) for filename in filenames if filename_is_xlg_prx_py(filename) ])
+    gitignore_lines = []
+    gitignore_path = os.path.join(rootpath,".gitignore")
+    if os.path.exists(gitignore_path): 
+        gitignore_fh = open(gitignore_path,"r")
+        gitignore = gitignore_fh.read()
+        gitignore_lines_raw = gitignore.split("\n")
+        gitignore_lines = [ line.strip() for line in gitignore_lines_raw if len(line.strip()) > 0 and not line.strip()[0]=='#' ]
         pass
+    
+        
+    find_recursive(pathlist,rootpath,gitignore_lines,rootpath)
+    return pathlist
+    #for (dirpath,dirnames,filenames) in os.walk(rootpath):
+    #    pathlist.extend([ os.path.join(dirpath,filename) for filename in filenames if filename_is_xlg_prx_py(filename) and passes_gitignore(gitignore_lines,filename)])
+    #    pass
     
     return pathlist
         
