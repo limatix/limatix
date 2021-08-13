@@ -113,7 +113,7 @@ def eval_status_inputfile(inputfile,inputfile_href,prxdoc,prxfilehref,outputdict
     # to actually execute anything with this outdoc in the outputdict, as
     # the output will be only opened as read-only
     if os.path.exists(outdoc.outputfilehref.getpath()):
-        processtrak_common.open_or_lock_output(prxdoc,outdoc,ignore_locking,readonly=True)
+        processtrak_common.open_or_lock_output(prxdoc,outdoc,readonly=True)
         xlpdocu=outdoc.output
         pass
     else:
