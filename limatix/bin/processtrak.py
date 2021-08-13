@@ -277,7 +277,7 @@ def main(args=None):
         
         
     prxfile=positionals[0]
-    prxfilehref=dcv.hrefvalue(prxfile,contexthref=dcv.hrefvalue("."))
+    prxfilehref=dcv.hrefvalue(pathname2url(prxfile),contexthref=dcv.hrefvalue("."))
 
     
     
