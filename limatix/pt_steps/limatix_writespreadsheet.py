@@ -110,6 +110,7 @@ xmlns:pt="http://limatix.org/processtrak"
 xmlns:prx="http://limatix.org/processtrak/processinginstructions"
 xmlns:dcv="http://limatix.org/dcvalue"
 xmlns:exsl="http://exslt.org/common"
+xmlns:loext="urn:org:documentfoundation:names:experimental:office:xmlns:loext:1.0"
 extension-element-prefixes="dyn prx exsl"
 version="1.0">
 
@@ -118,7 +119,9 @@ version="1.0">
 <xsl:param name="datestamp"/>
 <xsl:param name="sheetspecname"/>
 <xsl:param name="filespecname"/>
-  
+<xsl:param name="decimaldigits"/>
+
+
 <xsl:template match='/'>
 
 <!-- Opendocument boilerplate -->
@@ -126,14 +129,42 @@ version="1.0">
 <office:scripts/>
 <office:automatic-styles>
   <style:style style:name="co1" style:family="table-column">
-    <style:table-column-properties fo:break-before="auto" style:column-width="0.8925in"/>
+    <style:table-column-properties fo:break-before="auto" style:column-width="1.2in"/>
   </style:style>
   <style:style style:name="ro1" style:family="table-row">
     <style:table-row-properties style:row-height="0.1681in" fo:break-before="auto" style:use-optimal-row-height="true"/>
   </style:style>
+  <!--- style ro2: Use for table heading row -->
+  <style:style style:name="ro2" style:family="table-row">
+    <style:table-row-properties style:row-height="50pt" fo:break-before="auto" style:use-optimal-row-height="true"/>
+  </style:style>
   <style:style style:name="ta1" style:family="table" style:master-page-name="Default">
     <style:table-properties table:display="true" style:writing-mode="lr-tb"/>
   </style:style>
+  <!--- style ce1: Use for table headings -->
+  <style:style style:name="ce1" style:family="table-cell" style:parent-style-name="Default">
+    <style:table-cell-properties fo:wrap-option="wrap"/>
+  </style:style>
+  <!-- number-style N121 for numbers -->
+  <xsl:choose>
+    <xsl:when test="number($decimaldigits) &lt; 0">
+      <!-- decimaldigits giten as negative; use scientific notation -->
+      <number:number-style style:name="N121">
+        <number:scientific-number loext:min-decimal-places="3" number:min-integer-digits="1" number:min-exponent-digits="2" loext:exponent-interval="3" loext:forced-exponent-sign="true">
+          <xsl:attribute name="number:decimal-places"><xsl:value-of select="-number($decimaldigits)"/></xsl:attribute>
+        </number:scientific-number>
+      </number:number-style>
+    </xsl:when>
+    <xsl:otherwise>
+      <number:number-style style:name="N121">
+        <number:number number:min-integer-digits="1">
+          <xsl:attribute name="number:decimal-places"><xsl:value-of select="number($decimaldigits)"/></xsl:attribute>
+        </number:number>
+      </number:number-style>
+    </xsl:otherwise>
+  </xsl:choose>
+  <!--- style ce2: Use for numeric data-->
+  <style:style style:name="ce2" style:family="table-cell" style:parent-style-name="Default" style:data-style-name="N121"/>
 </office:automatic-styles>
 
 <office:body><office:spreadsheet>
@@ -170,6 +201,7 @@ version="1.0">
       </xsl:attribute>
       <xsl:attribute name="table:style-name">ta1</xsl:attribute>
       <xsl:attribute name="table:print">false</xsl:attribute>
+      <xsl:apply-templates select="$sheet/pt:col" mode="columns"/>
       <table:table-column table:style-name="co1" table:default-cell-style-name="Default"/>
       <table:table-row table:style-name="ro1">
         <table:table-cell office:value-type="string">
@@ -208,7 +240,7 @@ version="1.0">
       <table:table-cell/>
       </table:table-row>
   
-      <table:table-row table:style-name="ro1">
+      <table:table-row table:style-name="ro2">
         <xsl:apply-templates select="$sheet/pt:col" mode="headings"/>
       </table:table-row>
       <xsl:variable name="rowsel" select="$sheet/pt:rows"/>
@@ -227,11 +259,15 @@ version="1.0">
 </xsl:template>
 
 <xsl:template match="pt:col" mode="headings">
-  <table:table-cell office:value-type="string">
+  <table:table-cell table:style-name="ce1" office:value-type="string">
   <text:p>
     <xsl:value-of select='@label'/>
     <xsl:if test="string(@type)='numericunits'">
       <xsl:value-of select="' '"/>(<xsl:value-of select="@dcv:units"/>)</xsl:if></text:p></table:table-cell>
+</xsl:template>
+
+<xsl:template match="pt:col" mode="columns">
+  <table:table-column table:style-name="co1" table:default-cell-style-name="Default"/>
 </xsl:template>
 
 <xsl:template match="pt:col" mode="rows">
@@ -244,6 +280,7 @@ version="1.0">
   <xsl:choose>
     <xsl:when test="string($col/@type)='numericunits'">
       <xsl:element name="table:table-cell">
+        <xsl:attribute name="table:style-name">ce2</xsl:attribute> 
         <xsl:attribute name="office:value-type">float</xsl:attribute>
         <xsl:attribute name="office:value"><xsl:value-of select="prx:numericunitsvalue($selection,$col/@dcv:units)"/></xsl:attribute>
          <text:p><xsl:value-of select="prx:numericunitsvalue($selection,$col/@dcv:units)"/></text:p>
@@ -251,6 +288,7 @@ version="1.0">
     </xsl:when>
     <xsl:when test="string($col/@type)='numeric'">
       <xsl:element name="table:table-cell">
+        <xsl:attribute name="table:style-name">ce2</xsl:attribute> 
         <xsl:attribute name="office:value-type">float</xsl:attribute>
         <xsl:attribute name="office:value"><xsl:value-of select="$selection"/></xsl:attribute>
          <text:p><xsl:value-of select="$selection"/></text:p>
@@ -462,8 +500,20 @@ def write_output(outfilename,result):
     pass
 
 
-def run(_prxdoc,_step,_xmldoc,_element,prx_sheetspec_doc,prx_sheetspec,prx_outfilenamexpath_doc=None,prx_outfilenamexpath=None,prx_outfilename_str=None,linktag="prx:spreadsheet"):
-
+def run(_prxdoc,
+        _step,
+        _xmldoc,
+        _element,
+        prx_sheetspec_doc,
+        prx_sheetspec,
+        prx_outfilenamexpath_doc=None,
+        prx_outfilenamexpath=None,
+        prx_outfilename_str=None,
+        linktag="prx:spreadsheet",
+        prx_ssnumeric_decimaldigits_int=-3):
+    # dc_ssnumeric_decimaldigits_int gives the 
+    # number of desired decimal digits (negative for engineering/scientific
+    # or positive for simple decimals)
 
     docdb={}
     docdb[_prxdoc.get_filehref()]=_prxdoc
@@ -504,7 +554,7 @@ def run(_prxdoc,_step,_xmldoc,_element,prx_sheetspec_doc,prx_sheetspec,prx_outfi
     
     
     transform=etree.XSLT(stylesheet,extensions=prx_lookupfcn.extensions)
-    ods=transform(etree.XML("<dummy/>"))  # Stylesheet calls sheetspec() function to get actual sheetspec. This avoids cutting sheespec out of its source document. 
+    ods=transform(etree.XML("<dummy/>"),decimaldigits=str(prx_ssnumeric_decimaldigits_int))  # Stylesheet calls sheetspec() function to get actual sheetspec. This avoids cutting sheespec out of its source document. 
 
     # result=etree.tostring(ods)
 
