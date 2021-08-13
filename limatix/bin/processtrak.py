@@ -171,6 +171,8 @@ Flags:
   --files             Don't do anything; just list available files
   --param-debug       Enable printing parameter selection logic when running
                       steps
+  --ignore-locking    Don't use file locking to synchronize writes to the 
+                      processed experiment log.
     """)
     pass
 
@@ -192,6 +194,7 @@ def main(args=None):
     allsteps=False
     liststeps=False
     listfiles=False
+    ignore_locking=False
     status=False
     needed=False
     paramdebug=False
@@ -235,6 +238,9 @@ def main(args=None):
             pass
         elif arg=="-d": # enable debugging mode
             debugmode=True
+            pass
+        elif arg=="--ignore-locking": # disable file locking
+            ignore_locking = True
             pass
         elif arg=='--gtk3':
             # handled at imports, above
@@ -351,7 +357,7 @@ def main(args=None):
 
     if status:
         # print out status information
-        processtrak_status.print_status(useinputfiles_with_hrefs,prxdoc,prxfilehref,steps)
+        processtrak_status.print_status(useinputfiles_with_hrefs,prxdoc,prxfilehref,steps,ignore_locking)
         sys.exit(0)
         pass
 
@@ -365,7 +371,7 @@ def main(args=None):
 
 
     # Build dictionary by input file of output files
-    outputdict=processtrak_common.build_outputdict(prxdoc,inputfiles_with_hrefs)
+    outputdict=processtrak_common.build_outputdict(prxdoc,inputfiles_with_hrefs,ignore_locking)
 
     
     # Run the specified steps, on the specified files

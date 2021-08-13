@@ -2992,9 +2992,11 @@ class xmldoc(object):
                 OutFH=self.lockfh
                 OutFH.seek(0)
                 OutFH.truncate()
+                reused_fh = True
                 pass
             else:
                 OutFH=open(self._filename,"wb");
+                reused_fh = False
                 pass
             
             if (rolock or rwlock) and lockfd < 0:
@@ -3021,7 +3023,8 @@ class xmldoc(object):
             else : 
                 self.doc.write(OutFH,encoding='utf-8',pretty_print=True,xml_declaration=True)
                 pass
-            if os.name=="posix": # Close non-lock copy
+            #if os.name=="posix": # Close non-lock copy
+            if not reused_fh:
                 OutFH.close();
                 pass
             
