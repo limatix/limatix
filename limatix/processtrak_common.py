@@ -896,7 +896,7 @@ def getinputfiles(prxdoc):
     return (inputfiles_element,inputfiles_with_hrefs)
 
 
-def build_outputdict(prxdoc,useinputfiles_with_hrefs,ignore_locking):
+def build_outputdict(prxdoc,useinputfiles_with_hrefs,ignore_locking=False):
     outputdict=collections.OrderedDict()
     
     
