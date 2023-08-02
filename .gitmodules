@@ -1,5 +1,5 @@
 [submodule "canonicalize-path"]
-        path=limatix/canonicalize-path
+        path=limatix/canonicalize_path
 	url = https://github.com/limatix/canonicalize_path
 [submodule "dc_lxml_treesync"]
         path=limatix/dc_lxml_treesync
