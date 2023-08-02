@@ -337,23 +337,23 @@ class xmldoc(object):
 
 
     @classmethod
-    def loadhref(cls,href,nsmap=None,readonly=True,use_databrowse=False,num_backups=1,use_locking=False,nodialogs=False,debug=False):
+    def loadhref(cls,href,nsmap=None,readonly=True,use_databrowse=False,num_backups=1,use_locking=False,nodialogs=False,debug=False,remove_comments=False):
         """ xmldoc.loadhref(href,...): Load in an existing file. See 
         main constructor docs for other parameters.
         NOTE: Will merge in xmldoc default nsmap into root element 
         unless you explicitly supply nsmap={}"""
 
-        return cls(href,maintagname=None,nsmap=nsmap,readonly=readonly,use_databrowse=use_databrowse,num_backups=num_backups,use_locking=use_locking,nodialogs=nodialogs,debug=debug)
+        return cls(href,maintagname=None,nsmap=nsmap,readonly=readonly,use_databrowse=use_databrowse,num_backups=num_backups,use_locking=use_locking,nodialogs=nodialogs,debug=debug,remove_comments=remove_comments)
 
     @classmethod
-    def loadfile(cls,filename,nsmap=None,readonly=True,use_databrowse=False,num_backups=1,use_locking=False,nodialogs=False,debug=False):
+    def loadfile(cls,filename,nsmap=None,readonly=True,use_databrowse=False,num_backups=1,use_locking=False,nodialogs=False,debug=False,remove_comments=False):
         """ xmldoc.loadfile(filename,...): Load in an existing file. See 
         main constructor docs for other parameters.
         NOTE: Will merge in xmldoc default nsmap into root element 
         unless you explicitly supply nsmap={}"""
         href=dc_value.hrefvalue(pathname2url(filename),contexthref=dc_value.hrefvalue("./"))
         
-        return cls(href,maintagname=None,nsmap=nsmap,readonly=readonly,use_databrowse=use_databrowse,num_backups=num_backups,use_locking=use_locking,nodialogs=nodialogs,debug=debug)
+        return cls(href,maintagname=None,nsmap=nsmap,readonly=readonly,use_databrowse=use_databrowse,num_backups=num_backups,use_locking=use_locking,nodialogs=nodialogs,debug=debug,remove_comments=remove_comments)
 
     @classmethod
     def newdoc(cls,maintagname,nsmap=None,num_backups=1,use_locking=False,contexthref=None,nodialogs=False,debug=False):
@@ -486,7 +486,7 @@ class xmldoc(object):
         return newdoc
 
 
-    def __init__(self,href,maintagname=None,nsmap=None,readonly=False,use_databrowse=False,num_backups=1,FileObj=None,ETreeObj=None,use_locking=False,contexthref=None,nodialogs=False,debug=False):  
+    def __init__(self,href,maintagname=None,nsmap=None,readonly=False,use_databrowse=False,num_backups=1,FileObj=None,ETreeObj=None,use_locking=False,contexthref=None,nodialogs=False,debug=False,remove_comments=False):  
         """ Main constructor fo xmldoc. WE STRONGLY RECOMMEND USING THE CLASS METHOD CONSTRUCTORS INSTEAD
         href:    File to map. May be None if we are creating a new 
                      document in write mode (maintagname != None). 
@@ -617,14 +617,14 @@ class xmldoc(object):
                 self.possible_root_ids=set([id(ETreeObj.getroot())])
                 pass
             elif not self.use_locking:
-                self._resync(initialload=True,FileObj=FileObj)
+                self._resync(initialload=True,FileObj=FileObj,remove_comments=remove_comments)
                 pass
             elif self.use_locking and self.readonly: 
-                self._resync(initialload=True,FileObj=FileObj,rolock=True)
+                self._resync(initialload=True,FileObj=FileObj,rolock=True,remove_comments=remove_comments)
                 self.ro_lockcount=1
                 pass
             elif self.use_locking and not self.readonly:
-                self._resync(initialload=True,FileObj=FileObj,rwlock=True)
+                self._resync(initialload=True,FileObj=FileObj,rwlock=True,remove_comments=remove_comments)
                 self.rw_lockcount=1
                 pass
             else : 
@@ -1246,7 +1246,6 @@ class xmldoc(object):
     #!!!*** Should build in unit support
     def xpathsinglefloat(self,xpath,units=None,namespaces=None,contextnode=None,extensions=None,variables=None,default=NameError("No result found for xpath"),noprovenance=False):
         """Like xpathsingle, but converts result to a float"""
-        assert(units is None) # Unit support not implemented yet!
 
         resultnode=self.xpathsingle(xpath,namespaces=namespaces,contextnode=contextnode,extensions=extensions,variables=variables,default=default,noprovenance=noprovenance)
         
@@ -1255,10 +1254,16 @@ class xmldoc(object):
             pass
         else : 
             # should be an etree.Element
-            return float(resultnode.text)
+            if (dc_value.DCV+"units" in resultnode.attrib) or ("units" in resultnode.attrib):
+                return dc_value.numericpintvalue.fromxml(self, resultnode)
+            else:
+                if units is not None:
+                    return dc_value.numericpintvalue(resultnode.text,units)
+                else:
+                    return float(resultnode.text)
         pass
 
-    #!!!*** Should build in unit support
+    #!!!*** Should build in unit support using lm_units
     def xpathsinglecontextfloat(self,contextnode,xpath,units=None,namespaces=None,extensions=None,variables=None,default=NameError("No result found for xpath"),noprovenance=False):
         """Alias for xpathsinglefloat(xpath,namespaces,contextnode)"""
 
@@ -1387,7 +1392,7 @@ class xmldoc(object):
         pass
     
 
-    def _resync(self,initialload=False,FileObj=None,rolock=False,rwlock=False):
+    def _resync(self,initialload=False,FileObj=None,rolock=False,rwlock=False,remove_comments=False):
         """_resync() reads in any changes from disk.
         
         INTERNAL USE ONLY
@@ -1451,7 +1456,7 @@ class xmldoc(object):
 
                         # Use parser with remove_blank_text otherwise pretty_print
                         # won't work on output
-                        parser=etree.XMLParser(remove_blank_text=True,huge_tree=True)
+                        parser=etree.XMLParser(remove_blank_text=True,remove_comments=remove_comments,huge_tree=True)
                         if FileObj is not None:
                             # stream object. Don't have to do anything to lock it
                             self.doc=etree.parse(FileObj,parser)
@@ -2011,7 +2016,7 @@ class xmldoc(object):
         if contextnode is None:
             resultlist=self.doc.xpath(path,namespaces=namespaces,extensions=useextensions,**variables)
             pass
-        elif isinstance(contextnode,collections.Sequence):
+        elif isinstance(contextnode,collections.abc.Sequence):
             # context node is some sort of list
             xpathresults=[]
             for singlenode in contextnode:                
@@ -2019,7 +2024,7 @@ class xmldoc(object):
                 pass
             resultlist=[]
             for xpathresult in xpathresults:
-                if isinstance(xpathresult,collections.Sequence) and not isinstance(xpathresult,basestring):
+                if isinstance(xpathresult,collections.abc.Sequence) and not isinstance(xpathresult,basestring):
                     # Some sort of list... add contents to result
                     resultlist.extend(xpathresult)
                     pass
@@ -2061,7 +2066,7 @@ class xmldoc(object):
         if contextnode is None:
             resultlist=ETXobj(self.doc,**variables)
             pass
-        elif isinstance(contextnode,collections.Sequence):
+        elif isinstance(contextnode,collections.abc.Sequence):
             # context node is some sort of list
             xpathresults=[]
             for singlenode in contextnode:                
@@ -2069,7 +2074,7 @@ class xmldoc(object):
                 pass
             resultlist=[]
             for xpathresult in xpathresults:
-                if isinstance(xpathresult,collections.Sequence) and not isinstance(xpathresult,basestring):
+                if isinstance(xpathresult,collections.abc.Sequence) and not isinstance(xpathresult,basestring):
                     # Some sort of list... add contents to result
                     resultlist.extend(xpathresult)
                     pass
@@ -2134,75 +2139,110 @@ class xmldoc(object):
         
         resultarray=np.zeros(len(nodeset),dtype=dtype)
 
-        if desiredunits is not None:
-            if isinstance(desiredunits,basestring):
-                desiredunits=lmu.parseunits(desiredunits)
-                pass
-            resultunits=desiredunits
-            pass
+        if dc_value.pint is not None:
+            if len(nodeset) > 0:
+                resultlist = []
+                for cnt in range(len(nodeset)):
+
+                    if not(isinstance(nodeset[cnt],basestring)):
+                        # A node, not a string
+                        if "{http://limatix.org/dcvalue}units" in nodeset[cnt].attrib:
+                            thisresultunits=dc_value.ureg.Unit(nodeset[cnt].attrib["{http://limatix.org/dcvalue}units"])
+                            pass
+                        elif "units" in nodeset[cnt].attrib:
+                            thisresultunits=dc_value.ureg.Unit(nodeset[cnt].attrib["units"])
+                            pass
+                        else:
+                            thisresultunits=dc_value.ureg.Unit("") # presumed unitless
+                            pass
+                        thisresulttext=dc_value.numericpintvalue(nodeset[cnt].text, thisresultunits)
+                        pass
+                    else :
+                        # a string, not a node
+                        thisresulttext=dc_value.numericpintvalue(nodeset[cnt])
+                        pass
+
+                    # converted=converter(thisresulttext)
+                    resultlist.append(thisresulttext)
+                    pass
+
+            resultarray = dc_value.numericpintvalue.from_list(resultlist)
+            if desiredunits is not None:
+                resultarray = resultarray.to(desiredunits)
+
+            resultarray = resultarray.astype(dtype)
+
+            return resultarray
         else:
-            resultunits=None
-            pass
-        
-        if len(nodeset) > 0:
-
-            for cnt in range(len(nodeset)):
-                
-                if not(isinstance(nodeset[cnt],basestring)):
-                    # A node, not a string
-                    if "{http://limatix.org/dcvalue}units" in nodeset[cnt].attrib:
-                        thisresultunits=lmu.parseunits(nodeset[cnt].attrib["{http://limatix.org/dcvalue}units"])
-                        pass
-                    elif "units" in nodeset[cnt].attrib:
-                        thisresultunits=lmu.parseunits(nodeset[cnt].attrib["units"])
-                        pass
-                    else:
-                        thisresultunits=lmu.parseunits("") # presumed unitless
-                        pass
-                    thisresulttext=nodeset[cnt].text
+            if desiredunits is not None:
+                if isinstance(desiredunits,basestring):
+                    desiredunits=lmu.parseunits(desiredunits)
                     pass
-                else :
-                    # a string, not a node
-                    thisresultunits=lmu.parseunits("") # presumed unitless .... (or should we parse the text?)
-                    thisresulttext=nodeset[cnt]
-                    pass
-
-
-                converted=converter(thisresulttext)
-
-                isnotfinite=((iscomplex and not np.isfinite(converted.real) and not np.isfinite(converted.imag)) or
-                             (not iscomplex and not np.isfinite(converted)))
-
-                coeff=1.0
-
-                if not(isnotfinite):
-                    # only transfer units and worry about unit match for
-                    # finite numbers
-
-                    if resultunits is None and thisresultunits is not None:
-                        # Record units, if we have them!
-                        resultunits=thisresultunits
-                        pass
-
-                    if thisresultunits is not None and resultunits is not None:
-                        # Make sure units match... extract conversion coefficient
-                        coeff=lmu.compareunits(resultunits,thisresultunits)
-                        pass
-                
-                    if thisresultunits is None:
-                        raise ValueError("xpathnumpy: Missing units for cnt=%d; thisresulttext=%s" % (cnt,thisresulttext))
-                    if coeff==0.0:
-                        raise ValueError("Unit mismatch in array generation: %s vs. %s." % (lmu.printunits(resultunits,True),lmu.printunits(thisresultunits,True)))
-                    pass
-                
-
-
-                
-                resultarray[cnt]=converted/coeff
-                                
+                resultunits=desiredunits
                 pass
-            pass
-        return (resultarray,resultunits)
+            else:
+                resultunits=None
+                pass
+            
+            if len(nodeset) > 0:
+
+                for cnt in range(len(nodeset)):
+                    
+                    if not(isinstance(nodeset[cnt],basestring)):
+                        # A node, not a string
+                        if "{http://limatix.org/dcvalue}units" in nodeset[cnt].attrib:
+                            thisresultunits=lmu.parseunits(nodeset[cnt].attrib["{http://limatix.org/dcvalue}units"])
+                            pass
+                        elif "units" in nodeset[cnt].attrib:
+                            thisresultunits=lmu.parseunits(nodeset[cnt].attrib["units"])
+                            pass
+                        else:
+                            thisresultunits=lmu.parseunits("") # presumed unitless
+                            pass
+                        thisresulttext=nodeset[cnt].text
+                        pass
+                    else :
+                        # a string, not a node
+                        thisresultunits=lmu.parseunits("") # presumed unitless .... (or should we parse the text?)
+                        thisresulttext=nodeset[cnt]
+                        pass
+
+
+                    converted=converter(thisresulttext)
+
+                    isnotfinite=((iscomplex and not np.isfinite(converted.real) and not np.isfinite(converted.imag)) or
+                                (not iscomplex and not np.isfinite(converted)))
+
+                    coeff=1.0
+
+                    if not(isnotfinite):
+                        # only transfer units and worry about unit match for
+                        # finite numbers
+
+                        if resultunits is None and thisresultunits is not None:
+                            # Record units, if we have them!
+                            resultunits=thisresultunits
+                            pass
+
+                        if thisresultunits is not None and resultunits is not None:
+                            # Make sure units match... extract conversion coefficient
+                            coeff=lmu.compareunits(resultunits,thisresultunits)
+                            pass
+                    
+                        if thisresultunits is None:
+                            raise ValueError("xpathnumpy: Missing units for cnt=%d; thisresulttext=%s" % (cnt,thisresulttext))
+                        if coeff==0.0:
+                            raise ValueError("Unit mismatch in array generation: %s vs. %s." % (lmu.printunits(resultunits,True),lmu.printunits(thisresultunits,True)))
+                        pass
+                    
+
+
+                    
+                    resultarray[cnt]=converted/coeff
+                                    
+                    pass
+                pass
+            return (resultarray,resultunits)
 
 
     def xpathcontextnumpy(self,contextnodes,path,namespaces=None,extensions=None,variables=None,iscomplex=False,oneper=True,desiredunits=None):
@@ -3433,7 +3473,7 @@ class xmldoc(object):
             if isinstance(element,basestring):
                 return
                 
-            if not(isinstance(element,collections.Sequence)):
+            if not(isinstance(element,collections.abc.Sequence)):
                 element=[element] # wrap in a list so we can iterate
                 pass
             
