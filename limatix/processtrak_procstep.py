@@ -22,6 +22,12 @@ from distutils.version import LooseVersion
 
 from lxml import etree
 
+# For some reason the fortran mkl librarys install their own 
+# CTRL-C exit handler so the keyboard interupt exception 
+# can never be caught. Setting the following environment variable 
+# will disable the mkl CTRL-C installed handler.
+# Set the environment variable FOR_DISABLE_CONSOLE_CTRL_HANDLER = '1'
+
 try:
     from cStringIO import StringIO
     pass
@@ -109,6 +115,14 @@ except TypeError:
     def resource_string(x,y):
         raise IOError("Could not import pkg_resources")
     pass
+
+
+from traitlets import Instance
+
+from ipykernel.inprocess.ipkernel import InProcessKernel
+
+import zmq
+from zmq.eventloop.zmqstream import ZMQStream
 
 
 try: 
@@ -960,14 +974,27 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
 
             if LooseVersion(IPython.__version__) >= LooseVersion('4.0.0'):
                 # Recent Jupyter/ipython: Import from qtconsole            
-                from qtconsole.qt import QtGui
+                try:
+                    from qtconsole.qt import QtGui
+                    QApplication = QtGui.QApplication
+                except ModuleNotFoundError:
+                    # Recent qtconsole version does not contain qt module
+                    if qt_version == 4:
+                        from PyQt4 import QtGui, QtWidgets
+                        QApplication = QtWidgets.QApplication
+                    elif qt_version == 5:
+                        from PyQt5 import QtGui, QtWidgets
+                        QApplication = QtWidgets.QApplication
+                    else:
+                        raise ModuleNotFoundError("Cannot find valid PyQt installation.")
+                    pass
                 from qtconsole.inprocess import QtInProcessKernelManager
                 
                 # Obtain the running QApplication instance
-                app=QtGui.QApplication.instance()
+                app=QApplication.instance()
                 if app is None:
                     # Start our own if necessary
-                    app=QtGui.QApplication([])
+                    app=QApplication([])
                     pass
                 
                 pass
@@ -992,10 +1019,52 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
         
 
         kernel_manager = QtInProcessKernelManager()
+
+        import ipykernel
+        if LooseVersion(ipykernel.__version__) >= LooseVersion('6.0'):
+            shell_socket = kernel_manager.context.socket(zmq.ROUTER)
+            control_socket = kernel_manager.context.socket(zmq.ROUTER)
+
+            _shell_stream = CustomZMQStream(shell_socket)
+            _control_stream = ZMQStream(control_socket)
+
+            kernel_manager.kernel = CustomIPythonKernel(parent=kernel_manager, session=kernel_manager.session, shell_stream=_shell_stream, control_stream=_control_stream)
+
         kernel_manager.start_kernel()
         kernel = kernel_manager.kernel
         kernel.gui = kernel_gui
 
+
+        if LooseVersion(IPython.__version__) >= LooseVersion('7.0.0'):
+            kernel.start()
+
+            if not hasattr(kernel,"io_loop"):
+                # Some versions of ipykernel (e.g. 5.1.4 )
+                # the InProcessKernel start() method
+                # doesn't call its superclass to (apparently)
+                # override registration of dispatcher streams.
+                # but this means that the  the io_loop and
+                # msg_queue also don't get setup, which is problematic.
+                # In the streams are None/Empty so the stream ops
+                # are no-ops
+
+                #print("k.c_s = %s" % (str(kernel.control_stream)))
+                #print("len(k.s_s) = %d" % (len(kernel.shell_streams)))
+                
+                import ipykernel.kernelbase
+                # Call the base class method directly 
+                ipykernel.kernelbase.Kernel.start(kernel)
+                pass
+            ## Set IOLoop for kernel
+            ## similar to example in https://psyplot.readthedocs.io/projects/psyplot-gui/en/latest/_modules/psyplot_gui/console.html
+            #from zmq.eventloop import ioloop as zmq_ioloop
+            #from tornado import ioloop as tdo_ioloop
+            #zmq_ioloop.install()
+            #kernel.io_loop = tdo_ioloop.IOLoop.current()
+            pass
+        
+        
+        
         if LooseVersion(IPython.__version__) >= LooseVersion('7.0.0'):
             kernel.start()
 
@@ -1111,11 +1180,13 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
                 assert isinstance(preparse.body[0],ast.FunctionDef)
                 assert(preparse.body[0].lineno==1) # Def statement should start on line "1"
                 firstbodyline = preparse.body[0].body[0].lineno
-                lines_to_delete = firstbodyline - 2
+                lines_to_delete = firstbodyline - 1
 
                 del lines[:lines_to_delete] # remove def line, leading comments, etc. 
+                lines.insert(0,"    class PTStepReturn(BaseException): pass\n")
                 lines.insert(0,"if 1:\n") # allow function to be indented
                 runfunc_syntaxtree=ast.parse("".join(lines), filename=scripthref.getpath(), mode='exec') # BUG: Should set dont_inherit parameter and properly determine which __future__ import flags should be passed
+                runfunc_syntaxtree=ast.Try(runfunc_syntaxtree.body, [ast.ExceptHandler(ast.Name(id="PTStepReturn", ctx=ast.Load()), [ast.Pass()])])
 
                 # fixup line numbers
                 for syntreenode in ast.walk(runfunc_syntaxtree):
@@ -1173,20 +1244,16 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
             kernel.shell.push({"abort": abort}) # provide abort function
             kernel.shell.push({"cont": False}) # continue defaults to False
             kernel.shell.push({"__processtrak_interactive":  True })
-            
 
+            class ReplaceReturn(ast.NodeTransformer):
 
-            
-            returnstatement=code_container.body[-1]
-            if isinstance(returnstatement,ast.Return):
-                # last statement is a return statement!
-                # Create assign statement that assigns 
-                # the result to ret
-                retassign=ast.Assign(targets=[ast.Name(id="ret",ctx=ast.Store(),lineno=returnstatement.lineno,col_offset=returnstatement.col_offset)],value=returnstatement.value,lineno=returnstatement.lineno,col_offset=returnstatement.col_offset)
-                del code_container.body[-1] # remove returnstatement
-                code_container.body.append(retassign) # add assignment
-                pass
-            
+                def visit_Return(self, node):
+                    value = node.value if node.value is not None else ast.Dict(keys=[], values=[], lineno=node.lineno, col_offset=node.col_offset)
+                    return [
+                        ast.copy_location(ast.Assign(targets=[ast.Name(id="ret", ctx=ast.Store(), lineno=node.lineno, col_offset=node.col_offset)], value=value), node),
+                        ast.Raise(ast.Name(id="PTStepReturn", ctx=ast.Load(), lineno=node.lineno, col_offset=node.col_offset), lineno=node.lineno, col_offset=node.col_offset)]
+
+            ReplaceReturn().visit(code_container)
 
             runfunc_lines=code_container.body
 
@@ -1347,7 +1414,7 @@ def applyresultdict(output,prxdoc,steptag,element,resultdict):
     # can itself contain a dictionary of attributes
 
     
-    if isinstance(resultdict,collections.Mapping):
+    if isinstance(resultdict,collections.abc.Mapping):
         # dictionary or dictionary-like: 
         # Convert to list of (key,element) pairs
         resultlist=[ (key,resultdict[key]) for key in resultdict.keys() ]
@@ -1425,7 +1492,13 @@ def applyresultdict(output,prxdoc,steptag,element,resultdict):
                 provenance.elementgenerated(output,subel)
                 pass
             pass
-        else :
+        elif isinstance(resultvalue,(list, dict)):
+            # create parent element
+            newel=output.addelement(tagpatheval,tagname)
+            # recurse dictionary value
+            applyresultdict(output,prxdoc,steptag,newel,resultvalue)
+            pass
+        else:
             if prxdoc is not None and steptag is not None:
                 raise ValueError("step %s gave unknown result type %s for %s" % (prxdoc.tostring(steptag),unicode(resultvalue.__class__),resultname))
             else: 
@@ -2326,6 +2399,43 @@ def procstep(prxdoc,out,steptag,filters,overall_starttime,debugmode,stdouthandle
         raise
     finally: 
         out.output.unlock_rw() # procsteppython/procstepmatlab are called with output locked exactly once
+        pass
+
+    pass
+
+
+class CustomZMQStream(ZMQStream):
+
+    def __init__(self, socket, io_loop=None):
+        super().__init__(socket, io_loop)
+        pass
+    
+    def recv_multipart(self, flags=0, copy=True, track=False):
+        return self.socket.recv_multipart(flags=flags, copy=copy, track=track)
+
+    def send_multipart(self, msg_parts, flags=0, copy=True, track=False):
+        self.socket.send_multipart(msg_parts, flags=flags, copy=copy, track=track)
+        pass
+
+    def flush(self, timeout=1.0):
+        self.socket.flush(timeout=timeout)
+        pass
+
+    pass
+
+
+
+class CustomIPythonKernel(InProcessKernel):
+    """
+    Overwrite some functions, to make it work in a thread.
+    E.g. we do not want to have any `signal.signal` calls.
+    """
+    # shell_class = ZMQInteractiveShell
+    shell_stream = Instance(CustomZMQStream, ())
+
+    def pre_handler_hook(self):
+        pass
+    def post_handler_hook(self):
         pass
 
     pass
