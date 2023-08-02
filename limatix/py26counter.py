@@ -1,4 +1,4 @@
-# python 2.6 collections.counter implementation
+# python 2.6 collections.abc.counter implementation
 # From http://code.activestate.com/recipes/576611-counter-class/
 # "Created by Raymond Hettinger on Mon, 12 Jan 2009 (MIT) "
 # "Licensed under the MIT License"
