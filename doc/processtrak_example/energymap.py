@@ -27,9 +27,9 @@ def run(_xmldoc,_tag,_dest_href,frequency_float,leftlong_float,rightlong_float,b
     # sys.stderr.write("longbase=%s\n" % (str(longbase)))
 
 
-    hzlow=_xmldoc.xpathsinglefloat("(dc:measurement/spectrumlog/mergedspectrumlog)[1]/hzlow")
-    hzhigh=_xmldoc.xpathsinglefloat("(dc:measurement/spectrumlog/mergedspectrumlog)[1]/hzhigh")
-    hzstep=_xmldoc.xpathsinglefloat("(dc:measurement/spectrumlog/mergedspectrumlog)[1]/hzstep")
+    hzlow=_xmldoc.xpathsinglefloat("(dc:measurement/spectrumlog/mergedspectrumlog)[1]/hzlow",units="Hz")
+    hzhigh=_xmldoc.xpathsinglefloat("(dc:measurement/spectrumlog/mergedspectrumlog)[1]/hzhigh",units="Hz")
+    hzstep=_xmldoc.xpathsinglefloat("(dc:measurement/spectrumlog/mergedspectrumlog)[1]/hzstep",units="Hz")
 
     freqidx=int(round((frequency_float-hzlow)/hzstep))
     
@@ -98,7 +98,7 @@ def run(_xmldoc,_tag,_dest_href,frequency_float,leftlong_float,rightlong_float,b
 
     #outpng="%s_9.0f%fl%fr%fb%ft%f.png" % (os.path.splitext(os.path.split(_xmldoc.filehref.getpath())[1])[0],hzlow+hzstep*freqidx,leftlong.value(),rightlong.value(),botlat.value(),toplat.value())
 
-    outpng="%s_9.0f%fl%fr%fb%ft%f.png" % (posixpath.splitext(_xmldoc.filehref.get_bare_unquoted_filename())[0],hzlow+hzstep*freqidx,leftlong_float,rightlong_float,botlat_float,toplat_float)
+    outpng="%s_9.0f%fl%fr%fb%ft%f.png" % (posixpath.splitext(_xmldoc.filehref.get_bare_unquoted_filename())[0],hzlow.m+hzstep.m*freqidx,leftlong_float,rightlong_float,botlat_float,toplat_float)
 
     
     #outpng_path=os.path.join(os.path.split(rflogpath)[0],outpng)
@@ -106,7 +106,7 @@ def run(_xmldoc,_tag,_dest_href,frequency_float,leftlong_float,rightlong_float,b
     
     #outpng_href=hrefvalue(urllib.pathname2url(outpng_path),contextdir=_xmldoc.getcontextdir())
     
-    outkml="%s_9.0f%fl%fr%fb%ft%f.kml" % (os.path.splitext(os.path.split(_xmldoc.filehref.getpath())[1])[0],hzlow+hzstep*freqidx,leftlong_float,rightlong_float,botlat_float,toplat_float)
+    outkml="%s_9.0f%fl%fr%fb%ft%f.kml" % (os.path.splitext(os.path.split(_xmldoc.filehref.getpath())[1])[0],hzlow.m+hzstep.m*freqidx,leftlong_float,rightlong_float,botlat_float,toplat_float)
     outkml_href=hrefvalue(outkml,_dest_href)  #os.path.join(os.path.split(rflogpath)[0],outkml)
     
     #PILimg=scipy.misc.toimage(amplmtx.transpose(),cmin=amplmtx.min(),cmax=amplmtx.max())
@@ -116,7 +116,7 @@ def run(_xmldoc,_tag,_dest_href,frequency_float,leftlong_float,rightlong_float,b
     
 
     
-    infotext="min=%3.0f dB\nmax=%3.0f dB\nf=%.1f MHz" % (amplmtx.min(),amplmtx.max(),frequency_float/1.e6)
+    infotext="min=%3.0f dB\nmax=%3.0f dB\nf=%s" % (amplmtx.min(),amplmtx.max(),frequency_float/1.e6)
     draw=PIL.ImageDraw.Draw(PILimg)
     draw.text((0,0),infotext,255 ,font=PIL.ImageFont.load_default()) #(255,255,255)
     draw.text((0,18),infotext,0,font=PIL.ImageFont.load_default())
@@ -165,8 +165,8 @@ def run(_xmldoc,_tag,_dest_href,frequency_float,leftlong_float,rightlong_float,b
       </LineStyle>
     </Style>
     <GroundOverlay>
-      <name>%f Hz</name>
-      <description>%f Hz</description>
+      <name>%s</name>
+      <description>%s</description>
       <color>7f00ff00</color> <!-- ABGR: alpha 7f blue 00 green ff red 00 -->
       <Icon>
         <href>%s</href>
