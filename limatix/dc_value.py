@@ -38,14 +38,9 @@ from . import provenance as provenance
 
 from . import lm_units  # note: main program should call lm_units.units_config("insert_basic_units")
 
-pint=None
-try:
-    import pint
-    ureg = pint.UnitRegistry()
-    Q_ = ureg.Quantity
-except ImportError:
-    sys.stderr.write("dc_value: Warning: unable to import pint -- pint units not supported\n")
-    pass
+import pint
+ureg = pint.UnitRegistry()
+Q_ = ureg.Quantity
 
 
 try: 
@@ -1777,131 +1772,129 @@ class numericunitsvalue(value) :
     pass
 
 
-if pint is not None:
-    class numericpintvalue(value, Q_) :
+class numericpintvalue(value, Q_) :
 
-        def __new__(cls,val,units=None):
-            if isinstance(val,basestring):
-                if units is None:
-                    matchobj=re.match(R""" *(([-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?)|([-+]?[iI][nN][fF])|([nN][aA][nN])) *[\[]?([^\]\[]*)[\]]?""",val);
-                    if matchobj is not None :
-                        return super(numericpintvalue, cls).__new__(cls, float(matchobj.group(1)), matchobj.group(8))
-                    pass
-                else :
-                    return super(numericpintvalue, cls).__new__(cls, float(val), units)
-                pass
-            elif hasattr(val,"value"):
-                # val is already a dc_value object
-                if units is None:
-                    return super(numericpintvalue, cls).__new__(cls, val.numvalue(), str(val.units) if isinstance(val.units, property) else val.units())
-                else :
-                    return super(numericpintvalue, cls).__new__(cls, val.numvalue(units), units)
-            else :
-                return super(numericpintvalue, cls).__new__(cls, val, units)
-
-            return super(numericpintvalue, cls).__new__(cls, math.nan)
-
-        def __init__(self,val,units=None) -> None:
-            # self.final = True
-            pass
-
-        def isblank(self):
-            return math.isnan(self.numvalue())
-
-        def numvalue(self,units=None):
-            return float(self.value(units).magnitude) if units is not None else float(self.magnitude)
-        
-        def value(self,units=None):
-            return self.to(units) if units is not None else self
-
-        def format(self,formatstr=None,unit=None):
-            if formatstr is None:
-                return "%s %s" % (str(self.numvalue(unit)),str(unit))
-            
-            # print "formatstr=%s" % (formatstr)
-            # if you get a 
-            # TypeError: not all arguments converted during string formatting
-            # on this next line, then you probably forgot the % in the %f or %g
-            # in your initialization of displayfmt in the .dcc file
-            return (formatstr+" %s") % (str(self.numvalue(unit)),str(unit))
-
-        def comsolstr(self):
-            if self is None: 
-                return ""
-            elif self.units is None :
-                return str(self.numvalue())
-            else :
-                return "%s[%s]" % (str(self.numvalue()),str(self.units))
-            pass
-
-        def __str__(self) :
-            if self is None: 
-                return ""
-            elif self.units is None :
-                return repr(self)
-            else :
-                return "%s %s" % (str(self.numvalue()),str(self.units))
-            pass
-
-        @classmethod
-        def fromxml(cls,xmldocu,element,contextdir=None,noprovenance=False):
-            if xmldocu is not None and not noprovenance:
-                provenance.xmldocelementaccessed(xmldocu,element)
-                pass
-
-            elementtext=element.text
-
-            # Check if we have a units attribute
-            if DCV+"units" in element.attrib:
-                return cls(elementtext,element.attrib[DCV+"units"])
-            elif "units" in element.attrib:
-                return cls(elementtext,element.attrib["units"])
-            else :
-                return cls(elementtext)
-            pass
-
-        def xmlrepr(self,xmldocu,element):
-            # clear out any old attributes
-            oldattrs=element.attrib.keys()
-            for oldattr in oldattrs:
-                if oldattr.startswith(DCV):
-                    del element.attrib[oldattr]
-                    pass
-                pass
-            
-
-            if self is not None: 
-                elementtext=str(self.numvalue())
+    def __new__(cls,val,units=None):
+        if isinstance(val,basestring):
+            if units is None:
+                matchobj=re.match(R""" *(([-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?)|([-+]?[iI][nN][fF])|([nN][aA][nN])) *[\[]?([^\]\[]*)[\]]?""",val);
+                if matchobj is not None :
+                    return super(numericpintvalue, cls).__new__(cls, float(matchobj.group(1)), matchobj.group(8))
                 pass
             else :
-                elementtext="NaN"
-                pass
-            
-            element.attrib[DCV+"units"]=str(self.units)
-            element.text=elementtext
-            
-            if xmldocu is not None:
-                xmldocu.modified=True
-                provenance.elementgenerated(xmldocu,element)
-                pass
-            
+                return super(numericpintvalue, cls).__new__(cls, float(val), units)
             pass
+        elif hasattr(val,"value"):
+            # val is already a dc_value object
+            if units is None:
+                return super(numericpintvalue, cls).__new__(cls, val.numvalue(), str(val.units) if isinstance(val.units, property) else val.units())
+            else :
+                return super(numericpintvalue, cls).__new__(cls, val.numvalue(units), units)
+        else :
+            return super(numericpintvalue, cls).__new__(cls, val, units)
 
-        def __eq__(self,other) :
-            return Q_.__eq__(self, other)
+        return super(numericpintvalue, cls).__new__(cls, math.nan)
 
-        def __ne__(self,other) :
-            return Q_.__ne__(self, other)
-
-        def simplifyunits(self):
-            reduced = self.to_reduced_units()
-            return numericpintvalue(reduced.numvalue(), str(reduced.units))
-
-        def inunits(self,unit):
-            converted = self.to(unit)
-            return numericpintvalue(converted.numvalue(), str(converted.units))
-
+    def __init__(self,val,units=None) -> None:
+        # self.final = True
         pass
+
+    def isblank(self):
+        return math.isnan(self.numvalue())
+
+    def numvalue(self,units=None):
+        return float(self.value(units).magnitude) if units is not None else float(self.magnitude)
+    
+    def value(self,units=None):
+        return self.to(units) if units is not None else self
+
+    def format(self,formatstr=None,unit=None):
+        if formatstr is None:
+            return "%s %s" % (str(self.numvalue(unit)),str(unit))
+        
+        # print "formatstr=%s" % (formatstr)
+        # if you get a 
+        # TypeError: not all arguments converted during string formatting
+        # on this next line, then you probably forgot the % in the %f or %g
+        # in your initialization of displayfmt in the .dcc file
+        return (formatstr+" %s") % (str(self.numvalue(unit)),str(unit))
+
+    def comsolstr(self):
+        if self is None: 
+            return ""
+        elif self.units is None :
+            return str(self.numvalue())
+        else :
+            return "%s[%s]" % (str(self.numvalue()),str(self.units))
+        pass
+
+    def __str__(self) :
+        if self is None: 
+            return ""
+        elif self.units is None :
+            return repr(self)
+        else :
+            return "%s %s" % (str(self.numvalue()),str(self.units))
+        pass
+
+    @classmethod
+    def fromxml(cls,xmldocu,element,contextdir=None,noprovenance=False):
+        if xmldocu is not None and not noprovenance:
+            provenance.xmldocelementaccessed(xmldocu,element)
+            pass
+
+        elementtext=element.text
+
+        # Check if we have a units attribute
+        if DCV+"units" in element.attrib:
+            return cls(elementtext,element.attrib[DCV+"units"])
+        elif "units" in element.attrib:
+            return cls(elementtext,element.attrib["units"])
+        else :
+            return cls(elementtext)
+        pass
+
+    def xmlrepr(self,xmldocu,element):
+        # clear out any old attributes
+        oldattrs=element.attrib.keys()
+        for oldattr in oldattrs:
+            if oldattr.startswith(DCV):
+                del element.attrib[oldattr]
+                pass
+            pass
+        
+
+        if self is not None: 
+            elementtext=str(self.numvalue())
+            pass
+        else :
+            elementtext="NaN"
+            pass
+        
+        element.attrib[DCV+"units"]=str(self.units)
+        element.text=elementtext
+        
+        if xmldocu is not None:
+            xmldocu.modified=True
+            provenance.elementgenerated(xmldocu,element)
+            pass
+        
+        pass
+
+    def __eq__(self,other) :
+        return Q_.__eq__(self, other)
+
+    def __ne__(self,other) :
+        return Q_.__ne__(self, other)
+
+    def simplifyunits(self):
+        reduced = self.to_reduced_units()
+        return numericpintvalue(reduced.numvalue(), str(reduced.units))
+
+    def inunits(self,unit):
+        converted = self.to(unit)
+        return numericpintvalue(converted.numvalue(), str(converted.units))
+
     pass
 
 
