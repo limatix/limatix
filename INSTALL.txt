@@ -15,9 +15,9 @@ Recommended:
                general use)
   limatix-qautils (not used directly, but documents checklist
          	   format/structure and can render checklists as PDF)
-  ipython (with PySide/PySide2/PyQt4/PyQt5 QT bindings) for interactive debugging of 
-          processtrak scripts
-  ipykernel (version >=5.2.0 required on windows) (version 7.10.0 tested and working on windows) for ipython interactive debugging
+  ipython (with PySide/PySide2/PyQt4/PyQt5 QT bindings) (version 7.10.0 tested and working on windows) 
+               for interactive debugging of processtrak scripts
+  ipykernel (version >=5.2.0 required on windows) for ipython interactive debugging
   matplotlib (with QT4 and/or QT5 support) for use with ipython for interactive
              debugging of processtrak scripts
 
