@@ -1033,36 +1033,6 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
         kernel_manager.start_kernel()
         kernel = kernel_manager.kernel
         kernel.gui = kernel_gui
-
-
-        if LooseVersion(IPython.__version__) >= LooseVersion('7.0.0'):
-            kernel.start()
-
-            if not hasattr(kernel,"io_loop"):
-                # Some versions of ipykernel (e.g. 5.1.4 )
-                # the InProcessKernel start() method
-                # doesn't call its superclass to (apparently)
-                # override registration of dispatcher streams.
-                # but this means that the  the io_loop and
-                # msg_queue also don't get setup, which is problematic.
-                # In the streams are None/Empty so the stream ops
-                # are no-ops
-
-                #print("k.c_s = %s" % (str(kernel.control_stream)))
-                #print("len(k.s_s) = %d" % (len(kernel.shell_streams)))
-                
-                import ipykernel.kernelbase
-                # Call the base class method directly 
-                ipykernel.kernelbase.Kernel.start(kernel)
-                pass
-            ## Set IOLoop for kernel
-            ## similar to example in https://psyplot.readthedocs.io/projects/psyplot-gui/en/latest/_modules/psyplot_gui/console.html
-            #from zmq.eventloop import ioloop as zmq_ioloop
-            #from tornado import ioloop as tdo_ioloop
-            #zmq_ioloop.install()
-            #kernel.io_loop = tdo_ioloop.IOLoop.current()
-            pass
-        
         
         
         if LooseVersion(IPython.__version__) >= LooseVersion('7.0.0'):
@@ -1193,7 +1163,11 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
                     if hasattr(syntreenode,"lineno"):
                         syntreenode.lineno+=startinglineno+lines_to_delete-1-1
                         pass
-                    pass
+                    # record calling function node
+                    for child in ast.iter_child_nodes(syntreenode):
+                        caller = getattr(syntreenode, "caller", syntreenode if isinstance(syntreenode, ast.FunctionDef) else None)
+                        if caller is not None:
+                            child.caller = caller
 
                 # runfunc_syntaxtree should consist of the if statement we just added
                 # use _fields attribute to look up fields of an AST element
@@ -1240,7 +1214,6 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
                 pass
             
             
-            
             kernel.shell.push({"abort": abort}) # provide abort function
             kernel.shell.push({"cont": False}) # continue defaults to False
             kernel.shell.push({"__processtrak_interactive":  True })
@@ -1248,10 +1221,12 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
             class ReplaceReturn(ast.NodeTransformer):
 
                 def visit_Return(self, node):
-                    value = node.value if node.value is not None else ast.Dict(keys=[], values=[], lineno=node.lineno, col_offset=node.col_offset)
-                    return [
-                        ast.copy_location(ast.Assign(targets=[ast.Name(id="ret", ctx=ast.Store(), lineno=node.lineno, col_offset=node.col_offset)], value=value), node),
-                        ast.Raise(ast.Name(id="PTStepReturn", ctx=ast.Load(), lineno=node.lineno, col_offset=node.col_offset), lineno=node.lineno, col_offset=node.col_offset)]
+                    if not hasattr(node, "caller"):
+                        value = node.value if node.value is not None else ast.Dict(keys=[], values=[], lineno=node.lineno, col_offset=node.col_offset)
+                        return [
+                            ast.copy_location(ast.Assign(targets=[ast.Name(id="ret", ctx=ast.Store(), lineno=node.lineno, col_offset=node.col_offset)], value=value), node),
+                            ast.Raise(ast.Name(id="PTStepReturn", ctx=ast.Load(), lineno=node.lineno, col_offset=node.col_offset), lineno=node.lineno, col_offset=node.col_offset)]
+                    return node
 
             ReplaceReturn().visit(code_container)
 
