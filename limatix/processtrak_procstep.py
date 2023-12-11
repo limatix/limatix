@@ -117,14 +117,6 @@ except TypeError:
     pass
 
 
-from traitlets import Instance
-
-from ipykernel.inprocess.ipkernel import InProcessKernel
-
-import zmq
-from zmq.eventloop.zmqstream import ZMQStream
-
-
 try: 
     __install_prefix__=resource_string(__name__, 'install_prefix.txt').decode('utf-8')
     pass
@@ -1019,17 +1011,6 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
         
 
         kernel_manager = QtInProcessKernelManager()
-
-        import ipykernel
-        if LooseVersion(ipykernel.__version__) >= LooseVersion('6.0'):
-            shell_socket = kernel_manager.context.socket(zmq.ROUTER)
-            control_socket = kernel_manager.context.socket(zmq.ROUTER)
-
-            _shell_stream = CustomZMQStream(shell_socket)
-            _control_stream = ZMQStream(control_socket)
-
-            kernel_manager.kernel = CustomIPythonKernel(parent=kernel_manager, session=kernel_manager.session, shell_stream=_shell_stream, control_stream=_control_stream)
-
         kernel_manager.start_kernel()
         kernel = kernel_manager.kernel
         kernel.gui = kernel_gui
@@ -1038,7 +1019,8 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
         if LooseVersion(IPython.__version__) >= LooseVersion('7.0.0'):
             kernel.start()
 
-            if not hasattr(kernel,"io_loop"):
+            import ipykernel
+            if (not hasattr(kernel,"io_loop")) and (LooseVersion(ipykernel.__version__) < LooseVersion('6.4.2')):
                 # Some versions of ipykernel (e.g. 5.1.4 )
                 # the InProcessKernel start() method
                 # doesn't call its superclass to (apparently)
@@ -1047,6 +1029,7 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
                 # msg_queue also don't get setup, which is problematic.
                 # In the streams are None/Empty so the stream ops
                 # are no-ops
+                # fixed in v6.4.2 by https://github.com/ipython/ipykernel/pull/781
 
                 #print("k.c_s = %s" % (str(kernel.control_stream)))
                 #print("len(k.s_s) = %d" % (len(kernel.shell_streams)))
@@ -1110,15 +1093,15 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
             pass
         
         if pycode_text is None:            
-            kernel.shell.write("\n\nExecute %s/%s\n" % (scripthref.getpath(),runfunc.__name__))
+            sys.stdout.write("\n\nExecute %s/%s\n" % (scripthref.getpath(),runfunc.__name__))
             pass
         else: 
-            kernel.shell.write("\n\nExecute %s/%s/%s\n" % (scripthref.getpath(),action,runfunc.__name__))
+            sys.stdout.write("\n\nExecute %s/%s/%s\n" % (scripthref.getpath(),action,runfunc.__name__))
             pass
 
-        kernel.shell.write("Assign return value to \"ret\" and press Ctrl-D\n")
-        kernel.shell.write("Set cont=True to disable interactive mode\n")
-        # kernel.shell.write("call abort() to exit\n")
+        sys.stdout.write("Assign return value to \"ret\" and press Ctrl-D\n")
+        sys.stdout.write("Set cont=True to disable interactive mode\n")
+        # sys.stdout.write("call abort() to exit\n")
 
         if LooseVersion(IPython.__version__) >= LooseVersion('4.0.0'):
             # Recent Jupyter/ipython: Import from qtconsole
@@ -2374,43 +2357,6 @@ def procstep(prxdoc,out,steptag,filters,overall_starttime,debugmode,stdouthandle
         raise
     finally: 
         out.output.unlock_rw() # procsteppython/procstepmatlab are called with output locked exactly once
-        pass
-
-    pass
-
-
-class CustomZMQStream(ZMQStream):
-
-    def __init__(self, socket, io_loop=None):
-        super().__init__(socket, io_loop)
-        pass
-    
-    def recv_multipart(self, flags=0, copy=True, track=False):
-        return self.socket.recv_multipart(flags=flags, copy=copy, track=track)
-
-    def send_multipart(self, msg_parts, flags=0, copy=True, track=False):
-        self.socket.send_multipart(msg_parts, flags=flags, copy=copy, track=track)
-        pass
-
-    def flush(self, timeout=1.0):
-        self.socket.flush(timeout=timeout)
-        pass
-
-    pass
-
-
-
-class CustomIPythonKernel(InProcessKernel):
-    """
-    Overwrite some functions, to make it work in a thread.
-    E.g. we do not want to have any `signal.signal` calls.
-    """
-    # shell_class = ZMQInteractiveShell
-    shell_stream = Instance(CustomZMQStream, ())
-
-    def pre_handler_hook(self):
-        pass
-    def post_handler_hook(self):
         pass
 
     pass
