@@ -7,7 +7,7 @@ Prerequisites:
   gtk2 and pygtk2 (on python2;  required to use datacollect2 GUI components)
   gtk3 and python bindings (on python3;  required to use datacollect2 GUI components)
   setuptools (often distributed with operating system or Python distribution)
-  pint (required for units support)
+  pint (optional, for advanced units support)
 
 
 Recommended:
