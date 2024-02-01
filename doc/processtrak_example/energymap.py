@@ -31,7 +31,7 @@ def run(_xmldoc,_tag,_dest_href,frequency_float,leftlong_float,rightlong_float,b
     hzhigh=_xmldoc.xpathsinglefloat("(dc:measurement/spectrumlog/mergedspectrumlog)[1]/hzhigh",units="Hz")
     hzstep=_xmldoc.xpathsinglefloat("(dc:measurement/spectrumlog/mergedspectrumlog)[1]/hzstep",units="Hz")
 
-    freqidx=int(round((frequency_float-hzlow)/hzstep))
+    freqidx=int(round((frequency_float-hzlow)/hzstep).quantity)
     
     
     logentries=_xmldoc.xpath("dc:measurement/spectrumlog/mergedspectrumlog[gpscoords]") # extract all log entries with gps coordinates
@@ -98,7 +98,7 @@ def run(_xmldoc,_tag,_dest_href,frequency_float,leftlong_float,rightlong_float,b
 
     #outpng="%s_9.0f%fl%fr%fb%ft%f.png" % (os.path.splitext(os.path.split(_xmldoc.filehref.getpath())[1])[0],hzlow+hzstep*freqidx,leftlong.value(),rightlong.value(),botlat.value(),toplat.value())
 
-    outpng="%s_9.0f%fl%fr%fb%ft%f.png" % (posixpath.splitext(_xmldoc.filehref.get_bare_unquoted_filename())[0],hzlow.m+hzstep.m*freqidx,leftlong_float,rightlong_float,botlat_float,toplat_float)
+    outpng="%s_9.0f%fl%fr%fb%ft%f.png" % (posixpath.splitext(_xmldoc.filehref.get_bare_unquoted_filename())[0],hzlow+hzstep*freqidx,leftlong_float,rightlong_float,botlat_float,toplat_float)
 
     
     #outpng_path=os.path.join(os.path.split(rflogpath)[0],outpng)
@@ -106,7 +106,7 @@ def run(_xmldoc,_tag,_dest_href,frequency_float,leftlong_float,rightlong_float,b
     
     #outpng_href=hrefvalue(urllib.pathname2url(outpng_path),contextdir=_xmldoc.getcontextdir())
     
-    outkml="%s_9.0f%fl%fr%fb%ft%f.kml" % (os.path.splitext(os.path.split(_xmldoc.filehref.getpath())[1])[0],hzlow.m+hzstep.m*freqidx,leftlong_float,rightlong_float,botlat_float,toplat_float)
+    outkml="%s_9.0f%fl%fr%fb%ft%f.kml" % (os.path.splitext(os.path.split(_xmldoc.filehref.getpath())[1])[0],hzlow+hzstep*freqidx,leftlong_float,rightlong_float,botlat_float,toplat_float)
     outkml_href=hrefvalue(outkml,_dest_href)  #os.path.join(os.path.split(rflogpath)[0],outkml)
     
     #PILimg=scipy.misc.toimage(amplmtx.transpose(),cmin=amplmtx.min(),cmax=amplmtx.max())

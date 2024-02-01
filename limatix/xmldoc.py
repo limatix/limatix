@@ -1243,7 +1243,6 @@ class xmldoc(object):
         return self.xpathsingleint(xpath,namespaces=namespaces,contextnode=contextnode,extensions=extensions,variables=variables,default=default,noprovenance=noprovenance)
 
 
-    #!!!*** Should build in unit support
     def xpathsinglefloat(self,xpath,units=None,namespaces=None,contextnode=None,extensions=None,variables=None,default=NameError("No result found for xpath"),noprovenance=False):
         """Like xpathsingle, but converts result to a float"""
 
@@ -1255,15 +1254,15 @@ class xmldoc(object):
         else : 
             # should be an etree.Element
             if (dc_value.DCV+"units" in resultnode.attrib) or ("units" in resultnode.attrib):
-                return dc_value.numericpintvalue.fromxml(self, resultnode)
+                return dc_value.numericunitsvalue.fromxml(self, resultnode)
             else:
                 if units is not None:
-                    return dc_value.numericpintvalue(resultnode.text,units)
+                    return dc_value.numericunitsvalue(resultnode.text, units)
                 else:
                     return float(resultnode.text)
         pass
 
-    #!!!*** Should build in unit support using lm_units
+
     def xpathsinglecontextfloat(self,contextnode,xpath,units=None,namespaces=None,extensions=None,variables=None,default=NameError("No result found for xpath"),noprovenance=False):
         """Alias for xpathsinglefloat(xpath,namespaces,contextnode)"""
 
@@ -2139,110 +2138,75 @@ class xmldoc(object):
         
         resultarray=np.zeros(len(nodeset),dtype=dtype)
 
-        if dc_value.pint is not None:
-            if len(nodeset) > 0:
-                resultlist = []
-                for cnt in range(len(nodeset)):
-
-                    if not(isinstance(nodeset[cnt],basestring)):
-                        # A node, not a string
-                        if "{http://limatix.org/dcvalue}units" in nodeset[cnt].attrib:
-                            thisresultunits=dc_value.ureg.Unit(nodeset[cnt].attrib["{http://limatix.org/dcvalue}units"])
-                            pass
-                        elif "units" in nodeset[cnt].attrib:
-                            thisresultunits=dc_value.ureg.Unit(nodeset[cnt].attrib["units"])
-                            pass
-                        else:
-                            thisresultunits=dc_value.ureg.Unit("") # presumed unitless
-                            pass
-                        thisresulttext=dc_value.numericpintvalue(nodeset[cnt].text, thisresultunits)
-                        pass
-                    else :
-                        # a string, not a node
-                        thisresulttext=dc_value.numericpintvalue(nodeset[cnt])
-                        pass
-
-                    # converted=converter(thisresulttext)
-                    resultlist.append(thisresulttext)
-                    pass
-
-            resultarray = dc_value.numericpintvalue.from_list(resultlist)
-            if desiredunits is not None:
-                resultarray = resultarray.to(desiredunits)
-
-            resultarray = resultarray.astype(dtype)
-
-            return resultarray
+        if desiredunits is not None:
+            if isinstance(desiredunits,basestring):
+                desiredunits=lmu.parseunits(desiredunits)
+                pass
+            resultunits=desiredunits
+            pass
         else:
-            if desiredunits is not None:
-                if isinstance(desiredunits,basestring):
-                    desiredunits=lmu.parseunits(desiredunits)
+            resultunits=None
+            pass
+        
+        if len(nodeset) > 0:
+
+            for cnt in range(len(nodeset)):
+                
+                if not(isinstance(nodeset[cnt],basestring)):
+                    # A node, not a string
+                    if "{http://limatix.org/dcvalue}units" in nodeset[cnt].attrib:
+                        thisresultunits=lmu.parseunits(nodeset[cnt].attrib["{http://limatix.org/dcvalue}units"])
+                        pass
+                    elif "units" in nodeset[cnt].attrib:
+                        thisresultunits=lmu.parseunits(nodeset[cnt].attrib["units"])
+                        pass
+                    else:
+                        thisresultunits=lmu.parseunits("") # presumed unitless
+                        pass
+                    thisresulttext=nodeset[cnt].text
                     pass
-                resultunits=desiredunits
-                pass
-            else:
-                resultunits=None
-                pass
-            
-            if len(nodeset) > 0:
-
-                for cnt in range(len(nodeset)):
-                    
-                    if not(isinstance(nodeset[cnt],basestring)):
-                        # A node, not a string
-                        if "{http://limatix.org/dcvalue}units" in nodeset[cnt].attrib:
-                            thisresultunits=lmu.parseunits(nodeset[cnt].attrib["{http://limatix.org/dcvalue}units"])
-                            pass
-                        elif "units" in nodeset[cnt].attrib:
-                            thisresultunits=lmu.parseunits(nodeset[cnt].attrib["units"])
-                            pass
-                        else:
-                            thisresultunits=lmu.parseunits("") # presumed unitless
-                            pass
-                        thisresulttext=nodeset[cnt].text
-                        pass
-                    else :
-                        # a string, not a node
-                        thisresultunits=lmu.parseunits("") # presumed unitless .... (or should we parse the text?)
-                        thisresulttext=nodeset[cnt]
-                        pass
-
-
-                    converted=converter(thisresulttext)
-
-                    isnotfinite=((iscomplex and not np.isfinite(converted.real) and not np.isfinite(converted.imag)) or
-                                (not iscomplex and not np.isfinite(converted)))
-
-                    coeff=1.0
-
-                    if not(isnotfinite):
-                        # only transfer units and worry about unit match for
-                        # finite numbers
-
-                        if resultunits is None and thisresultunits is not None:
-                            # Record units, if we have them!
-                            resultunits=thisresultunits
-                            pass
-
-                        if thisresultunits is not None and resultunits is not None:
-                            # Make sure units match... extract conversion coefficient
-                            coeff=lmu.compareunits(resultunits,thisresultunits)
-                            pass
-                    
-                        if thisresultunits is None:
-                            raise ValueError("xpathnumpy: Missing units for cnt=%d; thisresulttext=%s" % (cnt,thisresulttext))
-                        if coeff==0.0:
-                            raise ValueError("Unit mismatch in array generation: %s vs. %s." % (lmu.printunits(resultunits,True),lmu.printunits(thisresultunits,True)))
-                        pass
-                    
-
-
-                    
-                    resultarray[cnt]=converted/coeff
-                                    
+                else :
+                    # a string, not a node
+                    thisresultunits=lmu.parseunits("") # presumed unitless .... (or should we parse the text?)
+                    thisresulttext=nodeset[cnt]
                     pass
+
+
+                converted=converter(thisresulttext)
+
+                isnotfinite=((iscomplex and not np.isfinite(converted.real) and not np.isfinite(converted.imag)) or
+                             (not iscomplex and not np.isfinite(converted)))
+
+                coeff=1.0
+
+                if not(isnotfinite):
+                    # only transfer units and worry about unit match for
+                    # finite numbers
+
+                    if resultunits is None and thisresultunits is not None:
+                        # Record units, if we have them!
+                        resultunits=thisresultunits
+                        pass
+
+                    if thisresultunits is not None and resultunits is not None:
+                        # Make sure units match... extract conversion coefficient
+                        coeff=lmu.compareunits(resultunits,thisresultunits)
+                        pass
+                
+                    if thisresultunits is None:
+                        raise ValueError("xpathnumpy: Missing units for cnt=%d; thisresulttext=%s" % (cnt,thisresulttext))
+                    if coeff==0.0:
+                        raise ValueError("Unit mismatch in array generation: %s vs. %s." % (lmu.printunits(resultunits,True),lmu.printunits(thisresultunits,True)))
+                    pass
+                
+
+
+                
+                resultarray[cnt]=converted/coeff
+                                
                 pass
-            return (resultarray,resultunits)
+            pass
+        return (resultarray,resultunits)
 
 
     def xpathcontextnumpy(self,contextnodes,path,namespaces=None,extensions=None,variables=None,iscomplex=False,oneper=True,desiredunits=None):
