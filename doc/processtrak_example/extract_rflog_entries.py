@@ -38,9 +38,12 @@ def run(_xmldoc,_tag,dc_rflog):
                           "hzstep": row[4],
                           "dBs": str([ float(numstring) for numstring in row[6:]]) }
             
-        spectrumlog=processtrak_procstep.resultelementfromdict(_xmldoc,spectrumlogdict)
+        # spectrumlog=processtrak_procstep.resultelementfromdict(_xmldoc,spectrumlogdict)
 
-        resultlist.append(("spectrumlog",({"datetime": datetimestr,"index": str(rowcnt)},spectrumlog)))
+        # resultlist.append(("spectrumlog",({"datetime": datetimestr,"index": str(rowcnt)},spectrumlog)))
+
+        # results can be returned as nested dictionaries
+        resultlist.append(("spectrumlog",({"datetime": datetimestr,"index": str(rowcnt)},spectrumlogdict)))
 
         rowcnt+=1
         

@@ -7,6 +7,7 @@ Prerequisites:
   gtk2 and pygtk2 (on python2;  required to use datacollect2 GUI components)
   gtk3 and python bindings (on python3;  required to use datacollect2 GUI components)
   setuptools (often distributed with operating system or Python distribution)
+  pint (optional, for advanced units support)
 
 
 Recommended:
@@ -15,8 +16,8 @@ Recommended:
                general use)
   limatix-qautils (not used directly, but documents checklist
          	   format/structure and can render checklists as PDF)
-  ipython (with PySide/PySide2/PyQt4/PyQt5 QT bindings) for interactive debugging of 
-          processtrak scripts
+  ipython (with PySide/PySide2/PyQt4/PyQt5 QT bindings) for interactive debugging of processtrak scripts
+  ipykernel for ipython interactive debugging
   matplotlib (with QT4 and/or QT5 support) for use with ipython for interactive
              debugging of processtrak scripts
 

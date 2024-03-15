@@ -290,8 +290,8 @@ version="1.0">
       <xsl:element name="table:table-cell">
         <xsl:attribute name="table:style-name">ce2</xsl:attribute> 
         <xsl:attribute name="office:value-type">float</xsl:attribute>
-        <xsl:attribute name="office:value"><xsl:value-of select="$selection"/></xsl:attribute>
-         <text:p><xsl:value-of select="$selection"/></text:p>
+        <xsl:attribute name="office:value"><xsl:choose><xsl:when test="$selection"><xsl:value-of select="$selection"/></xsl:when><xsl:otherwise>NaN</xsl:otherwise></xsl:choose></xsl:attribute>
+         <text:p><xsl:choose><xsl:when test="$selection"><xsl:value-of select="$selection"/></xsl:when><xsl:otherwise>NaN</xsl:otherwise></xsl:choose></text:p>
       </xsl:element>
     </xsl:when>
     <xsl:when test="string($col/@type)='href'">
@@ -416,7 +416,7 @@ class prx_lookupfcn_ext(object):
         if isinstance(node,basestring):
             hrefobj=dc_value.hrefvalue(node,contexthref=contextxmldoc.getcontexthref())
             return self.href_eval_href(hrefobj)
-        elif isinstance(node,collections.Sequence):
+        elif isinstance(node,collections.abc.Sequence):
             result=[]
             for subnode in node:
                 result.append(self.href_eval_node(contextxmldoc,context,subnode))

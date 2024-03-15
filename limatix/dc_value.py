@@ -38,6 +38,18 @@ from . import provenance as provenance
 
 from . import lm_units  # note: main program should call lm_units.units_config("insert_basic_units")
 
+HAS_PINT = False
+try:
+    import pint
+
+    ureg = pint.UnitRegistry()
+    Q_ = ureg.Quantity
+
+    HAS_PINT = True
+except ImportError:
+    pass
+
+
 try: 
     import builtins  # python3
     pass
@@ -1324,6 +1336,7 @@ class numericunitsvalue(value) :
     val=None  #!!! private
     unit=None #!!! private
     defunit=None #!!! private
+    quantity=None #!!! private
 
     # neither val nor unit are permitted to be None. 
     # val may be NaN
@@ -1340,8 +1353,10 @@ class numericunitsvalue(value) :
     def __init__(self,val,units=None,defunits=None) :
         # self.name=name;
 
-        
         if isinstance(val,basestring):
+            if HAS_PINT:
+                self.quantity = ureg.parse_expression("%s %s" % (val, units))
+
             if units is None:
                 matchobj=re.match(R""" *(([-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?)|([-+]?[iI][nN][fF])|([nN][aA][nN])) *[\[]?([^\]\[]*)[\]]?""",val);
                 if matchobj is not None :
@@ -1360,7 +1375,10 @@ class numericunitsvalue(value) :
                 pass
             pass
         elif hasattr(val,"value"):
-            # val is already a dc_value object
+            if HAS_PINT:
+                self.quantity = Q_(val.value(), str(val.units()) if val.units() is not None else None)
+
+            # val is already a dc_value object           
             if units is None:
                 self.val=val.value()
                 self.unit=val.units()
@@ -1379,6 +1397,9 @@ class numericunitsvalue(value) :
             
             pass
         else :
+            if HAS_PINT:
+                self.quantity = Q_(val, str(units) if units is not None else None)
+
             self.val=val;
             if units is not None:
                 if isinstance(units,basestring):
@@ -1621,31 +1642,36 @@ class numericunitsvalue(value) :
     
     
     def __eq__(self,other) :
-        # print "NumericUnitsValue Eq called!"
-        # print self.val==other.value(),self.unit==other.units()
-        # print str(self.unit),str(other.units())
+        if HAS_PINT:
+            if isinstance(other, numericunitsvalue):
+                other = other.quantity
+            return self.quantity == other
+        else:
+            # print "NumericUnitsValue Eq called!"
+            # print self.val==other.value(),self.unit==other.units()
+            # print str(self.unit),str(other.units())
 
-        otherval=other.value()
+            otherval=other.value()
 
-        otherunit=other.units()
-        
-        # print "self.val=%s, otherval=%s" % (str(self.val),str(otherval))
-        # print "self.unit=%s, otherunit=%s" % (str(self.unit),str(otherunit))
-        unitfactor=lm_units.compareunits(self.unit,otherunit)
-        unitfactor2=lm_units.compareunits(otherunit,self.unit)
-        if unitfactor==0.0 or unitfactor2==0.0:
-            # unit mismatch
-            return False
-        else :
+            otherunit=other.units()
             
-
-            # avoid roundoff issues by checking strict equality both ways
-            if self.val*unitfactor==otherval or self.val==otherval*unitfactor2:
-                return True
-            else :
+            # print "self.val=%s, otherval=%s" % (str(self.val),str(otherval))
+            # print "self.unit=%s, otherunit=%s" % (str(self.unit),str(otherunit))
+            unitfactor=lm_units.compareunits(self.unit,otherunit)
+            unitfactor2=lm_units.compareunits(otherunit,self.unit)
+            if unitfactor==0.0 or unitfactor2==0.0:
+                # unit mismatch
                 return False
-            
-            pass
+            else :
+                
+
+                # avoid roundoff issues by checking strict equality both ways
+                if self.val*unitfactor==otherval or self.val==otherval*unitfactor2:
+                    return True
+                else :
+                    return False
+                
+                pass
         
         pass
 
@@ -1669,106 +1695,242 @@ class numericunitsvalue(value) :
         return self.__eq__(other)
 
 
-    def __pow__(self,other,modulo=None):
-        if modulo is not None:
-            raise ValueError("pow modulo not supported")
+    def __lt__(self, other):
+        if HAS_PINT:
+            if isinstance(other, numericunitsvalue):
+                other = other.quantity
+            return self.quantity < other
+        else:
+            if isinstance(other,numbers.Number):
+                unitfactor=lm_units.compareunits(self.unit, lm_units.createunits())            
+                value=other
+                pass        
+            else :
+                unitfactor=lm_units.compareunits(self.unit, other.units())
+                value=other.value()
+                pass
+            if unitfactor == 0.0:
+                raise ValueError("Attempting to add values with incompatible units %s and %s" % (str(self.unit),str(other.units())))
+            
+            return self.val < (value / unitfactor)
 
-        if isinstance(other,numericunitsvalue):
-            other=other.value("") # need unitless representation of exponent
-            pass
-        
-        return numericunitsvalue(self.val**other,lm_units.powerunits(self.unit,other))
+
+    def __le__(self, other):
+        if HAS_PINT:
+            if isinstance(other, numericunitsvalue):
+                other = other.quantity
+            return self.quantity <= other
+        else:
+            if isinstance(other,numbers.Number):
+                unitfactor=lm_units.compareunits(self.unit, lm_units.createunits())            
+                value=other
+                pass        
+            else :
+                unitfactor=lm_units.compareunits(self.unit, other.units())
+                value=other.value()
+                pass
+            if unitfactor == 0.0:
+                raise ValueError("Attempting to add values with incompatible units %s and %s" % (str(self.unit),str(other.units())))
+            
+            return self.val <= (value / unitfactor)
+
+
+    def __gt__(self, other):
+        if HAS_PINT:
+            if isinstance(other, numericunitsvalue):
+                other = other.quantity
+            return self.quantity > other
+        else:
+            if isinstance(other,numbers.Number):
+                unitfactor=lm_units.compareunits(self.unit, lm_units.createunits())            
+                value=other
+                pass        
+            else :
+                unitfactor=lm_units.compareunits(self.unit, other.units())
+                value=other.value()
+                pass
+            if unitfactor == 0.0:
+                raise ValueError("Attempting to add values with incompatible units %s and %s" % (str(self.unit),str(other.units())))
+            
+            return self.val > (value / unitfactor)
+
+
+    def __ge__(self, other):
+        if HAS_PINT:
+            if isinstance(other, numericunitsvalue):
+                other = other.quantity
+            return self.quantity >= other
+        else:
+            if isinstance(other,numbers.Number):
+                unitfactor=lm_units.compareunits(self.unit, lm_units.createunits())            
+                value=other
+                pass        
+            else :
+                unitfactor=lm_units.compareunits(self.unit, other.units())
+                value=other.value()
+                pass
+            if unitfactor == 0.0:
+                raise ValueError("Attempting to add values with incompatible units %s and %s" % (str(self.unit),str(other.units())))
+            
+            return self.val >= (value / unitfactor)
+
+
+    def __abs__(self):
+        if HAS_PINT:
+            absed = abs(self.quantity)
+            return numericunitsvalue(absed.m, absed.units)
+        else:
+            return numericunitsvalue(abs(self.val), self.unit)
+
+
+    def __round__(self):
+        if HAS_PINT:
+            rounded = round(self.quantity)
+            return numericunitsvalue(rounded.m, rounded.units)
+        else:
+            return numericunitsvalue(rounded(self.val), self.unit)
+
+
+    def __pow__(self,other,modulo=None):
+        if HAS_PINT:
+            if isinstance(other,numericunitsvalue):
+                other=other.quantity
+                pass
+
+            powd = self.quantity**other
+            return numericunitsvalue(powd.m, powd.units)
+        else:
+            if modulo is not None:
+                raise ValueError("pow modulo not supported")
+
+            if isinstance(other,numericunitsvalue):
+                other=other.value("") # need unitless representation of exponent
+                pass
+            
+            return numericunitsvalue(self.val**other,lm_units.powerunits(self.unit,other))
 
         pass
     
     def __add__(self,other):
-        if isinstance(other,numbers.Number):
-            unitfactor=lm_units.compareunits(self.unit, lm_units.createunits())            
-            value=other
-            pass        
-        else :
-            unitfactor=lm_units.compareunits(self.unit, other.units())
-            value=other.value()
-            pass
-        if unitfactor == 0.0:
-            raise ValueError("Attempting to add values with incompatible units %s and %s" % (str(self.unit),str(other.units())))
-        
-        return numericunitsvalue(self.val + value/unitfactor,self.unit);
+        if HAS_PINT:
+            if isinstance(other, numericunitsvalue):
+                other = other.quantity
+            added = self.quantity + other
+            return numericunitsvalue(added.m, added.units)
+        else:
+            if isinstance(other,numbers.Number):
+                unitfactor=lm_units.compareunits(self.unit, lm_units.createunits())            
+                value=other
+                pass        
+            else :
+                unitfactor=lm_units.compareunits(self.unit, other.units())
+                value=other.value()
+                pass
+            if unitfactor == 0.0:
+                raise ValueError("Attempting to add values with incompatible units %s and %s" % (str(self.unit),str(other.units())))
+            
+            return numericunitsvalue(self.val + value/unitfactor,self.unit);
 
     def __sub__(self,other):
-        if isinstance(other,numbers.Number):
-            unitfactor=lm_units.compareunits(self.unit, lm_units.createunits())
-            value=other
-            pass        
-        else :
-            unitfactor=lm_units.compareunits(self.unit, other.units())
-            value=other.value()
-            pass
-        
-        if unitfactor == 0.0:
-            raise ValueError("Attempting to add values with incompatible units %s and %s" % (str(self.unit),str(other.units())))
-        
-        return numericunitsvalue(self.val - value/unitfactor,self.unit);
+        if HAS_PINT:
+            if isinstance(other, numericunitsvalue):
+                other = other.quantity
+            subbed = self.quantity - other
+            return numericunitsvalue(subbed.m, subbed.units)
+        else:
+            if isinstance(other,numbers.Number):
+                unitfactor=lm_units.compareunits(self.unit, lm_units.createunits())
+                value=other
+                pass        
+            else :
+                unitfactor=lm_units.compareunits(self.unit, other.units())
+                value=other.value()
+                pass
+            
+            if unitfactor == 0.0:
+                raise ValueError("Attempting to add values with incompatible units %s and %s" % (str(self.unit),str(other.units())))
+            
+            return numericunitsvalue(self.val - value/unitfactor,self.unit);
     
     def __mul__(self,other):
-        if not isinstance(other,float):
-            newunits=lm_units.multiplyunits(self.unit, other.units())
-            tomul=other.value();
-            pass
-        else :
-            newunits=self.unit
-            tomul=other;
-            pass
-        
-        return numericunitsvalue(self.val*tomul,newunits);
+        if HAS_PINT:
+            if isinstance(other, numericunitsvalue):
+                other = other.quantity
+            multiplied = self.quantity * other
+            return numericunitsvalue(multiplied.m, multiplied.units)
+        else:
+            if not isinstance(other,float):
+                newunits=lm_units.multiplyunits(self.unit, other.units())
+                tomul=other.value();
+                pass
+            else :
+                newunits=self.unit
+                tomul=other;
+                pass
+            
+            return numericunitsvalue(self.val*tomul,newunits);
     
     def __div__(self,other):
-        if not isinstance(other,float):
-            newunits=lm_units.divideunits(self.unit, other.units())
-            
-            todiv=other.value()
-            pass
-        else :
-            newunits=self.unit
-            todiv=other
-            pass
+        if HAS_PINT:
+            if isinstance(other, numericunitsvalue):
+                other = other.quantity
+            divided = self.quantity / other
+            return numericunitsvalue(divided.m, divided.units)
+        else:
+            if not isinstance(other,float):
+                newunits=lm_units.divideunits(self.unit, other.units())
+                
+                todiv=other.value()
+                pass
+            else :
+                newunits=self.unit
+                todiv=other
+                pass
 
-        
-        return numericunitsvalue(self.val/todiv,newunits);
+            
+            return numericunitsvalue(self.val/todiv,newunits);
 
     def __truediv__(self,other):
-        if not isinstance(other,float):
-            newunits=lm_units.divideunits(self.unit, other.units())
-            
-            todiv=other.value()
-            pass
-        else :
-            newunits=self.unit
-            todiv=other
-            pass
+        if HAS_PINT:
+            if isinstance(other, numericunitsvalue):
+                other = other.quantity
+            divided = self.quantity / other
+            return numericunitsvalue(divided.m, divided.units)
+        else:
+            if not isinstance(other,float):
+                newunits=lm_units.divideunits(self.unit, other.units())
+                
+                todiv=other.value()
+                pass
+            else :
+                newunits=self.unit
+                todiv=other
+                pass
 
-        
-        return numericunitsvalue(self.val/todiv,newunits);
+            
+            return numericunitsvalue(self.val/todiv,newunits);
 
     def __floordiv__(self,other):
-        if not isinstance(other,float):
-            newunits=lm_units.divideunits(self.unit, other.units())
-            
-            todiv=other.value()
-            pass
-        else :
-            newunits=self.unit
-            todiv=other
-            pass
+        if HAS_PINT:
+            if isinstance(other, numericunitsvalue):
+                other = other.quantity
+            divided = self.quantity // other
+            return numericunitsvalue(divided.m, divided.units)
+        else:
+            if not isinstance(other,float):
+                newunits=lm_units.divideunits(self.unit, other.units())
+                
+                todiv=other.value()
+                pass
+            else :
+                newunits=self.unit
+                todiv=other
+                pass
 
-        
-        return numericunitsvalue(self.val//todiv,newunits);
+            
+            return numericunitsvalue(self.val//todiv,newunits);
 
     pass
-
-
-
-
 
 
 class integervalue(value) :
@@ -2578,7 +2740,7 @@ class datesetvalue(value):
     
     def __init__(self,param,defunits=None):
         self.dateset=set([])
-        if isinstance(param,collections.Set):
+        if isinstance(param,collections.abc.Set):
             self.dateset=set(param)
             pass
         elif isinstance(param,basestring):
@@ -2735,7 +2897,7 @@ class integersetvalue(value) :
                 pass
                 
             pass
-        elif isinstance(val,collections.Set):
+        elif isinstance(val,collections.abc.Set):
             self.setval=set(val)
             pass
         elif isinstance(val,list):

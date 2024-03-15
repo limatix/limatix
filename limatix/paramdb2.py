@@ -178,7 +178,7 @@ class etree_paramdb_ext(object): # etree extension class for paramdb that define
 
         if not(isinstance(name,basestring)):
             # We didn't get a string of some sort
-            if isinstance(name,collections.Sequence): 
+            if isinstance(name,collections.abc.Sequence): 
                 # some sort of list
                 if len(name) != 1:
                     raise ValueError("etree_paramdb_ext: XPath evaluation of dc:param() yielded %d values for parameter name" % (len(name)))

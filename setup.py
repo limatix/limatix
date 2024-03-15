@@ -132,8 +132,8 @@ if os.path.exists(".git") and distutils.spawn.find_executable("git") is not None
         matchobj=re.match(r"""v([^.]+[.][^.]+[.][^-.]+)(-.*)?""",versionraw)
         version=matchobj.group(1)
         if matchobj.group(2) is not None:
-            #version += '+'+matchobj.group(2)[1:].replace("-",".")
-            version += '.'+matchobj.group(2)[1:].replace("-",".")
+            version += '+'+matchobj.group(2)[1:].replace("-",".")
+            # version += '.'+matchobj.group(2)[1:].replace("-",".")
             pass
         pass
     except subprocess.CalledProcessError:
@@ -144,8 +144,8 @@ if os.path.exists(".git") and distutils.spawn.find_executable("git") is not None
         version += ".modified"
         pass
     elif modified:
-        #version += "+modified"
-        version += ".modified"
+        version += "+modified"
+        # version += ".modified"
         pass
     pass
 else:

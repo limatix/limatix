@@ -337,23 +337,23 @@ class xmldoc(object):
 
 
     @classmethod
-    def loadhref(cls,href,nsmap=None,readonly=True,use_databrowse=False,num_backups=1,use_locking=False,nodialogs=False,debug=False):
+    def loadhref(cls,href,nsmap=None,readonly=True,use_databrowse=False,num_backups=1,use_locking=False,nodialogs=False,debug=False,remove_comments=False):
         """ xmldoc.loadhref(href,...): Load in an existing file. See 
         main constructor docs for other parameters.
         NOTE: Will merge in xmldoc default nsmap into root element 
         unless you explicitly supply nsmap={}"""
 
-        return cls(href,maintagname=None,nsmap=nsmap,readonly=readonly,use_databrowse=use_databrowse,num_backups=num_backups,use_locking=use_locking,nodialogs=nodialogs,debug=debug)
+        return cls(href,maintagname=None,nsmap=nsmap,readonly=readonly,use_databrowse=use_databrowse,num_backups=num_backups,use_locking=use_locking,nodialogs=nodialogs,debug=debug,remove_comments=remove_comments)
 
     @classmethod
-    def loadfile(cls,filename,nsmap=None,readonly=True,use_databrowse=False,num_backups=1,use_locking=False,nodialogs=False,debug=False):
+    def loadfile(cls,filename,nsmap=None,readonly=True,use_databrowse=False,num_backups=1,use_locking=False,nodialogs=False,debug=False,remove_comments=False):
         """ xmldoc.loadfile(filename,...): Load in an existing file. See 
         main constructor docs for other parameters.
         NOTE: Will merge in xmldoc default nsmap into root element 
         unless you explicitly supply nsmap={}"""
         href=dc_value.hrefvalue(pathname2url(filename),contexthref=dc_value.hrefvalue("./"))
         
-        return cls(href,maintagname=None,nsmap=nsmap,readonly=readonly,use_databrowse=use_databrowse,num_backups=num_backups,use_locking=use_locking,nodialogs=nodialogs,debug=debug)
+        return cls(href,maintagname=None,nsmap=nsmap,readonly=readonly,use_databrowse=use_databrowse,num_backups=num_backups,use_locking=use_locking,nodialogs=nodialogs,debug=debug,remove_comments=remove_comments)
 
     @classmethod
     def newdoc(cls,maintagname,nsmap=None,num_backups=1,use_locking=False,contexthref=None,nodialogs=False,debug=False):
@@ -486,7 +486,7 @@ class xmldoc(object):
         return newdoc
 
 
-    def __init__(self,href,maintagname=None,nsmap=None,readonly=False,use_databrowse=False,num_backups=1,FileObj=None,ETreeObj=None,use_locking=False,contexthref=None,nodialogs=False,debug=False):  
+    def __init__(self,href,maintagname=None,nsmap=None,readonly=False,use_databrowse=False,num_backups=1,FileObj=None,ETreeObj=None,use_locking=False,contexthref=None,nodialogs=False,debug=False,remove_comments=False):  
         """ Main constructor fo xmldoc. WE STRONGLY RECOMMEND USING THE CLASS METHOD CONSTRUCTORS INSTEAD
         href:    File to map. May be None if we are creating a new 
                      document in write mode (maintagname != None). 
@@ -617,14 +617,14 @@ class xmldoc(object):
                 self.possible_root_ids=set([id(ETreeObj.getroot())])
                 pass
             elif not self.use_locking:
-                self._resync(initialload=True,FileObj=FileObj)
+                self._resync(initialload=True,FileObj=FileObj,remove_comments=remove_comments)
                 pass
             elif self.use_locking and self.readonly: 
-                self._resync(initialload=True,FileObj=FileObj,rolock=True)
+                self._resync(initialload=True,FileObj=FileObj,rolock=True,remove_comments=remove_comments)
                 self.ro_lockcount=1
                 pass
             elif self.use_locking and not self.readonly:
-                self._resync(initialload=True,FileObj=FileObj,rwlock=True)
+                self._resync(initialload=True,FileObj=FileObj,rwlock=True,remove_comments=remove_comments)
                 self.rw_lockcount=1
                 pass
             else : 
@@ -1243,10 +1243,8 @@ class xmldoc(object):
         return self.xpathsingleint(xpath,namespaces=namespaces,contextnode=contextnode,extensions=extensions,variables=variables,default=default,noprovenance=noprovenance)
 
 
-    #!!!*** Should build in unit support
     def xpathsinglefloat(self,xpath,units=None,namespaces=None,contextnode=None,extensions=None,variables=None,default=NameError("No result found for xpath"),noprovenance=False):
         """Like xpathsingle, but converts result to a float"""
-        assert(units is None) # Unit support not implemented yet!
 
         resultnode=self.xpathsingle(xpath,namespaces=namespaces,contextnode=contextnode,extensions=extensions,variables=variables,default=default,noprovenance=noprovenance)
         
@@ -1255,10 +1253,16 @@ class xmldoc(object):
             pass
         else : 
             # should be an etree.Element
-            return float(resultnode.text)
+            if (dc_value.DCV+"units" in resultnode.attrib) or ("units" in resultnode.attrib):
+                return dc_value.numericunitsvalue.fromxml(self, resultnode)
+            else:
+                if units is not None:
+                    return dc_value.numericunitsvalue(resultnode.text, units)
+                else:
+                    return float(resultnode.text)
         pass
 
-    #!!!*** Should build in unit support
+
     def xpathsinglecontextfloat(self,contextnode,xpath,units=None,namespaces=None,extensions=None,variables=None,default=NameError("No result found for xpath"),noprovenance=False):
         """Alias for xpathsinglefloat(xpath,namespaces,contextnode)"""
 
@@ -1387,7 +1391,7 @@ class xmldoc(object):
         pass
     
 
-    def _resync(self,initialload=False,FileObj=None,rolock=False,rwlock=False):
+    def _resync(self,initialload=False,FileObj=None,rolock=False,rwlock=False,remove_comments=False):
         """_resync() reads in any changes from disk.
         
         INTERNAL USE ONLY
@@ -1451,7 +1455,7 @@ class xmldoc(object):
 
                         # Use parser with remove_blank_text otherwise pretty_print
                         # won't work on output
-                        parser=etree.XMLParser(remove_blank_text=True,huge_tree=True)
+                        parser=etree.XMLParser(remove_blank_text=True,remove_comments=remove_comments,huge_tree=True)
                         if FileObj is not None:
                             # stream object. Don't have to do anything to lock it
                             self.doc=etree.parse(FileObj,parser)
@@ -2011,7 +2015,7 @@ class xmldoc(object):
         if contextnode is None:
             resultlist=self.doc.xpath(path,namespaces=namespaces,extensions=useextensions,**variables)
             pass
-        elif isinstance(contextnode,collections.Sequence):
+        elif isinstance(contextnode,collections.abc.Sequence):
             # context node is some sort of list
             xpathresults=[]
             for singlenode in contextnode:                
@@ -2019,7 +2023,7 @@ class xmldoc(object):
                 pass
             resultlist=[]
             for xpathresult in xpathresults:
-                if isinstance(xpathresult,collections.Sequence) and not isinstance(xpathresult,basestring):
+                if isinstance(xpathresult,collections.abc.Sequence) and not isinstance(xpathresult,basestring):
                     # Some sort of list... add contents to result
                     resultlist.extend(xpathresult)
                     pass
@@ -2061,7 +2065,7 @@ class xmldoc(object):
         if contextnode is None:
             resultlist=ETXobj(self.doc,**variables)
             pass
-        elif isinstance(contextnode,collections.Sequence):
+        elif isinstance(contextnode,collections.abc.Sequence):
             # context node is some sort of list
             xpathresults=[]
             for singlenode in contextnode:                
@@ -2069,7 +2073,7 @@ class xmldoc(object):
                 pass
             resultlist=[]
             for xpathresult in xpathresults:
-                if isinstance(xpathresult,collections.Sequence) and not isinstance(xpathresult,basestring):
+                if isinstance(xpathresult,collections.abc.Sequence) and not isinstance(xpathresult,basestring):
                     # Some sort of list... add contents to result
                     resultlist.extend(xpathresult)
                     pass
@@ -3433,7 +3437,7 @@ class xmldoc(object):
             if isinstance(element,basestring):
                 return
                 
-            if not(isinstance(element,collections.Sequence)):
+            if not(isinstance(element,collections.abc.Sequence)):
                 element=[element] # wrap in a list so we can iterate
                 pass
             

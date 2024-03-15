@@ -24,6 +24,10 @@ else:
     int_or_long=int  # python3
     pass
 
+if not hasattr(builtins,"basestring"):
+    basestring=str  # python3
+    pass
+
 
 def evaluate_from_number(number,typename,paramname):
     if typename=="float":
