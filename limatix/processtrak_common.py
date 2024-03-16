@@ -902,7 +902,7 @@ def setup_unit_configuration(prxdoc, debug=False):
     units_lib_to_use = units_configuration_element.attrib.get("forceuse", "lm_units")
 
     for child in units_configuration_element.getchildren():
-        kwargs = { param.attrib["name"]: ast.literal_eval(param.text) for param in child.getchildren() }
+        kwargs = { param.attrib["name"]: ast.literal_eval(param.text) for param in child.getchildren() if param.tag == "{%s}param" % prx_nsmap["prx"] }
         units.manager.set_configuration(etree.QName(child).localname, debug=debug, **kwargs)
 
     units.manager.set_backend(units_lib_to_use)
