@@ -20,10 +20,13 @@ if not hasattr(builtins,"basestring"):
 
 class LimatixUnitManager():
     _registry = None
-    _backend = "lm_units"
-
+    _backend = None
+    _initialized = None
+    
     def __init__(self) -> None:
-        self._registry = self.get_application_registry_pint()
+        self._backend = "lm_units"
+        self._initialized = False
+        #self._registry = self.get_application_registry_pint()
         pass
 
     @property
@@ -38,7 +41,8 @@ class LimatixUnitManager():
     def Q(self):
         return self._registry.get().Quantity
 
-    def set_backend(self, backend="lm_units"):
+    def set_configuration(self, backend, debug=False, **kwargs):
+        assert(not self._initialized)
         if (backend == "pint") and not HAS_PINT:
             raise ValueError("pint unit library is not installed")
 
@@ -46,34 +50,43 @@ class LimatixUnitManager():
             raise ValueError("invalid backend %s, must be lm_units or pint" % backend)
 
         self._backend = backend
-        pass
-
-    def set_configuration(self, backend, debug=False, **kwargs):
         if debug:
             print("Debug: setting unit configuration for %s backend" % backend)
             print("configuration parameters:")
             for p, v in kwargs.items(): print("%s=%s" % (p, v))
-
+            pass
+        
         if backend == "lm_units":
             lm_units.units_config(kwargs.get("configstring", "insert_basic_units"))
+            pass
         elif backend == "pint":
             if not HAS_PINT:
                 print("Warning: trying to specify configuration for pint but it is not installed. configuration parameters will be ignored")
                 return
-            self.set_application_registry_pint(pint.UnitRegistry(**kwargs))
+            if len(kwargs) > 0:
+                self._registry = pint.UnitRegistry(**kwargs)
+                pint.set_application_registry(self._registry)
+                pass
+            else:
+                self._registry = pint.get_application_registry()
+                pass
+            pass
         else:
             raise NotImplementedError("unit backend %s is unavailable" % backend)
+        self._initialized = True
         pass
 
     def get_application_registry_pint(self):
+        assert(self._initialized)
         return pint.get_application_registry() if HAS_PINT else None
 
-    def set_application_registry_pint(self, registry):
-        pint.set_application_registry(registry)
-        self._registry = self.get_application_registry_pint()
-        pass
+    #def set_application_registry_pint(self, registry):
+        #pint.set_application_registry(registry)
+        #self._registry = self.get_application_registry_pint()
+        #pass
 
     def parse(self, val, units):
+        assert(self._initialized)
         quantity = self.registry.parse_expression("%s %s" % (val, units))
 
         if units is None:
@@ -96,6 +109,7 @@ class LimatixUnitManager():
         return val, unit, quantity
 
     def from_numericunitsvalue(self, val, units=None):
+        assert(self._initialized)
         quantity = self.Q(val.value(), str(val.units()) if val.units() is not None else units)
 
         # val is already a dc_value object
@@ -118,6 +132,7 @@ class LimatixUnitManager():
         return val, unit, quantity
 
     def from_value(self, val, units=None):
+        assert(self._initialized)
         quantity = self.Q(val, str(units) if units is not None else None)
 
         if units is not None:
@@ -132,6 +147,7 @@ class LimatixUnitManager():
         return val, unit, quantity
 
     def equal(self, v1, v2):
+        assert(self._initialized)
         if self.backend == "pint":
             if isinstance(v2, dc_value.numericunitsvalue):
                 v2 = v2.quantity
@@ -159,6 +175,7 @@ class LimatixUnitManager():
                     return False
 
     def less_than(self, v1, v2):
+        assert(self._initialized)
         if self.backend == "pint":
             if isinstance(v2, dc_value.numericunitsvalue):
                 v2 = v2.quantity
@@ -178,6 +195,7 @@ class LimatixUnitManager():
             return v1.val < (value / unitfactor)
 
     def less_than_equal(self, v1, v2):
+        assert(self._initialized)
         if self.backend == "pint":
             if isinstance(v2, dc_value.numericunitsvalue):
                 v2 = v2.quantity
@@ -197,6 +215,7 @@ class LimatixUnitManager():
             return v1.val <= (value / unitfactor)
 
     def greater_than(self, v1, v2):
+        assert(self._initialized)
         if self.backend == "pint":
             if isinstance(v2, dc_value.numericunitsvalue):
                 v2 = v2.quantity
@@ -216,6 +235,7 @@ class LimatixUnitManager():
             return v1.val > (value / unitfactor)
 
     def greater_than_equal(self, v1, v2):
+        assert(self._initialized)
         if self.backend == "pint":
             if isinstance(v2, dc_value.numericunitsvalue):
                 v2 = v2.quantity
@@ -235,6 +255,7 @@ class LimatixUnitManager():
             return v1.val >= (value / unitfactor)
 
     def absolute_value(self, v):
+        assert(self._initialized)
         if self.backend == "pint":
             v = abs(v.quantity)
             return dc_value.numericunitsvalue(v.m, v.units)
@@ -242,6 +263,7 @@ class LimatixUnitManager():
             return dc_value.numericunitsvalue(abs(v.val), v.unit)
 
     def round(self, v):
+        assert(self._initialized)
         if self.backend == "pint":
             v = round(v.quantity)
             return dc_value.numericunitsvalue(v.m, v.units)
@@ -249,6 +271,7 @@ class LimatixUnitManager():
             return dc_value.numericunitsvalue(round(v.val), v.unit)
 
     def power(self, v, p, modulo=None):
+        assert(self._initialized)
         if self.backend == "pint":
             if isinstance(p,dc_value.numericunitsvalue):
                 p = p.quantity
@@ -269,6 +292,7 @@ class LimatixUnitManager():
         pass
     
     def add(self, v1, v2):
+        assert(self._initialized)
         if self.backend == "pint":
             if isinstance(v2, dc_value.numericunitsvalue):
                 v2 = v2.quantity
@@ -289,6 +313,7 @@ class LimatixUnitManager():
             return dc_value.numericunitsvalue(v1.val + value/unitfactor, v2.unit)
 
     def subtract(self, v1, v2):
+        assert(self._initialized)
         if self.backend == "pint":
             if isinstance(v2, dc_value.numericunitsvalue):
                 v2 = v2.quantity
@@ -310,6 +335,7 @@ class LimatixUnitManager():
             return dc_value.numericunitsvalue(v1.val - value/unitfactor, v2.unit)
     
     def multiply(self, v1, v2):
+        assert(self._initialized)
         if self.backend == "pint":
             if isinstance(v2, dc_value.numericunitsvalue):
                 v2 = v2.quantity
@@ -328,6 +354,7 @@ class LimatixUnitManager():
             return dc_value.numericunitsvalue(v1.val*tomul, newunits)
     
     def divide(self, v1, v2):
+        assert(self._initialized)
         if self.backend == "pint":
             if isinstance(v2, dc_value.numericunitsvalue):
                 v2 = v2.quantity
@@ -346,6 +373,7 @@ class LimatixUnitManager():
             return dc_value.numericunitsvalue(v1.val/todiv, newunits)
 
     def true_divide(self, v1, v2):
+        assert(self._initialized)
         if self.backend == "pint":
             if isinstance(v2, dc_value.numericunitsvalue):
                 v2 = v2.quantity
@@ -364,6 +392,7 @@ class LimatixUnitManager():
             return dc_value.numericunitsvalue(v1.val/todiv, newunits);
 
     def floor_divide(self, v1, v2):
+        assert(self._initialized)
         if self.backend == "pint":
             if isinstance(v2, dc_value.numericunitsvalue):
                 v2 = v2.quantity
@@ -380,7 +409,16 @@ class LimatixUnitManager():
                 pass
 
             return dc_value.numericunitsvalue(v1.val//todiv, newunits);
-
+        pass
+    
     pass
+manager = None
 
-manager = LimatixUnitManager()
+def configure_units(unit_engine,debug = False,**kwargs):
+    global manager
+    if manager is not None:
+        raise ValueError("configure_units has already been run!")
+        
+    manager = LimatixUnitManager()
+    manager.set_configuration(unit_engine,debug = debug, **kwargs)
+    pass

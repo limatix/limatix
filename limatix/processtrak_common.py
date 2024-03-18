@@ -898,14 +898,19 @@ def getinputfiles(prxdoc):
 
 
 def setup_unit_configuration(prxdoc, debug=False):
-    units_configuration_element = prxdoc.xpathsinglecontext(prxdoc.getroot(), "prx:units_configuration", None)
-    units_lib_to_use = units_configuration_element.attrib.get("forceuse", "lm_units")
+    units_configuration_element = prxdoc.xpathsinglecontext(prxdoc.getroot(), "prx:units_configuration", default = None)
 
-    for child in units_configuration_element.getchildren():
-        kwargs = { param.attrib["name"]: ast.literal_eval(param.text) for param in child.getchildren() if param.tag == "{%s}param" % prx_nsmap["prx"] }
-        units.manager.set_configuration(etree.QName(child).localname, debug=debug, **kwargs)
+    if units_configuration_element is not None:
+        
+        units_lib_to_use = units_configuration_element.attrib.get("unit_engine", "lm_units")
 
-    units.manager.set_backend(units_lib_to_use)
+    
+        kwargs = { param.attrib["name"]: ast.literal_eval(param.text) for param in units_configuration_element.getchildren() if param.tag == "{%s}param" % prx_nsmap["prx"] }
+        units.configure_units(units_lib_to_use, debug=debug, **kwargs)
+        pass
+    else:
+        units.configure_units("lm_units",debug = debug)
+        pass
     pass
 
 
