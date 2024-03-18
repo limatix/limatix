@@ -36,19 +36,8 @@ from . import canonicalize_path
 from . import provenance as provenance
 # from . import xmldoc
 
-from . import lm_units  # note: main program should call lm_units.units_config("insert_basic_units")
-
-HAS_PINT = False
-try:
-    import pint
-
-    ureg = pint.UnitRegistry()
-    Q_ = ureg.Quantity
-
-    HAS_PINT = True
-except ImportError:
-    pass
-
+from . import units as units_module
+from . import lm_units
 
 try: 
     import builtins  # python3
@@ -1354,61 +1343,13 @@ class numericunitsvalue(value) :
         # self.name=name;
 
         if isinstance(val,basestring):
-            if HAS_PINT:
-                self.quantity = ureg.parse_expression("%s %s" % (val, units))
-
-            if units is None:
-                matchobj=re.match(R""" *(([-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?)|([-+]?[iI][nN][fF])|([nN][aA][nN])) *[\[]?([^\]\[]*)[\]]?""",val);
-                if matchobj is not None :
-                    self.val=float(matchobj.group(1))
-                    self.unit=lm_units.parseunits(matchobj.group(8))
-                    pass
-                pass
-            else :
-                self.val=float(val)                
-                if isinstance(units,basestring):
-                    self.unit=lm_units.parseunits(units);
-                    pass
-                else :
-                    self.unit=lm_units.copyunits(units);
-                    pass
-                pass
+            self.val, self.unit, self.quantity = units_module.manager.parse(val, units)
             pass
         elif hasattr(val,"value"):
-            if HAS_PINT:
-                self.quantity = Q_(val.value(), str(val.units()) if val.units() is not None else None)
-
-            # val is already a dc_value object           
-            if units is None:
-                self.val=val.value()
-                self.unit=val.units()
-                pass
-            else : 
-                if isinstance(units,basestring):
-                    unitstruct=lm_units.parseunits(units)
-                    pass
-                else: 
-                    unitstruct=units
-                    pass
-                
-                self.val=val.value(unitstruct)
-                self.unit=lm_units.copyunits(unitstruct)
-                pass
-            
+            self.val, self.unit, self.quantity = units_module.manager.from_numericunitsvalue(val, units=units)
             pass
-        else :
-            if HAS_PINT:
-                self.quantity = Q_(val, str(units) if units is not None else None)
-
-            self.val=val;
-            if units is not None:
-                if isinstance(units,basestring):
-                    self.unit=lm_units.parseunits(units);
-                    pass
-                else :
-                    self.unit=lm_units.copyunits(units);
-                    pass
-                pass
+        else:
+            self.val, self.unit, self.quantity = units_module.manager.from_value(val, units=units)
             pass
 
         if self.val is None:
@@ -1642,38 +1583,7 @@ class numericunitsvalue(value) :
     
     
     def __eq__(self,other) :
-        if HAS_PINT:
-            if isinstance(other, numericunitsvalue):
-                other = other.quantity
-            return self.quantity == other
-        else:
-            # print "NumericUnitsValue Eq called!"
-            # print self.val==other.value(),self.unit==other.units()
-            # print str(self.unit),str(other.units())
-
-            otherval=other.value()
-
-            otherunit=other.units()
-            
-            # print "self.val=%s, otherval=%s" % (str(self.val),str(otherval))
-            # print "self.unit=%s, otherunit=%s" % (str(self.unit),str(otherunit))
-            unitfactor=lm_units.compareunits(self.unit,otherunit)
-            unitfactor2=lm_units.compareunits(otherunit,self.unit)
-            if unitfactor==0.0 or unitfactor2==0.0:
-                # unit mismatch
-                return False
-            else :
-                
-
-                # avoid roundoff issues by checking strict equality both ways
-                if self.val*unitfactor==otherval or self.val==otherval*unitfactor2:
-                    return True
-                else :
-                    return False
-                
-                pass
-        
-        pass
+        return units_module.manager.equal(self, other)
 
     def equiv(self,other):
         # Like __eq__ but determines equivalence, 
@@ -1696,239 +1606,55 @@ class numericunitsvalue(value) :
 
 
     def __lt__(self, other):
-        if HAS_PINT:
-            if isinstance(other, numericunitsvalue):
-                other = other.quantity
-            return self.quantity < other
-        else:
-            if isinstance(other,numbers.Number):
-                unitfactor=lm_units.compareunits(self.unit, lm_units.createunits())            
-                value=other
-                pass        
-            else :
-                unitfactor=lm_units.compareunits(self.unit, other.units())
-                value=other.value()
-                pass
-            if unitfactor == 0.0:
-                raise ValueError("Attempting to add values with incompatible units %s and %s" % (str(self.unit),str(other.units())))
-            
-            return self.val < (value / unitfactor)
+        return units_module.manager.less_than(self, other)
 
 
     def __le__(self, other):
-        if HAS_PINT:
-            if isinstance(other, numericunitsvalue):
-                other = other.quantity
-            return self.quantity <= other
-        else:
-            if isinstance(other,numbers.Number):
-                unitfactor=lm_units.compareunits(self.unit, lm_units.createunits())            
-                value=other
-                pass        
-            else :
-                unitfactor=lm_units.compareunits(self.unit, other.units())
-                value=other.value()
-                pass
-            if unitfactor == 0.0:
-                raise ValueError("Attempting to add values with incompatible units %s and %s" % (str(self.unit),str(other.units())))
-            
-            return self.val <= (value / unitfactor)
+        return units_module.manager.less_than_equal(self, other)
 
 
     def __gt__(self, other):
-        if HAS_PINT:
-            if isinstance(other, numericunitsvalue):
-                other = other.quantity
-            return self.quantity > other
-        else:
-            if isinstance(other,numbers.Number):
-                unitfactor=lm_units.compareunits(self.unit, lm_units.createunits())            
-                value=other
-                pass        
-            else :
-                unitfactor=lm_units.compareunits(self.unit, other.units())
-                value=other.value()
-                pass
-            if unitfactor == 0.0:
-                raise ValueError("Attempting to add values with incompatible units %s and %s" % (str(self.unit),str(other.units())))
-            
-            return self.val > (value / unitfactor)
+        return units_module.manager.greater_than(self, other)
 
 
     def __ge__(self, other):
-        if HAS_PINT:
-            if isinstance(other, numericunitsvalue):
-                other = other.quantity
-            return self.quantity >= other
-        else:
-            if isinstance(other,numbers.Number):
-                unitfactor=lm_units.compareunits(self.unit, lm_units.createunits())            
-                value=other
-                pass        
-            else :
-                unitfactor=lm_units.compareunits(self.unit, other.units())
-                value=other.value()
-                pass
-            if unitfactor == 0.0:
-                raise ValueError("Attempting to add values with incompatible units %s and %s" % (str(self.unit),str(other.units())))
-            
-            return self.val >= (value / unitfactor)
+        return units_module.manager.greater_than_equal(self, other)
 
 
     def __abs__(self):
-        if HAS_PINT:
-            absed = abs(self.quantity)
-            return numericunitsvalue(absed.m, absed.units)
-        else:
-            return numericunitsvalue(abs(self.val), self.unit)
+        return units_module.manager.absolute_value(self)
 
 
     def __round__(self):
-        if HAS_PINT:
-            rounded = round(self.quantity)
-            return numericunitsvalue(rounded.m, rounded.units)
-        else:
-            return numericunitsvalue(rounded(self.val), self.unit)
+        return units_module.manager.round(self)
 
 
     def __pow__(self,other,modulo=None):
-        if HAS_PINT:
-            if isinstance(other,numericunitsvalue):
-                other=other.quantity
-                pass
-
-            powd = self.quantity**other
-            return numericunitsvalue(powd.m, powd.units)
-        else:
-            if modulo is not None:
-                raise ValueError("pow modulo not supported")
-
-            if isinstance(other,numericunitsvalue):
-                other=other.value("") # need unitless representation of exponent
-                pass
-            
-            return numericunitsvalue(self.val**other,lm_units.powerunits(self.unit,other))
-
-        pass
+        return units_module.manager.power(self, other, modulo=modulo)
     
+
     def __add__(self,other):
-        if HAS_PINT:
-            if isinstance(other, numericunitsvalue):
-                other = other.quantity
-            added = self.quantity + other
-            return numericunitsvalue(added.m, added.units)
-        else:
-            if isinstance(other,numbers.Number):
-                unitfactor=lm_units.compareunits(self.unit, lm_units.createunits())            
-                value=other
-                pass        
-            else :
-                unitfactor=lm_units.compareunits(self.unit, other.units())
-                value=other.value()
-                pass
-            if unitfactor == 0.0:
-                raise ValueError("Attempting to add values with incompatible units %s and %s" % (str(self.unit),str(other.units())))
-            
-            return numericunitsvalue(self.val + value/unitfactor,self.unit);
+        return units_module.manager.add(self, other)
+
 
     def __sub__(self,other):
-        if HAS_PINT:
-            if isinstance(other, numericunitsvalue):
-                other = other.quantity
-            subbed = self.quantity - other
-            return numericunitsvalue(subbed.m, subbed.units)
-        else:
-            if isinstance(other,numbers.Number):
-                unitfactor=lm_units.compareunits(self.unit, lm_units.createunits())
-                value=other
-                pass        
-            else :
-                unitfactor=lm_units.compareunits(self.unit, other.units())
-                value=other.value()
-                pass
-            
-            if unitfactor == 0.0:
-                raise ValueError("Attempting to add values with incompatible units %s and %s" % (str(self.unit),str(other.units())))
-            
-            return numericunitsvalue(self.val - value/unitfactor,self.unit);
+        return units_module.manager.subtract(self, other)
     
-    def __mul__(self,other):
-        if HAS_PINT:
-            if isinstance(other, numericunitsvalue):
-                other = other.quantity
-            multiplied = self.quantity * other
-            return numericunitsvalue(multiplied.m, multiplied.units)
-        else:
-            if not isinstance(other,float):
-                newunits=lm_units.multiplyunits(self.unit, other.units())
-                tomul=other.value();
-                pass
-            else :
-                newunits=self.unit
-                tomul=other;
-                pass
-            
-            return numericunitsvalue(self.val*tomul,newunits);
-    
-    def __div__(self,other):
-        if HAS_PINT:
-            if isinstance(other, numericunitsvalue):
-                other = other.quantity
-            divided = self.quantity / other
-            return numericunitsvalue(divided.m, divided.units)
-        else:
-            if not isinstance(other,float):
-                newunits=lm_units.divideunits(self.unit, other.units())
-                
-                todiv=other.value()
-                pass
-            else :
-                newunits=self.unit
-                todiv=other
-                pass
 
-            
-            return numericunitsvalue(self.val/todiv,newunits);
+    def __mul__(self,other):
+        return units_module.manager.multiply(self, other)
+    
+
+    def __div__(self,other):
+        return units_module.manager.divide(self, other)
+
 
     def __truediv__(self,other):
-        if HAS_PINT:
-            if isinstance(other, numericunitsvalue):
-                other = other.quantity
-            divided = self.quantity / other
-            return numericunitsvalue(divided.m, divided.units)
-        else:
-            if not isinstance(other,float):
-                newunits=lm_units.divideunits(self.unit, other.units())
-                
-                todiv=other.value()
-                pass
-            else :
-                newunits=self.unit
-                todiv=other
-                pass
+        return units_module.manager.true_divide(self, other)
 
-            
-            return numericunitsvalue(self.val/todiv,newunits);
 
     def __floordiv__(self,other):
-        if HAS_PINT:
-            if isinstance(other, numericunitsvalue):
-                other = other.quantity
-            divided = self.quantity // other
-            return numericunitsvalue(divided.m, divided.units)
-        else:
-            if not isinstance(other,float):
-                newunits=lm_units.divideunits(self.unit, other.units())
-                
-                todiv=other.value()
-                pass
-            else :
-                newunits=self.unit
-                todiv=other
-                pass
-
-            
-            return numericunitsvalue(self.val//todiv,newunits);
+        return units_module.manager.floor_divide(self, other)
 
     pass
 

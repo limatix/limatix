@@ -75,8 +75,9 @@ except ImportError:
     from urllib.parse import urljoin
     pass
 
-from limatix import lm_units
-lm_units.units_config("insert_basic_units")
+# from limatix import lm_units
+# lm_units.units_config("insert_basic_units")
+
 from limatix import timestamp
 from limatix import canonicalize_path
 from limatix.canonicalize_path import etxpath2human
@@ -369,6 +370,10 @@ def main(args=None):
 
     #print("steps=%s" % str(steps))
 
+
+    # initialize unit configuration based on any specifications in the prx file
+    # todo: dont forget to turn off debug at some point
+    processtrak_common.setup_unit_configuration(prxdoc, debug=True)
 
     # Build dictionary by input file of output files
     outputdict=processtrak_common.build_outputdict(prxdoc,inputfiles_with_hrefs,ignore_locking)
