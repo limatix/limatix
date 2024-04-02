@@ -36,6 +36,8 @@ def evaluate_from_number(number,typename,paramname):
         return complex(number)
     elif typename=="int":
         return int(number)
+    elif typename=="bool":
+        return bool(number)
     else:
         raise ValueError("processtrak_stepparam: Error evaluating parameter %s: evaluate_from_number cannot convert number to %s" % (paramname,typename))
     

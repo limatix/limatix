@@ -1890,8 +1890,15 @@ class booleanvalue(value) :
             if val=="None" or val=="":
                 self.val=None
                 pass
-            else : 
-                self.val=bool(val)                
+            else :
+                if val.lower()=="false" or val == "0":
+                    self.val=False
+                    pass
+                elif val.lower()=="true" or val == "1":
+                    self.val=True
+                    pass
+                else:
+                    raise ValueError(f"Invalid string value for boolean: {val:s}")                
                 pass
             pass
         elif hasattr(val,"value"):
