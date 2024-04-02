@@ -87,7 +87,7 @@ class LimatixUnitManager():
 
     def parse(self, val, units):
         assert(self._initialized)
-        quantity = self.registry.parse_expression("%s %s" % (val, units))
+        quantity = self.registry.parse_expression("%s %s" % (val, units)) if HAS_PINT else None
 
         if units is None:
             matchobj=re.match(R""" *(([-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?)|([-+]?[iI][nN][fF])|([nN][aA][nN])) *[\[]?([^\]\[]*)[\]]?""",val);
@@ -110,7 +110,7 @@ class LimatixUnitManager():
 
     def from_numericunitsvalue(self, val, units=None):
         assert(self._initialized)
-        quantity = self.Q(val.value(), str(val.units()) if val.units() is not None else units)
+        quantity = self.Q(val.value(), str(val.units()) if val.units() is not None else units) if HAS_PINT else None
 
         # val is already a dc_value object
         if units is None:
@@ -133,7 +133,7 @@ class LimatixUnitManager():
 
     def from_value(self, val, units=None):
         assert(self._initialized)
-        quantity = self.Q(val, str(units) if units is not None else None)
+        quantity = self.Q(val, str(units) if units is not None else None) if HAS_PINT else None
 
         if units is not None:
             if isinstance(units,basestring):
