@@ -1154,6 +1154,7 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
                     for syntreenode in ast.walk(runfunc_syntaxtree):
                         if hasattr(syntreenode,"lineno"):
                             syntreenode.lineno+=startinglineno+lines_to_delete-1-1
+                            syntreenode.end_lineno+=startinglineno+lines_to_delete-1-1
                             pass
                         # record calling function node
                         for child in ast.iter_child_nodes(syntreenode):
@@ -1180,6 +1181,7 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
                     for syntreenode in ast.walk(fullsyntaxtree):
                         if hasattr(syntreenode,"lineno"):
                             syntreenode.lineno+=pycode_lineno-1
+                            syntreenode.end_lineno+=pycode_lineno-1
                             pass
                         pass
                     code_container=None
