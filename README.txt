@@ -32,6 +32,7 @@ dc_xlg2dpd -- tool to extract a datacollect parameter dump (.dpd file) from
               an experiment log (OBSOLETE)
 thermal2limatix -- Tool to convert obsolete XML namespaces to the new
                    limatix namespaces
+limatix-git -- Tool for automating committing raw data and scripts into main branch and processed output also into processed branches.
 
 Primary libraries in the limatix package
 ----------------------------------------
@@ -66,9 +67,9 @@ for their input and support.
 Thanks to Joseph Hynek for providing the RF survey data used in the
 ProcessTrak example. 
 
-This material is based on work supported by the Air Force Research
-Laboratory under Contract #FA8650-10-D-5210, Task Order #023 and
-performed at Iowa State University; Case number 88ABW-2016-4385
+This material includes work based on work supported by the Air Force
+Research Laboratory under Contract #FA8650-10-D-5210, Task Order #023
+and performed at Iowa State University; Case number 88ABW-2016-4385
 
-This material is based on work supported by the NASA Early Stage
-Innovation (ESI) program under grant #NNX15AD75G
+This material includes work based on work supported by the NASA Early
+Stage Innovation (ESI) program under grant #NNX15AD75G
