@@ -1,0 +1,31 @@
+[project]
+name = 'limatix'
+dynamic = ['version','authors','description','urls']
+requires-python = ">= 3.8"
+readme = "README.md"
+classifiers = [
+	    "Development Status :: 3 - Alpha",
+	    "License :: OSI Approved :: BSD License"
+	    ]
+
+[project.scripts]
+datacollect2 = "limatix.bin.datacollect2:main"
+dc_checklist = "limatix.bin.dc_checklist:main"
+dc_chx2chf = "limatix.bin.dc_chx2chf:main"
+dc_glade = "limatix.bin.dc_glade:main"
+dc_gui = "limatix.bin.dc_gui:main"
+dc_paramdb2 = "limatix.bin.dc_paramdb2:main"
+dc_thermal2limatix = "limatix.bin.dc_thermal2limatix:main"
+processtrak = "limatix.bin.processtrak:main"
+dc_ricohphoto = "limatix.bin.dc_ricohphoto:main"
+dc_xlg2dpd = "limatix.bin.dc_xlg2dpd:main"
+pt_cleanup = "limatix.bin.pt_cleanup:main"
+limatix-git = "limatix.bin.limatix_git:main"
+
+[build-system]
+requires = ["setuptools>=64","numpy", "setuptools_scm[toml]>=5"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+# Note: With recent setuptools we can use "version_file" instead of "write_to"
+write_to = "limatix/_version.py"
