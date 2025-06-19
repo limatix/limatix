@@ -1,0 +1,10 @@
+
+NOTE: Default install is to /usr/local... to install into main
+Python installation, replace "make install" with
+python setup.py install
+
+To install
+----------
+make
+make install    (as root)
+

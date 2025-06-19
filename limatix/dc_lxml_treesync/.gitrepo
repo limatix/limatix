@@ -1,0 +1,12 @@
+; DO NOT EDIT (unless you know what you are doing)
+;
+; This subdirectory is a git "subrepo", and this file is maintained by the
+; git-subrepo command. See https://github.com/ingydotnet/git-subrepo#readme
+;
+[subrepo]
+	remote = git@github.com:limatix/dc_lxml_treesync.git
+	branch = master
+	commit = 09d90f9c587cc69e3e6fe059f895fa74cd23f97a
+	parent = 2d64fa60aa883a06617afc2671263370717e4c5e
+	method = merge
+	cmdver = 0.4.9
