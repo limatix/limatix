@@ -372,8 +372,8 @@ def main(args=None):
 
 
     # initialize unit configuration based on any specifications in the prx file
-    # todo: dont forget to turn off debug at some point
-    processtrak_common.setup_unit_configuration(prxdoc, debug=True)
+ 
+    processtrak_common.setup_unit_configuration(prxdoc, debug=False)
 
     # Build dictionary by input file of output files
     outputdict=processtrak_common.build_outputdict(prxdoc,inputfiles_with_hrefs,ignore_locking)

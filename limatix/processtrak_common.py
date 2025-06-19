@@ -350,6 +350,8 @@ def create_outputfile(prxdoc,inputfiles_element,inputfilehref,nominal_outputfile
                         continue
                     
                     cellel=outdoc.addelement(rowel,"ls:"+tagnames[col])
+                    
+                        
                     outdoc.setattr(cellel,"ls:celltype",cell_type)
                     hyperlink=sheet.hyperlink_map.get((row,col))
                     if cell_type=="text" and hyperlink is None:
@@ -359,7 +361,11 @@ def create_outputfile(prxdoc,inputfiles_element,inputfilehref,nominal_outputfile
                         # Do we need to do some kind of conversion on
                         # hyperlink.url_or_path()
                         outdoc.settext(cellel,cell.value)
-                        hyperlink_href=dcv.hrefvalue(hyperlink.url_or_path,contexthref=inputfilehref)
+                        hyperlink_url=hyperlink.url_or_path
+                        if hyperlink_url is None:
+                            hyperlink_url=hyperlink.desc
+                            pass
+                        hyperlink_href=dcv.hrefvalue(hyperlink_url,contexthref=inputfilehref)
                         hyperlink_href.xmlrepr(outdoc,cellel)
                         pass
                     elif cell_type=="number":
@@ -906,9 +912,10 @@ def setup_unit_configuration(prxdoc, debug=False):
 
     
         kwargs = { param.attrib["name"]: ast.literal_eval(param.text) for param in units_configuration_element.getchildren() if param.tag == "{%s}param" % prx_nsmap["prx"] }
-        units.configure_units(units_lib_to_use, debug=debug, **kwargs)
+        units.configure_units(units_lib_to_use,filename_context_href = prxdoc.getcontexthref(), debug=debug, **kwargs)
         pass
     else:
+        print("processtrak: Units not configured; defaulting to lm_units\nConsider adding a unit configuration, e.g.:\n  <prx:units_configuration unit_engine = \"lm_units\">\n    <prx:param name = \"configstring\">insert_basic_units</param>\n  </prx:units_configuration>",file = sys.stderr)
         units.configure_units("lm_units",debug = debug)
         pass
     pass

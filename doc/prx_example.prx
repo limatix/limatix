@@ -29,6 +29,17 @@
   <hostname>pequod</hostname>  <!-- if specified, will only run on this hostname to prevent conflicts when file locking does not operate across hosts -->
   <elementmatch>xpath_condition</elementmatch>
   <inputfilematch>*.xlg</inputfilematch> <!-- can do wildard restriction of which input files to operate on, here or can be overridden in the <step> or <script> tags. -->
+
+  <units_configuration unit_engine = "lm_units">
+    <param name = "configstring">insert_basic_units</param>
+  </units_configuration>
+
+  <!-- example configuration for pint: 
+  <units_configuration unit_engine = "pint">
+    <param name="filename">path_to_units_definitionfile.pint</param>
+    <param name="case_sensitive">False</param>
+  </units_configuration>
+    -->
   <step name="pullparams" descr="Pull in parameters from other files">
     <!-- Note: if you don't provide a step name, it uses the script name, 
 	 with extension and path removed -->

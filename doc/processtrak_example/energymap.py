@@ -31,7 +31,7 @@ def run(_xmldoc,_tag,_dest_href,frequency_float,leftlong_float,rightlong_float,b
     hzhigh=_xmldoc.xpathsinglefloat("(dc:measurement/spectrumlog/mergedspectrumlog)[1]/hzhigh",units="Hz")
     hzstep=_xmldoc.xpathsinglefloat("(dc:measurement/spectrumlog/mergedspectrumlog)[1]/hzstep",units="Hz")
 
-    freqidx=int(round((frequency_float-hzlow)/hzstep).quantity)
+    freqidx=int(round((frequency_float-hzlow)/hzstep).value(units=""))
     
     
     logentries=_xmldoc.xpath("dc:measurement/spectrumlog/mergedspectrumlog[gpscoords]") # extract all log entries with gps coordinates

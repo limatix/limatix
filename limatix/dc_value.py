@@ -11,6 +11,7 @@ import numbers
 import urllib
 import posixpath
 import base64
+import traceback
 
 from lxml import etree
 
@@ -54,6 +55,15 @@ __pychecker__="no-argsused no-override"
 
 
 DCV="{http://limatix.org/dcvalue}"
+
+def get_current_manager():
+    if units_module.manager is None:
+        print("WARNING: Attempting to instantiate limatix.dc_value.numericunitsvalue\nor .complexunitsvalue without a unit module configured.\nAuto-configuring lm_units.\nAdd unit configuration e.g.:\nfrom limatix.units import configure_units\nconfigure_units(\"lm_units\")\n\n\nTraceback follows:\n",file = sys.stderr)
+        tb = traceback.extract_stack()
+        traceback.print_tb(tb,file=sys.stderr)
+        units_module.configure_units("lm_units",configstring = "insert_basic_units")
+        pass
+    return units_module.manager
 
 # *** IMPORTANT *** 
 # Need to add distinction between strings and identifiers, and deal with escaping, etc. 
@@ -873,14 +883,41 @@ class hrefvalue(value):
 
 
 class complexunitsvalue(value) :
-    val=None  #!!! private
-    unit=None #!!! private
     defunit=None #!!! private
-
+    quantity=None #!!! private...either a pint quantity or a (float value, lm_units) tuple
+    manager=None #the units module implementation for this object
     # neither val nor unit are permitted to be None. 
     # val may be NaN
     # unit may be unitless.
     
+    @property
+    def val(self):
+        return self.manager.value_from_quantity(self.quantity)
+
+    @property
+    def unit(self):
+        return self.manager.units_from_quantity(self.quantity)
+
+    def __init__(self,val,units=None,defunits=None) :
+        self.manager = get_current_manager()
+        
+        if isinstance(val,basestring):
+            self.quantity = self.manager.parse(val, units, defunits,parse_complex=True)
+            pass
+        elif hasattr(val,"value"):
+            self.quantity = self.manager.from_numericunitsvalue(val, units=units)
+            pass
+        else:
+            self.quantity = self.manager.from_value(val, units=units)
+            pass
+
+        if defunits is not None:
+            self.defunit=self.manager.parseunits(defunits)
+            pass
+        
+        self.final=True
+        pass    
+        
     def __reduce__(self):
         # lm_units is complicated to pickle, so instead, let's just 
         # pass this value as its actual value string and recreate it
@@ -889,94 +926,8 @@ class complexunitsvalue(value) :
         arg2 = (self.format(),)
         return (arg1, arg2)
 
-    def __init__(self,val,units=None,defunits=None) :
-                
-        if isinstance(val,basestring):
-            if units is None:
-                matchobj=re.match(R""" *([\(]? *([-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?) *[+-] *([-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?[ij]?) *?[\)]?) *[\[]?([^\]\[]*)[\]]?""",val)
-                if matchobj is not None :
-                    self.val=complex(matchobj.group(1))
-                    self.unit=lm_units.parseunits(matchobj.group(10))
-                    pass
-                pass
-            else :
-                self.val=complex(val)                
-                if isinstance(units,basestring):
-                    self.unit=lm_units.parseunits(units);
-                    pass
-                else :
-                    self.unit=lm_units.copyunits(units);
-                    pass
-                pass
-            pass
-        elif hasattr(val,"value"):
-            # val is already a dc_value object
-            if units is None:
-                self.val=val.value()
-                self.unit=val.units()
-                pass
-            else : 
-                if isinstance(units,basestring):
-                    unitstruct=lm_units.parseunits(units)
-                    pass
-                else: 
-                    unitstruct=units
-                    pass
-                
-                self.val=val.value(unitstruct)
-                self.unit=lm_units.copyunits(unitstruct)
-                pass
-            
-            pass
-        elif isinstance(val, complex):
-            self.val=val;
-            if units is not None:
-                if isinstance(units,basestring):
-                    self.unit=lm_units.parseunits(units);
-                    pass
-                else :
-                    self.unit=lm_units.copyunits(units);
-                    pass
-                pass
-            pass
-        elif val is None:
-            pass
-        else:
-            raise AttributeError("Invalid value input for complexunitsvalue:  %s is %s" % (repr(val), repr(type(val))))
-
-        if self.val is None:
-            self.val=complex(np.nan, np.nan)
-            pass
-
-        if defunits is not None:
-            self.defunit=lm_units.parseunits(defunits);
-            pass
-        
-        if self.unit is None and self.defunit is not None:
-            self.unit=lm_units.copyunits(self.defunit);            
-            pass
-        
-
-        if self.unit is None:
-            self.unit=lm_units.createunits()
-            pass
-        
-        if self.unit is not None and self.defunit is not None :
-            # print self.unit
-            unitfactor=lm_units.compareunits(self.unit,self.defunit);
-            if unitfactor==0.0 :
-                # incompatible units
-                raise AttributeError("Incompatible units: %s %s and %s" % (self.val,str(self.unit),str(defunits)))
-            
-            pass
-
-        
-        self.final=True
-        pass
-
-
     def isblank(self): # we represent blank as NaN
-        return np.isnan(self.val)
+        return self.isnan()
 
     def numvalue(self,units=None):
         return self.value(units)
@@ -984,56 +935,30 @@ class complexunitsvalue(value) :
     def value(self,units=None):
         if units is None:
             return self.val;
-        
-        if isinstance(units,basestring):
-            unitstruct=lm_units.parseunits(units)
-            pass
-        else :
-            unitstruct=units
-            pass
-        
-        # print type(self.unit)
-        # print type(units)
-        # print type(units) is str
-        # print type(self.unit)
-        unitfactor=lm_units.compareunits(self.unit,unitstruct)
-        # print unitfactor
-        if unitfactor==0.0:
-            raise ValueError("Incompatible units: %s and %s" % (str(self.unit),str(unitstruct)))
-        
-        return self.val*unitfactor
+        return self.manager.value_in_units(self,units)
 
     def units(self):
-        return lm_units.copyunits(self.unit)
+        return self.manager.units(self)
 
     def valuedefunits(self):
         return self.value(self.defunit)
 
-    def format(self,formatstr=None,unit=None):
-
-        if unit is not None and not isinstance(unit,lm_units.dgu_units):
-            unit=lm_units.parseunits(unit)
-            pass
+    def format(self,unit=None):
         if unit is  None:
             unit=self.defunit
             pass
+        
         if unit is None:
-            unit=self.unit
-            pass
+            
+            return self.manager.format(self)
 
-        if formatstr is None:
-            return "%s %s" % (repr(self.value(unit)),str(unit))
-        
-        
-        # print "formatstr=%s" % (formatstr)
-        # if you get a 
-        # TypeError: not all arguments converted during string formatting
-        # on this next line, then you probably forgot the % in the %f or %g
-        # in your initialization of displayfmt in the .dcc file
-        return (formatstr+" %s") % (self.value(unit),str(unit))
+            pass
+        else:
+            return self.manager.format(self.manager.convert_units_to(self,unit))
+        pass
 
     def comsolstr(self):
-        if self.val is None: 
+        if self.quantity is None: 
             return ""
         elif len(str(self.unit))==0 :
             return repr(self.val)
@@ -1042,13 +967,7 @@ class complexunitsvalue(value) :
         pass
     
     def __str__(self) :
-        if self.val is None: 
-            return ""
-        elif len(str(self.unit))==0 :
-            return repr(self.val)
-        else :
-            return "%s %s" % (repr(self.val),str(self.unit))
-        pass
+        return self.manager.format(self)
     
     @classmethod
     def fromxml(cls,xmldocu,element,defunits=None,contextdir=None,noprovenance=False):
@@ -1091,29 +1010,19 @@ class complexunitsvalue(value) :
 
         if defunits is not None:
             # default unit set: force this unit
-            defunit=lm_units.parseunits(defunits)
+            defunit=self.manager.parseunits(defunits)
             # print "defunits: %s defunit: %s self.val: %s self.unit: %s" % (str(defunits),str(defunit),str(self.val),str(self.unit))
             pass
         
         
         if defunit is not None:
-            if not np.isnan(self.val):
-                unitfactor=0.0
+            
+            if not self.manager.isnan(self):
+                converted=self.manager.convert_units_to(self,defunit)
                 
-                unitfactor=lm_units.compareunits(self.unit,defunit);
-                
-                if unitfactor != 0.0:
-                    if self.val is not None:
-                        elementtext=repr(self.val*unitfactor)
-                        element.attrib[DCV+"units"]=str(defunit)
-                        pass
-                    else :
-                        elementtext=""
-                        element.attrib[DCV+"units"]=str(defunit)
-                        pass
-                    pass
-                else :
-                    sys.stderr.write("Warning: unit mismatch in %s tag: %s vs %s\n" % (element.tag,str(self),str(defunits)))
+                if self.val is not None:
+                    elementtext=repr(converted.val)
+                    element.attrib[DCV+"units"]=str(converted.unit)
                     pass
                 pass
             else :
@@ -1144,193 +1053,117 @@ class complexunitsvalue(value) :
         #    pass
         
         if xmldocu is not None:
-            xmlstorevalueclass(xmldocu,element,self.__class__)
-
-
             xmldocu.modified=True
             provenance.elementgenerated(xmldocu,element)
             pass
-
         
         pass
-    
 
     def simplifyunits(self):
-        unitcopy=lm_units.copyunits(self.unit)
-        lm_units.simplifyunits(unitcopy)
-        coefficient=lm_units.extractcoefficient(unitcopy);
+        return self.manager.simplifyunits(self)
 
-        return complexunitsvalue(self.val*coefficient,unitcopy)
-
-    def inunits(self,unit): # unit conversion, new complexunitsvalue object
-        
-        if unit is None:
-            unit=""
-            pass
-        
-        if not isinstance(unit,lm_units.dgu_units):
-            unit=lm_units.parseunits(unit)
-            pass
-        
-
-        return complexunitsvalue(self.value(unit),unit)
-    
+    def inunits(self,unit): # unit conversion, new numericunitsvalue object
+        return self.manager.convert_units_to(unit)
     
     def __eq__(self,other) :
-        # print "NumericUnitsValue Eq called!"
-        # print self.val==other.value(),self.unit==other.units()
-        # print str(self.unit),str(other.units())
-
-        otherval=other.value()
-
-        otherunit=other.units()
-        
-        # print "self.val=%s, otherval=%s" % (str(self.val),str(otherval))
-        # print "self.unit=%s, otherunit=%s" % (str(self.unit),str(otherunit))
-        unitfactor=lm_units.compareunits(self.unit,otherunit)
-        unitfactor2=lm_units.compareunits(otherunit,self.unit)
-        if unitfactor==0.0 or unitfactor2==0.0:
-            # unit mismatch
-            return False
-        else :
-            
-            # avoid roundoff issues by checking strict equality both ways
-            if self.val*unitfactor==otherval or self.val==otherval*unitfactor2:
-                return True
-            else :
-                return False
-            
-            pass
-        
-        pass
+        return self.manager.equal(self, other)
 
     def equiv(self,other):
         # Like __eq__ but determines equivalence, 
         # not equality. e.g. NaN equivalent to NaN
-        otherval=other.value()
-        otherunit=other.units()
+        return self.manager.equiv(self,other)
         
-        unitfactor=lm_units.compareunits(self.unit,otherunit)
-        unitfactor2=lm_units.compareunits(otherunit,self.unit)
-    
-        if unitfactor==0.0 or unitfactor2==0.0:
-            # unit mismatch
-            return False
-        
-        if np.isnan(self.val) and np.isnan(otherval):
-            return True # NaN equivalent to NaN
+    def __lt__(self, other):
+        return self.manager.less_than(self, other)
 
-        # fall through to equality
-        return self.__eq__(other)
-    
-        
+
+    def __le__(self, other):
+        return self.manager.less_than_equal(self, other)
+
+
+    def __gt__(self, other):
+        return self.manager.greater_than(self, other)
+
+
+    def __ge__(self, other):
+        return self.manager.greater_than_equal(self, other)
+
+
+    def __abs__(self):
+        return self.manager.absolute_value(self)
+
+
+    def __round__(self):
+        return self.manager.round(self)
+
+
     def __pow__(self,other,modulo=None):
-        if modulo is not None:
-            raise ValueError("pow modulo not supported")
-
-        if isinstance(other,complexunitsvalue):
-            other=other.value("") # need unitless representation of exponent
-            pass
-        
-        return complexunitsvalue(self.val**other,lm_units.powerunits(self.unit,other))
-
-        pass
+        return self.manager.power(self, other, modulo=modulo)
     
+
     def __add__(self,other):
-        if isinstance(other,numbers.Number):
-            unitfactor=lm_units.compareunits(self.unit, lm_units.createunits())            
-            value=other
-            pass        
-        else :
-            unitfactor=lm_units.compareunits(self.unit, other.units())
-            value=other.value()
-            pass
-        if unitfactor == 0.0:
-            raise ValueError("Attempting to add values with incompatible units %s and %s" % (str(self.unit),str(other.units())))
-        
-        return complexunitsvalue(self.val + value/unitfactor,self.unit);
+        return self.manager.add(self, other)
+
 
     def __sub__(self,other):
-        if isinstance(other,numbers.Number):
-            unitfactor=lm_units.compareunits(self.unit, lm_units.createunits())
-            value=other
-            pass        
-        else :
-            unitfactor=lm_units.compareunits(self.unit, other.units())
-            value=other.value()
-            pass
-        
-        if unitfactor == 0.0:
-            raise ValueError("Attempting to add values with incompatible units %s and %s" % (str(self.unit),str(other.units())))
-        
-        return complexunitsvalue(self.val - value/unitfactor,self.unit);
+        return self.manager.subtract(self, other)
     
-    def __mul__(self,other):
-        if not isinstance(other,float):
-            newunits=lm_units.multiplyunits(self.unit, other.units())
-            tomul=other.value();
-            pass
-        else :
-            newunits=self.unit
-            tomul=other;
-            pass
-        
-        return complexunitsvalue(self.val*tomul,newunits);
-    
-    def __div__(self,other):
-        if not isinstance(other,float):
-            newunits=lm_units.divideunits(self.unit, other.units())
-            
-            todiv=other.value()
-            pass
-        else :
-            newunits=self.unit
-            todiv=other
-            pass
 
-        
-        return complexunitsvalue(self.val/todiv,newunits);
+    def __mul__(self,other):
+        return self.manager.multiply(self, other)
+    
+
+    def __div__(self,other):
+        return self.manager.divide(self, other)
+
 
     def __truediv__(self,other):
-        if not isinstance(other,float):
-            newunits=lm_units.divideunits(self.unit, other.units())
-            
-            todiv=other.value()
-            pass
-        else :
-            newunits=self.unit
-            todiv=other
-            pass
+        return self.manager.true_divide(self, other)
 
-        
-        return complexunitsvalue(self.val/todiv,newunits);
 
     def __floordiv__(self,other):
-        if not isinstance(other,float):
-            newunits=lm_units.divideunits(self.unit, other.units())
-            
-            todiv=other.value()
-            pass
-        else :
-            newunits=self.unit
-            todiv=other
-            pass
-
-        
-        return complexunitsvalue(self.val//todiv,newunits);
+        return self.manager.floor_divide(self, other)
 
     pass
     
 class numericunitsvalue(value) :
-    val=None  #!!! private
-    unit=None #!!! private
     defunit=None #!!! private
-    quantity=None #!!! private
+    quantity=None #!!! private...either a pint quantity or a (float value, lm_units) tuple
+    manager=None #the units module implementation for this object
 
     # neither val nor unit are permitted to be None. 
     # val may be NaN
     # unit may be unitless.
     
+    @property
+    def val(self):
+        return self.manager.value_from_quantity(self.quantity)
+
+    @property
+    def unit(self):
+        return self.manager.units_from_quantity(self.quantity)
+
+    def __init__(self,val,units=None,defunits=None) :
+        # self.name=name;
+        self.manager = get_current_manager()
+        
+        if isinstance(val,basestring):
+            self.quantity = self.manager.parse(val, units, defunits)
+            pass
+        elif hasattr(val,"value"):
+            self.quantity = self.manager.from_numericunitsvalue(val, units=units)
+            pass
+        else:
+            self.quantity = self.manager.from_value(val, units=units)
+            pass
+
+        if defunits is not None:
+            self.defunit=self.manager.parseunits(defunits)
+            pass
+        
+        self.final=True
+        pass
+
     def __reduce__(self):
         # lm_units is complicated to pickle, so instead, let's just 
         # pass this value as its actual value string and recreate it
@@ -1339,52 +1172,8 @@ class numericunitsvalue(value) :
         arg2 = (self.format(),)
         return (arg1, arg2)
 
-    def __init__(self,val,units=None,defunits=None) :
-        # self.name=name;
-
-        if isinstance(val,basestring):
-            self.val, self.unit, self.quantity = units_module.manager.parse(val, units)
-            pass
-        elif hasattr(val,"value"):
-            self.val, self.unit, self.quantity = units_module.manager.from_numericunitsvalue(val, units=units)
-            pass
-        else:
-            self.val, self.unit, self.quantity = units_module.manager.from_value(val, units=units)
-            pass
-
-        if self.val is None:
-            self.val=float('NaN')
-            pass
-
-        if defunits is not None:
-            self.defunit=lm_units.parseunits(defunits);
-            pass
-        
-        if self.unit is None and self.defunit is not None:
-            self.unit=lm_units.copyunits(self.defunit);            
-            pass
-        
-
-        if self.unit is None:
-            self.unit=lm_units.createunits()
-            pass
-        
-        if self.unit is not None and self.defunit is not None :
-            # print self.unit
-            unitfactor=lm_units.compareunits(self.unit,self.defunit);
-            if unitfactor==0.0 :
-                # incompatible units
-                raise AttributeError("Incompatible units: %.8g %s and %s" % (self.val,str(self.unit),str(defunits)))
-            
-            pass
-
-        
-        self.final=True
-        pass
-
-
     def isblank(self): # we represent blank as NaN
-        return math.isnan(self.val)
+        return self.isnan()
 
     def numvalue(self,units=None):
         return self.value(units)
@@ -1396,56 +1185,33 @@ class numericunitsvalue(value) :
     def value(self,units=None):
         if units is None:
             return self.val;
-        
-        if isinstance(units,basestring):
-            unitstruct=lm_units.parseunits(units)
-            pass
-        else :
-            unitstruct=units
-            pass
-        
-        # print type(self.unit)
-        # print type(units)
-        # print type(units) is str
-        # print type(self.unit)
-        unitfactor=lm_units.compareunits(self.unit,unitstruct)
-        # print unitfactor
-        if unitfactor==0.0:
-            raise ValueError("Incompatible units: %s and %s" % (str(self.unit),str(unitstruct)))
-        
-        return self.val*unitfactor
+        return self.manager.value_in_units(self,units)
+    
 
     def units(self):
-        return lm_units.copyunits(self.unit)
+        return self.manager.units(self)
+    
 
     def valuedefunits(self):
         return self.value(self.defunit)
 
-    def format(self,formatstr=None,unit=None):
-
-        if unit is not None and not isinstance(unit,lm_units.dgu_units):
-            unit=lm_units.parseunits(unit)
-            pass
+    def format(self,unit=None):
         if unit is  None:
             unit=self.defunit
             pass
+        
         if unit is None:
-            unit=self.unit
-            pass
+            
+            return self.manager.format(self)
 
-        if formatstr is None:
-            return "%s %s" % (repr(self.value(unit)),str(unit))
-        
-        
-        # print "formatstr=%s" % (formatstr)
-        # if you get a 
-        # TypeError: not all arguments converted during string formatting
-        # on this next line, then you probably forgot the % in the %f or %g
-        # in your initialization of displayfmt in the .dcc file
-        return (formatstr+" %s") % (self.value(unit),str(unit))
+            pass
+        else:
+            return self.manager.format(self.manager.convert_units_to(self,unit))
+        pass
+      
 
     def comsolstr(self):
-        if self.val is None: 
+        if self.quantity is None: 
             return ""
         elif len(str(self.unit))==0 :
             return repr(self.val)
@@ -1454,13 +1220,8 @@ class numericunitsvalue(value) :
         pass
     
     def __str__(self) :
-        if self.val is None: 
-            return ""
-        elif len(str(self.unit))==0 :
-            return repr(self.val)
-        else :
-            return "%s %s" % (repr(self.val),str(self.unit))
-        pass
+        return self.manager.format(self)
+     
     
     @classmethod
     def fromxml(cls,xmldocu,element,defunits=None,contextdir=None,noprovenance=False):
@@ -1502,29 +1263,20 @@ class numericunitsvalue(value) :
 
         if defunits is not None:
             # default unit set: force this unit
-            defunit=lm_units.parseunits(defunits)
+            defunit=self.manager.parseunits(defunits)
             # print "defunits: %s defunit: %s self.val: %s self.unit: %s" % (str(defunits),str(defunit),str(self.val),str(self.unit))
             pass
         
         
         if defunit is not None:
-            if not math.isnan(self.val):
-                unitfactor=0.0
+            
+            if not self.manager.isnan(self):
+                converted=self.manager.convert_units_to(self,defunit)
                 
-                unitfactor=lm_units.compareunits(self.unit,defunit);
-                
-                if unitfactor != 0.0:
-                    if self.val is not None:
-                        elementtext=repr(self.val*unitfactor)
-                        element.attrib[DCV+"units"]=str(defunit)
-                        pass
-                    else :
-                        elementtext=""
-                        element.attrib[DCV+"units"]=str(defunit)
-                        pass
+                if self.val is not None:
+                    elementtext=repr(converted.val)
+                    element.attrib[DCV+"units"]=str(converted.unit)
                     pass
-                else :
-                    raise ValueError("Warning: unit mismatch in %s tag: %s vs %s\n" % (element.tag,str(self),str(defunits)))
                 pass
             else :
                 elementtext="NaN"
@@ -1562,99 +1314,69 @@ class numericunitsvalue(value) :
     
 
     def simplifyunits(self):
-        unitcopy=lm_units.copyunits(self.unit)
-        lm_units.simplifyunits(unitcopy)
-        coefficient=lm_units.extractcoefficient(unitcopy);
-
-        return numericunitsvalue(self.val*coefficient,unitcopy)
+        return self.manager.simplifyunits(self)
 
     def inunits(self,unit): # unit conversion, new numericunitsvalue object
-        
-        if unit is None:
-            unit=""
-            pass
-        
-        if not isinstance(unit,lm_units.dgu_units):
-            unit=lm_units.parseunits(unit)
-            pass
-        
-
-        return numericunitsvalue(self.value(unit),unit)
-    
-    
+        return self.manager.convert_units_to(unit)
+       
     def __eq__(self,other) :
-        return units_module.manager.equal(self, other)
+        return self.manager.equal(self, other)
 
     def equiv(self,other):
         # Like __eq__ but determines equivalence, 
         # not equality. e.g. NaN equivalent to NaN
-        otherval=other.value()
-        otherunit=other.units()
-        
-        unitfactor=lm_units.compareunits(self.unit,otherunit)
-        unitfactor2=lm_units.compareunits(otherunit,self.unit)
-    
-        if unitfactor==0.0 or unitfactor2==0.0:
-            # unit mismatch
-            return False
-        
-        if np.isnan(self.val) and np.isnan(otherval):
-            return True # NaN equivalent to NaN
-
-        # fall through to equality
-        return self.__eq__(other)
-
+        return self.manager.equiv(self,other)
 
     def __lt__(self, other):
-        return units_module.manager.less_than(self, other)
+        return self.manager.less_than(self, other)
 
 
     def __le__(self, other):
-        return units_module.manager.less_than_equal(self, other)
+        return self.manager.less_than_equal(self, other)
 
 
     def __gt__(self, other):
-        return units_module.manager.greater_than(self, other)
+        return self.manager.greater_than(self, other)
 
 
     def __ge__(self, other):
-        return units_module.manager.greater_than_equal(self, other)
+        return self.manager.greater_than_equal(self, other)
 
 
     def __abs__(self):
-        return units_module.manager.absolute_value(self)
+        return self.manager.absolute_value(self)
 
 
     def __round__(self):
-        return units_module.manager.round(self)
+        return self.manager.round(self)
 
 
     def __pow__(self,other,modulo=None):
-        return units_module.manager.power(self, other, modulo=modulo)
+        return self.manager.power(self, other, modulo=modulo)
     
 
     def __add__(self,other):
-        return units_module.manager.add(self, other)
+        return self.manager.add(self, other)
 
 
     def __sub__(self,other):
-        return units_module.manager.subtract(self, other)
+        return self.manager.subtract(self, other)
     
 
     def __mul__(self,other):
-        return units_module.manager.multiply(self, other)
+        return self.manager.multiply(self, other)
     
 
     def __div__(self,other):
-        return units_module.manager.divide(self, other)
+        return self.manager.divide(self, other)
 
 
     def __truediv__(self,other):
-        return units_module.manager.true_divide(self, other)
+        return self.manager.true_divide(self, other)
 
 
     def __floordiv__(self,other):
-        return units_module.manager.floor_divide(self, other)
+        return self.manager.floor_divide(self, other)
 
     pass
 

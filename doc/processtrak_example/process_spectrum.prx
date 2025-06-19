@@ -8,14 +8,11 @@
     xmlns:ls="http://limatix.org/spreadsheet"
     xmlns:pt="http://limatix.org/processtrak">
   
-  <units_configuration forceuse="pint">
-    <lm_units>
-      <param name="configstring">"insert_basic_units"</param>
-    </lm_units>
-    <pint>
+  
+  <units_configuration unit_engine = "pint">
       <param name="case_sensitive">False</param>
-    </pint>
   </units_configuration>
+  
 
   <inputfiles>
     <!-- Uncomment this <inputfile> tag to use spreadsheet input,
