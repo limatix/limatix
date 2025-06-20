@@ -33,6 +33,10 @@ To install into Python site-packages (as root)
 Windows installation instructions
 ---------------------------------
 For processtrak, pip install as above.
+
+Prerequisites:
+  pywin32
+
 For datacollect2, TBD
 
 
