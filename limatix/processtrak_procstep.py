@@ -22,6 +22,12 @@ from distutils.version import LooseVersion
 
 from lxml import etree
 
+# For some reason the fortran mkl librarys install their own 
+# CTRL-C exit handler so the keyboard interupt exception 
+# can never be caught. Setting the following environment variable 
+# will disable the mkl CTRL-C installed handler.
+# Set the environment variable FOR_DISABLE_CONSOLE_CTRL_HANDLER = '1'
+
 try:
     from cStringIO import StringIO
     pass
@@ -108,15 +114,6 @@ except TypeError:
     # mask lack of pkg_resources when we are running under pychecker
     def resource_string(x,y):
         raise IOError("Could not import pkg_resources")
-    pass
-
-
-try: 
-    __install_prefix__=resource_string(__name__, 'install_prefix.txt').decode('utf-8')
-    pass
-except IOError: 
-    sys.stderr.write("processtrak: error reading install_prefix.txt. Assuming /usr/local.\n")
-    __install_prefix__="/usr/local"
     pass
 
 
@@ -847,442 +844,481 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
 
     if not ipythonmodelist[0]:
         stepglobals["__processtrak_interactive"] = False # interactive mode can be disabled but no reenabled, so if we get here it is False permanently and safe to set globally
-        resultdict=runfunc(**argkw)
-        return resultdict
+        try: 
+            resultdict=runfunc(**argkw)
+            return resultdict
+        finally:
+            if 'matplotlib.pyplot' in sys.modules:
+                from matplotlib import pyplot as plt
+                plt.close('all')
+                pass
+            pass
     else:
-        # ipython mode
-        # in-process kernel, a-la https://raw.githubusercontent.com/ipython/ipython/master/examples/Embedding/inprocess_qtconsole.py
+        try: #matched with finally clause that closes matplotlib plots
+            # ipython mode
+            # in-process kernel, a-la https://raw.githubusercontent.com/ipython/ipython/master/examples/Embedding/inprocess_qtconsole.py
 
-        ## Set PyQt4 API version to 2 and import it -- required for ipython compatibility
-        #import sip
-        #sip.setapi('QVariant', 2)
-        #sip.setapi('QString', 2)
-        #sip.setapi('QDateTime', 2)
-        #sip.setapi('QDate', 2)
-        #sip.setapi('QTextStream', 2)
-        #sip.setapi('QTime', 2)
-        #sip.setapi('QUrl', 2)
-        #from PyQt4 import QtGui   # force IPython to use PyQt4 by importing it first
+            ## Set PyQt4 API version to 2 and import it -- required for ipython compatibility
+            #import sip
+            #sip.setapi('QVariant', 2)
+            #sip.setapi('QString', 2)
+            #sip.setapi('QDateTime', 2)
+            #sip.setapi('QDate', 2)
+            #sip.setapi('QTextStream', 2)
+            #sip.setapi('QTime', 2)
+            #sip.setapi('QUrl', 2)
+            #from PyQt4 import QtGui   # force IPython to use PyQt4 by importing it first
 
         
-        # RHEL6 compatibility  -- if running under Python 2.6, just import IPython, get PyQt4
-        if sys.version_info < (2,7):
-            from IPython.qt.console.rich_ipython_widget import RichIPythonWidget
-            from IPython.qt.inprocess import QtInProcessKernelManager
-            import IPython
-            from IPython.core.interactiveshell import DummyMod
+            # RHEL6 compatibility  -- if running under Python 2.6, just import IPython, get PyQt4
+            if sys.version_info < (2,7):
+                from IPython.qt.console.rich_ipython_widget import RichIPythonWidget
+                from IPython.qt.inprocess import QtInProcessKernelManager
+                import IPython
+                from IPython.core.interactiveshell import DummyMod
             
-            # (Old versions of IPython only)
-            from IPython.qt.inprocess import QtInProcessKernelManager
-            from IPython.lib import guisupport
-            app = guisupport.get_app_qt4() 
-            
-            qt_version=4 # default to qt4
-            using_pyside=False
-
-            pass
-        else: 
-
-            # Under more recent OS's: Make matplotlib use PySide
-            # http://stackoverflow.com/questions/6723527/getting-pyside-to-work-with-matplotlib
-            import IPython
-            from IPython.core.interactiveshell import DummyMod
-
-            if LooseVersion(IPython.__version__) >= LooseVersion('4.0.0'):
-                # Recent Jupyter/ipython: Import from qtconsole
-                
-                # Just get what ever is already imported if present:
-                def figure_imported_qt():
-                    qt_version=4 # default to qt4
-                    using_pyside=False
-
-                    if "PySide.QtCore" in sys.modules:
-                        import PySide.QtCore
-                        using_pyside=True
-                        pass
-                    elif "PySide2.QtCore" in sys.modules:
-                        import PySide2.QtCore
-                        qt_version=5
-                        using_pyside=True
-                        pass
-                    elif "PyQt4.QtCore" in sys.modules:
-                        import PyQt4.QtCore
-                        pass
-                    elif "PyQt5.QtCore" in sys.modules:
-                        import PyQt5.QtCore
-                        qt_version=5
-                        pass
-                    else:
-                        qt_version=None
-                        using_pyside=None
-                        pass
-                    return (qt_version,using_pyside)
-                (qt_version,using_pyside)=figure_imported_qt()
-
-                if qt_version is None:
-                    # Try new import
-                    # Let matplotlib backend availability determine which version
-                    if check_importability("matplotlib.backends.backend_qt5agg"):
-                        if check_importability("PySide2") or check_importability("PyQt5"):
-                            from matplotlib.backends import backend_qt5agg
-                            pass
-                        pass
-
-                    if check_importability("matplotlib.backends.backend_qt4agg"):
-                        if check_importability("PySide") or check_importability("PyQt4"):
-                            from matplotlib.backends import backend_qt4agg
-                            pass
-                        pass
-
-                    (qt_version,using_pyside)=figure_imported_qt()
-                    
-                    pass
-                pass
-            else:
-                # prehistoric IPython version ( < 4.... assume qt4 with pyside)
-                qt_version=4
-                using_pyside=True
-                pass
-            
-            import matplotlib
-            if qt_version==4:
-                #print("Using qt4")
-                matplotlib.use('Qt4Agg')
-                if 'backend.qt4' in matplotlib.rcParams.keys() and using_pyside:
-                    matplotlib.rcParams['backend.qt4']='PySide'
-                    pass
-                pass
-            else:
-                #print("Using qt5")
-                matplotlib.use('Qt5Agg')
-                pass
-            
-
-            if LooseVersion(IPython.__version__) >= LooseVersion('4.0.0'):
-                # Recent Jupyter/ipython: Import from qtconsole            
-                from qtconsole.qt import QtGui
-                from qtconsole.inprocess import QtInProcessKernelManager
-                
-                # Obtain the running QApplication instance
-                app=QtGui.QApplication.instance()
-                if app is None:
-                    # Start our own if necessary
-                    app=QtGui.QApplication([])
-                    pass
-                
-                pass
-            else:
                 # (Old versions of IPython only)
                 from IPython.qt.inprocess import QtInProcessKernelManager
                 from IPython.lib import guisupport
                 app = guisupport.get_app_qt4() 
-                pass
-            
-            pass
-
-        if qt_version==4:
-            kernel_gui = 'qt4'
-            pass
-        elif qt_version==5:
-            kernel_gui = 'qt'
-            pass
-        else:
-            assert(0) # invalid kernel_gui
-            pass
-        
-
-        kernel_manager = QtInProcessKernelManager()
-        kernel_manager.start_kernel()
-        kernel = kernel_manager.kernel
-        kernel.gui = kernel_gui
-
-        if LooseVersion(IPython.__version__) >= LooseVersion('7.0.0'):
-            kernel.start()
-
-            if not hasattr(kernel,"io_loop"):
-                # Some versions of ipykernel (e.g. 5.1.4 )
-                # the InProcessKernel start() method
-                # doesn't call its superclass to (apparently)
-                # override registration of dispatcher streams.
-                # but this means that the  the io_loop and
-                # msg_queue also don't get setup, which is problematic.
-                # In the streams are None/Empty so the stream ops
-                # are no-ops
-
-                #print("k.c_s = %s" % (str(kernel.control_stream)))
-                #print("len(k.s_s) = %d" % (len(kernel.shell_streams)))
                 
-                import ipykernel.kernelbase
-                # Call the base class method directly 
-                ipykernel.kernelbase.Kernel.start(kernel)
-                pass
-            ## Set IOLoop for kernel
-            ## similar to example in https://psyplot.readthedocs.io/projects/psyplot-gui/en/latest/_modules/psyplot_gui/console.html
-            #from zmq.eventloop import ioloop as zmq_ioloop
-            #from tornado import ioloop as tdo_ioloop
-            #zmq_ioloop.install()
-            #kernel.io_loop = tdo_ioloop.IOLoop.current()
-            pass
-        
-        
-        #sys.stderr.write("id(stepglobals)=%d" % (id(stepglobals)))
+                qt_version=4 # default to qt4
+                using_pyside=False
 
-        # Make ipython use our globals as its global dictionary
-        # ... but first keep a backup
-        stepglobalsbackup=copy.copy(stepglobals)
-        
-        (kernel.user_module,kernel.user_ns)=kernel.shell.prepare_user_module(user_ns=stepglobals)
-        
-        # Should we attempt to run the function here?
-        
-        # (gui, backend) = kernel.shell.enable_matplotlib("qt4") #,import_all=False) # (args.gui, import_all=import_all)
-        (gui, backend, clobbered) = kernel.shell.enable_pylab(kernel_gui,import_all=False) # (args.gui, import_all=import_all)
-
-        # kernel.shell.push(stepglobals) # provide globals as variables -- no longer necessary as it's using our namespace already
-        
-        kernel.shell.push(argkw) # provide arguments as variables
-        
-        kernel.shell.push({"kernel":kernel},interactive=False) # provide kernel for debugging purposes
-
-        kernel_client = kernel_manager.client()
-        kernel_client.start_channels()
-        abort_requested_list=[False] # encapsulated in a list to make it mutable
-
-        def stop():
-            control.hide()
-            kernel_client.stop_channels()
-            kernel_manager.shutdown_kernel()
-            app.exit()
-            pass
-
-        def abort():
-            # simple exit doesn't work. See http://stackoverflow.com/questions/1527689/exit-from-ipython
-            # too bad this doesn't work right now!!!
-            class Quitter(object):
-                def __repr__(self):
-                    sys.exit()
-                pass
-            kernel.shell.push({"quitter":Quitter()})
-            kernel.shell.ex("quitter")
-
-            stop()
-            abort_requested_list.pop()
-            abort_requested_list.append(True)
-            pass
-        
-        if pycode_text is None:            
-            kernel.shell.write("\n\nExecute %s/%s\n" % (scripthref.getpath(),runfunc.__name__))
-            pass
-        else: 
-            kernel.shell.write("\n\nExecute %s/%s/%s\n" % (scripthref.getpath(),action,runfunc.__name__))
-            pass
-
-        kernel.shell.write("Assign return value to \"ret\" and press Ctrl-D\n")
-        kernel.shell.write("Set cont=True to disable interactive mode\n")
-        # kernel.shell.write("call abort() to exit\n")
-
-        if LooseVersion(IPython.__version__) >= LooseVersion('4.0.0'):
-            # Recent Jupyter/ipython: Import from qtconsole
-            from qtconsole.rich_jupyter_widget import RichJupyterWidget as RichIPythonWidget
-            pass
-        else: 
-            from IPython.qt.console.rich_ipython_widget import RichIPythonWidget
-            pass
-        
-        control = RichIPythonWidget()
-        control.kernel_manager = kernel_manager
-        control.kernel_client = kernel_client
-        control.exit_requested.connect(stop)
-        control.show()
-
-
-        #sys.stderr.write("lines=%s\n" % (str(lines)))
-        #sys.stderr.write("lines[0]=%s\n" % (str(lines[0])))
-
-        
-        try:
-            if pycode_text is None:
-                (lines,startinglineno)=inspect.getsourcelines(runfunc)
-                
-                assert(lines[0].startswith("def")) # first line of function is the defining line
-
-                # Preparse to figure out how many lines are part of def
-                preparse=ast.parse("".join(lines),filename=scripthref.getpath(),mode='exec')
-                assert isinstance(preparse.body[0],ast.FunctionDef)
-                assert(preparse.body[0].lineno==1) # Def statement should start on line "1"
-                firstbodyline = preparse.body[0].body[0].lineno
-                lines_to_delete = firstbodyline - 2
-
-                del lines[:lines_to_delete] # remove def line, leading comments, etc. 
-                lines.insert(0,"if 1:\n") # allow function to be indented
-                runfunc_syntaxtree=ast.parse("".join(lines), filename=scripthref.getpath(), mode='exec') # BUG: Should set dont_inherit parameter and properly determine which __future__ import flags should be passed
-
-                # fixup line numbers
-                for syntreenode in ast.walk(runfunc_syntaxtree):
-                    if hasattr(syntreenode,"lineno"):
-                        syntreenode.lineno+=startinglineno+lines_to_delete-1-1
-                        pass
-                    pass
-
-                # runfunc_syntaxtree should consist of the if statement we just added
-                # use _fields attribute to look up fields of an AST element
-                # (e.g. test, body, orelse for IF)
-                # then those fields can be accessed directly
-                assert(len(runfunc_syntaxtree.body)==1)
-                code_container=runfunc_syntaxtree.body[0]
-                assert(isinstance(code_container,ast.If)) # code_container is the if statement we just wrote
-                
-                kernel.shell.push({"runfunc_syntaxtree": runfunc_syntaxtree},interactive=False) # provide processed syntax tree for debugging purposes
-
-                pass
-            else : 
-                fullsyntaxtree=ast.parse(pycode_text) # BUG: Should set dont_inherit parameter and properly determine which __future__ import flags should be passed
-                # fixup line numbers
-                for syntreenode in ast.walk(fullsyntaxtree):
-                    if hasattr(syntreenode,"lineno"):
-                        syntreenode.lineno+=pycode_lineno-1
-                        pass
-                    pass
-                code_container=None
-                for codeelement in fullsyntaxtree.body:
-                    if isinstance(codeelement,ast.FunctionDef):
-                        if codeelement.name==runfunc.__name__:
-                            code_container=codeelement
-                            runfunc_syntaxtree=codeelement
-                            pass
-                        pass
-                    
-                    pass
-                if code_container is None: 
-                    raise ValueError("Couldn't find code for %s for ipython execution" % (runfunc.__name__)) 
-
-                kernel.shell.push({"fullsyntaxtree": fullsyntaxtree},interactive=False) # provide full syntax tree for debugging purposes
-                
-                pass
-
-            # identify global variables from runfunc_syntaxtree
-            globalvars=set()
-            for treeelem in ast.walk(runfunc_syntaxtree):
-                if isinstance(treeelem,ast.Global):
-                    globalvars=globalvars.union(treeelem.names)
-                    pass
-                pass
-            
-            
-            
-            kernel.shell.push({"abort": abort}) # provide abort function
-            kernel.shell.push({"cont": False}) # continue defaults to False
-            kernel.shell.push({"__processtrak_interactive":  True })
-            
-
-
-            
-            returnstatement=code_container.body[-1]
-            if isinstance(returnstatement,ast.Return):
-                # last statement is a return statement!
-                # Create assign statement that assigns 
-                # the result to ret
-                retassign=ast.Assign(targets=[ast.Name(id="ret",ctx=ast.Store(),lineno=returnstatement.lineno,col_offset=returnstatement.col_offset)],value=returnstatement.value,lineno=returnstatement.lineno,col_offset=returnstatement.col_offset)
-                del code_container.body[-1] # remove returnstatement
-                code_container.body.append(retassign) # add assignment
-                pass
-            
-
-            runfunc_lines=code_container.body
-
-            shell_vars = {"runfunc_lines": runfunc_lines,"scripthref": scripthref}
-            if LooseVersion(IPython.__version__) >= LooseVersion('7.0.0'):
-                # provide _ipycompiler for run_ast_nodes
-                import IPython.core.compilerop
-                _ipycompiler = IPython.core.compilerop.CachingCompiler()
-                shell_vars["_ipycompiler"]=_ipycompiler
-                pass
-            
-            kernel.shell.push(shell_vars,interactive=False) # provide processed syntax tree for debugging purposes
-            
-            # kernel.shell.run_code(compile("kernel.shell.run_ast_nodes(runfunc_lines,scriptpath,interactivity='all')","None","exec"))
-            if LooseVersion(IPython.__version__) >= LooseVersion('4.0.0'):
-                # Recent Jupyter/ipython: Import from qtconsole
-                from qtconsole.inprocess import QtCore
                 pass
             else: 
-                from IPython.qt.inprocess import QtCore
-                pass
-            QTimer=QtCore.QTimer
-
-            def showret():
-                control.execute("ret")
-                pass
                 
-            
-            def runcode():
-                if LooseVersion(IPython.__version__) >= LooseVersion('7.0.0'):
-                    # IPython 7 and above use async/await
-                    control.execute("await kernel.shell.run_ast_nodes(runfunc_lines,scripthref.getpath(),interactivity='none',compiler=_ipycompiler)")
+                # Under more recent OS's: Make matplotlib use PySide
+                # http://stackoverflow.com/questions/6723527/getting-pyside-to-work-with-matplotlib
+                import IPython
+                from IPython.core.interactiveshell import DummyMod
+
+                if LooseVersion(IPython.__version__) >= LooseVersion('4.0.0'):
+                    # Recent Jupyter/ipython: Import from qtconsole
+                    
+                    # Just get what ever is already imported if present:
+                    def figure_imported_qt():
+                        qt_version=4 # default to qt4
+                        using_pyside=False
+
+                        if "PySide.QtCore" in sys.modules:
+                            import PySide.QtCore
+                            using_pyside=True
+                            pass
+                        elif "PySide2.QtCore" in sys.modules:
+                            import PySide2.QtCore
+                            qt_version=5
+                            using_pyside=True
+                            pass
+                        elif "PyQt4.QtCore" in sys.modules:
+                            import PyQt4.QtCore
+                            pass
+                        elif "PyQt5.QtCore" in sys.modules:
+                            import PyQt5.QtCore
+                            qt_version=5
+                            pass
+                        else:
+                            qt_version=None
+                            using_pyside=None
+                            pass
+                        return (qt_version,using_pyside)
+                    (qt_version,using_pyside)=figure_imported_qt()
+                    
+                    if qt_version is None:
+                        # Try new import
+                        # Let matplotlib backend availability determine which version
+                        if check_importability("matplotlib.backends.backend_qt5agg"):
+                            if check_importability("PySide2") or check_importability("PyQt5"):
+                                from matplotlib.backends import backend_qt5agg
+                                pass
+                            pass
+
+                        if check_importability("matplotlib.backends.backend_qt4agg"):
+                            if check_importability("PySide") or check_importability("PyQt4"):
+                                from matplotlib.backends import backend_qt4agg
+                                pass
+                            pass
+
+                        (qt_version,using_pyside)=figure_imported_qt()
+                        
+                        pass
                     pass
                 else:
-                    control.execute("kernel.shell.run_ast_nodes(runfunc_lines,scripthref.getpath(),interactivity='none')")
+                    # prehistoric IPython version ( < 4.... assume qt4 with pyside)
+                    qt_version=4
+                    using_pyside=True
                     pass
                 
-                # QTimer.singleShot(25,showret) # get callback 25ms into main loop
-                # showret disabled because it prevents you from running the 
-                # debugger in post-mortem mode to troubleshoot an exception:
-                # import pdb; pdb.pm() 
+                import matplotlib
+                if qt_version==4:
+                    #print("Using qt4")
+                    matplotlib.use('Qt4Agg')
+                    if 'backend.qt4' in matplotlib.rcParams.keys() and using_pyside:
+                        matplotlib.rcParams['backend.qt4']='PySide'
+                        pass
+                    pass
+                else:
+                    #print("Using qt5")
+                    matplotlib.use('Qt5Agg')
+                    pass
+            
+
+                if LooseVersion(IPython.__version__) >= LooseVersion('4.0.0'):
+                    # Recent Jupyter/ipython: Import from qtconsole            
+                    try:
+                        from qtconsole.qt import QtGui
+                        QApplication = QtGui.QApplication
+                    except ModuleNotFoundError:
+                        # Recent qtconsole version does not contain qt module
+                        if qt_version == 4:
+                            from PyQt4 import QtGui, QtWidgets
+                            QApplication = QtWidgets.QApplication
+                        elif qt_version == 5:
+                            from PyQt5 import QtGui, QtWidgets
+                            QApplication = QtWidgets.QApplication
+                        else:
+                            raise ModuleNotFoundError("Cannot find valid PyQt installation.")
+                        pass
+                    from qtconsole.inprocess import QtInProcessKernelManager
+                
+                    # Obtain the running QApplication instance
+                    app=QApplication.instance()
+                    if app is None:
+                        # Start our own if necessary
+                        app=QApplication([])
+                        pass
+                
+                    pass
+                else:
+                    # (Old versions of IPython only)
+                    from IPython.qt.inprocess import QtInProcessKernelManager
+                    from IPython.lib import guisupport
+                    app = guisupport.get_app_qt4() 
+                    pass
+            
                 pass
             
-            QTimer.singleShot(25,runcode) # get callback 25ms into main loop
-            # control.execute("kernel.shell.run_ast_nodes(runfunc_lines,scripthref.getpath(),interactivity='none')")
+            if qt_version==4:
+                kernel_gui = 'qt4'
+                pass
+            elif qt_version==5:
+                kernel_gui = 'qt'
+                pass
+            else:
+                assert(0) # invalid kernel_gui
+                pass
+        
 
-            pass
-        except:
-            (exctype, excvalue) = sys.exc_info()[:2] 
-            sys.stderr.write("%s while attempting to prepare URL %s code for interactive execution: %s\n" % (exctype.__name__,scripthref.absurl(),str(excvalue)))
-            traceback.print_exc()
-            raise
+            kernel_manager = QtInProcessKernelManager()
+            kernel_manager.start_kernel()
+            kernel = kernel_manager.kernel
+            kernel.gui = kernel_gui
+            
+        
+            if LooseVersion(IPython.__version__) >= LooseVersion('7.0.0'):
+                kernel.start()
 
+                import ipykernel
+                if (not hasattr(kernel,"io_loop")) and (LooseVersion(ipykernel.__version__) < LooseVersion('6.4.2')):
+                    # Some versions of ipykernel (e.g. 5.1.4 )
+                    # the InProcessKernel start() method
+                    # doesn't call its superclass to (apparently)
+                    # override registration of dispatcher streams.
+                    # but this means that the  the io_loop and
+                    # msg_queue also don't get setup, which is problematic.
+                    # In the streams are None/Empty so the stream ops
+                    # are no-ops
+                    # fixed in v6.4.2 by https://github.com/ipython/ipykernel/pull/781
 
+                    #print("k.c_s = %s" % (str(kernel.control_stream)))
+                    #print("len(k.s_s) = %d" % (len(kernel.shell_streams)))
+                
+                    import ipykernel.kernelbase
+                    # Call the base class method directly 
+                    ipykernel.kernelbase.Kernel.start(kernel)
+                    pass
+                ## Set IOLoop for kernel
+                ## similar to example in https://psyplot.readthedocs.io/projects/psyplot-gui/en/latest/_modules/psyplot_gui/console.html
+                #from zmq.eventloop import ioloop as zmq_ioloop
+                #from tornado import ioloop as tdo_ioloop
+                #zmq_ioloop.install()
+                #kernel.io_loop = tdo_ioloop.IOLoop.current()
+                pass
+        
+        
+            #sys.stderr.write("id(stepglobals)=%d" % (id(stepglobals)))
+            
+            # Make ipython use our globals as its global dictionary
+            # ... but first keep a backup
+            stepglobalsbackup=copy.copy(stepglobals)
+        
+            (kernel.user_module,kernel.user_ns)=kernel.shell.prepare_user_module(user_ns=stepglobals)
+        
+            # Should we attempt to run the function here?
+            
+            # (gui, backend) = kernel.shell.enable_matplotlib("qt4") #,import_all=False) # (args.gui, import_all=import_all)
+            (gui, backend, clobbered) = kernel.shell.enable_pylab(kernel_gui,import_all=False) # (args.gui, import_all=import_all)
 
+            # kernel.shell.push(stepglobals) # provide globals as variables -- no longer necessary as it's using our namespace already
+        
+            kernel.shell.push(argkw) # provide arguments as variables
+        
+            kernel.shell.push({"kernel":kernel},interactive=False) # provide kernel for debugging purposes
 
-        if LooseVersion(IPython.__version__) >= LooseVersion('4.0.0'):
+            kernel_client = kernel_manager.client()
+            kernel_client.start_channels()
+            abort_requested_list=[False] # encapsulated in a list to make it mutable
+
+            def stop():
+                control.hide()
+                kernel_client.stop_channels()
+                kernel_manager.shutdown_kernel()
+                app.exit()
+                pass
+
+            def abort():
+                # simple exit doesn't work. See http://stackoverflow.com/questions/1527689/exit-from-ipython
+                # too bad this doesn't work right now!!!
+                class Quitter(object):
+                    def __repr__(self):
+                        sys.exit()
+                        pass
+                    pass
+                kernel.shell.push({"quitter":Quitter()})
+                kernel.shell.ex("quitter")
+
+                stop()
+                abort_requested_list.pop()
+                abort_requested_list.append(True)
+                pass
+        
+            if pycode_text is None:            
+                sys.stdout.write("\n\nExecute %s/%s\n" % (scripthref.getpath(),runfunc.__name__))
+                pass
+            else: 
+                sys.stdout.write("\n\nExecute %s/%s/%s\n" % (scripthref.getpath(),action,runfunc.__name__))
+                pass
+
+            sys.stdout.write("Assign return value to \"ret\" and press Ctrl-D\n")
+            sys.stdout.write("Set cont=True to disable interactive mode\n")
+            # sys.stdout.write("call abort() to exit\n")
+
+            if LooseVersion(IPython.__version__) >= LooseVersion('4.0.0'):
             # Recent Jupyter/ipython: Import from qtconsole
-            app.exec_()
-            pass
-        else:
-            # Old ipython
-            guisupport.start_event_loop_qt4(app)
-            pass
+                from qtconsole.rich_jupyter_widget import RichJupyterWidget as RichIPythonWidget
+                pass
+            else: 
+                from IPython.qt.console.rich_ipython_widget import RichIPythonWidget
+                pass
         
-        if abort_requested_list[0]:
-            pass
-        
-        if kernel.shell.ev("cont"):
-            # cont==True -> disable interactive mode
-            ipythonmodelist.pop()
-            ipythonmodelist.append(False)
-            pass
+            control = RichIPythonWidget()
+            control.kernel_manager = kernel_manager
+            control.kernel_client = kernel_client
+            control.exit_requested.connect(stop)
+            control.show()
 
-        try : 
-            retval = kernel.shell.ev("ret") # Assign result dictionary to "ret" variable
-            pass
-        except NameError: # if ret not assigned, return {}
-            retval = {}
-            pass
-        
-        # Performing this execution changed values in stepglobals
-        # but it should have only done that for variables specified
-        # as 'global' in the function.
 
-        # So: Update our backup of the value of stepglobals,
-        #     according to the specified globals, and
-        #     replace stepglobals with that updated backup
+            #sys.stderr.write("lines=%s\n" % (str(lines)))
+            #sys.stderr.write("lines[0]=%s\n" % (str(lines[0])))
 
         
-        stepglobalsbackup.update(dict([ (varname,stepglobals[varname]) for varname in globalvars]))
-        stepglobals.clear()
-        stepglobals.update(stepglobalsbackup)
+            try:
+                if pycode_text is None:
+                    (lines,startinglineno)=inspect.getsourcelines(runfunc)
+                
+                    assert(lines[0].startswith("def")) # first line of function is the defining line
 
-        return retval
-    
+                    # Preparse to figure out how many lines are part of def
+                    preparse=ast.parse("".join(lines),filename=scripthref.getpath(),mode='exec')
+                    assert isinstance(preparse.body[0],ast.FunctionDef)
+                    assert(preparse.body[0].lineno==1) # Def statement should start on line "1"
+                    firstbodyline = preparse.body[0].body[0].lineno
+                    lines_to_delete = firstbodyline - 1
+
+                    del lines[:lines_to_delete] # remove def line, leading comments, etc. 
+                    lines.insert(0,"    class PTStepReturn(BaseException): pass\n")
+                    lines.insert(0,"if 1:\n") # allow function to be indented
+                    runfunc_syntaxtree=ast.parse("".join(lines), filename=scripthref.getpath(), mode='exec') # BUG: Should set dont_inherit parameter and properly determine which __future__ import flags should be passed
+                    runfunc_syntaxtree=ast.Try(runfunc_syntaxtree.body, [ast.ExceptHandler(ast.Name(id="PTStepReturn", ctx=ast.Load()), [ast.Pass()])])
+
+                    # fixup line numbers
+                    for syntreenode in ast.walk(runfunc_syntaxtree):
+                        if hasattr(syntreenode,"lineno"):
+                            syntreenode.lineno+=startinglineno+lines_to_delete-1-1
+                            syntreenode.end_lineno+=startinglineno+lines_to_delete-1-1
+                            pass
+                        # record calling function node
+                        for child in ast.iter_child_nodes(syntreenode):
+                            caller = getattr(syntreenode, "caller", syntreenode if isinstance(syntreenode, ast.FunctionDef) else None)
+                            if caller is not None:
+                                child.caller = caller
+                                pass
+                            pass
+                        pass
+                    # runfunc_syntaxtree should consist of the if statement we just added
+                    # use _fields attribute to look up fields of an AST element
+                    # (e.g. test, body, orelse for IF)
+                    # then those fields can be accessed directly
+                    assert(len(runfunc_syntaxtree.body)==1)
+                    code_container=runfunc_syntaxtree.body[0]
+                    assert(isinstance(code_container,ast.If)) # code_container is the if statement we just wrote
+                
+                    kernel.shell.push({"runfunc_syntaxtree": runfunc_syntaxtree},interactive=False) # provide processed syntax tree for debugging purposes
+
+                    pass
+                else : 
+                    fullsyntaxtree=ast.parse(pycode_text) # BUG: Should set dont_inherit parameter and properly determine which __future__ import flags should be passed
+                    # fixup line numbers
+                    for syntreenode in ast.walk(fullsyntaxtree):
+                        if hasattr(syntreenode,"lineno"):
+                            syntreenode.lineno+=pycode_lineno-1
+                            syntreenode.end_lineno+=pycode_lineno-1
+                            pass
+                        pass
+                    code_container=None
+                    for codeelement in fullsyntaxtree.body:
+                        if isinstance(codeelement,ast.FunctionDef):
+                            if codeelement.name==runfunc.__name__:
+                                code_container=codeelement
+                                runfunc_syntaxtree=codeelement
+                                pass
+                            pass
+                    
+                        pass
+                    if code_container is None: 
+                        raise ValueError("Couldn't find code for %s for ipython execution" % (runfunc.__name__)) 
+
+                    kernel.shell.push({"fullsyntaxtree": fullsyntaxtree},interactive=False) # provide full syntax tree for debugging purposes
+                
+                    pass
+
+                # identify global variables from runfunc_syntaxtree
+                globalvars=set()
+                for treeelem in ast.walk(runfunc_syntaxtree):
+                    if isinstance(treeelem,ast.Global):
+                        globalvars=globalvars.union(treeelem.names)
+                        pass
+                    pass
+            
+            
+                kernel.shell.push({"abort": abort}) # provide abort function
+                kernel.shell.push({"cont": False}) # continue defaults to False
+                kernel.shell.push({"__processtrak_interactive":  True })
+
+                class ReplaceReturn(ast.NodeTransformer):
+
+                    def visit_Return(self, node):
+                        if not hasattr(node, "caller"):
+                            value = node.value if node.value is not None else ast.Dict(keys=[], values=[], lineno=node.lineno, col_offset=node.col_offset)
+                            return [
+                                ast.copy_location(ast.Assign(targets=[ast.Name(id="ret", ctx=ast.Store(), lineno=node.lineno, col_offset=node.col_offset)], value=value), node),
+                                ast.Raise(ast.Name(id="PTStepReturn", ctx=ast.Load(), lineno=node.lineno, col_offset=node.col_offset), lineno=node.lineno, col_offset=node.col_offset)]
+                        return node
+                    pass
+                ReplaceReturn().visit(code_container)
+
+                runfunc_lines=code_container.body
+
+                shell_vars = {"runfunc_lines": runfunc_lines,"scripthref": scripthref}
+                if LooseVersion(IPython.__version__) >= LooseVersion('7.0.0'):
+                    # provide _ipycompiler for run_ast_nodes
+                    import IPython.core.compilerop
+                    _ipycompiler = IPython.core.compilerop.CachingCompiler()
+                    shell_vars["_ipycompiler"]=_ipycompiler
+                    pass
+            
+                kernel.shell.push(shell_vars,interactive=False) # provide processed syntax tree for debugging purposes
+            
+                # kernel.shell.run_code(compile("kernel.shell.run_ast_nodes(runfunc_lines,scriptpath,interactivity='all')","None","exec"))
+                if LooseVersion(IPython.__version__) >= LooseVersion('4.0.0'):
+                    # Recent Jupyter/ipython: Import from qtconsole
+                    from qtconsole.inprocess import QtCore
+                    pass
+                else: 
+                    from IPython.qt.inprocess import QtCore
+                    pass
+                QTimer=QtCore.QTimer
+
+                def showret():
+                    control.execute("ret")
+                    pass
+                
+            
+                def runcode():
+                    if LooseVersion(IPython.__version__) >= LooseVersion('7.0.0'):
+                        # IPython 7 and above use async/await
+                        control.execute("await kernel.shell.run_ast_nodes(runfunc_lines,scripthref.getpath(),interactivity='none',compiler=_ipycompiler)")
+                        pass
+                    else:
+                        control.execute("kernel.shell.run_ast_nodes(runfunc_lines,scripthref.getpath(),interactivity='none')")
+                        pass
+                
+                    # QTimer.singleShot(25,showret) # get callback 25ms into main loop
+                    # showret disabled because it prevents you from running the 
+                    # debugger in post-mortem mode to troubleshoot an exception:
+                    # import pdb; pdb.pm() 
+                    pass
+            
+                QTimer.singleShot(25,runcode) # get callback 25ms into main loop
+                # control.execute("kernel.shell.run_ast_nodes(runfunc_lines,scripthref.getpath(),interactivity='none')")
+
+                pass
+            except:
+                (exctype, excvalue) = sys.exc_info()[:2] 
+                sys.stderr.write("%s while attempting to prepare URL %s code for interactive execution: %s\n" % (exctype.__name__,scripthref.absurl(),str(excvalue)))
+                traceback.print_exc()
+                raise
+
+
+
+
+            if LooseVersion(IPython.__version__) >= LooseVersion('4.0.0'):
+                # Recent Jupyter/ipython: Import from qtconsole
+                app.exec_()
+                pass
+            else:
+                # Old ipython
+                guisupport.start_event_loop_qt4(app)
+                pass
+        
+            if abort_requested_list[0]:
+                pass
+        
+            if kernel.shell.ev("cont"):
+                # cont==True -> disable interactive mode
+                ipythonmodelist.pop()
+                ipythonmodelist.append(False)
+                pass
+
+            try : 
+                retval = kernel.shell.ev("ret") # Assign result dictionary to "ret" variable
+                pass
+            except NameError: # if ret not assigned, return {}
+                retval = {}
+                pass
+        
+            # Performing this execution changed values in stepglobals
+            # but it should have only done that for variables specified
+            # as 'global' in the function.
+
+            # So: Update our backup of the value of stepglobals,
+            #     according to the specified globals, and
+            #     replace stepglobals with that updated backup
+
+        
+            stepglobalsbackup.update(dict([ (varname,stepglobals[varname]) for varname in globalvars]))
+            stepglobals.clear()
+            stepglobals.update(stepglobalsbackup)
+
+            return retval
+        
+        finally:
+            if 'matplotlib.pyplot' in sys.modules:
+                from matplotlib import pyplot as plt
+                plt.close('all')
+                pass
+            pass
+        pass
     pass
 
 def resultelementfromdict(output,resultdict):
@@ -1347,7 +1383,7 @@ def applyresultdict(output,prxdoc,steptag,element,resultdict):
     # can itself contain a dictionary of attributes
 
     
-    if isinstance(resultdict,collections.Mapping):
+    if isinstance(resultdict,collections.abc.Mapping):
         # dictionary or dictionary-like: 
         # Convert to list of (key,element) pairs
         resultlist=[ (key,resultdict[key]) for key in resultdict.keys() ]
@@ -1425,7 +1461,13 @@ def applyresultdict(output,prxdoc,steptag,element,resultdict):
                 provenance.elementgenerated(output,subel)
                 pass
             pass
-        else :
+        elif isinstance(resultvalue,(list, dict)):
+            # create parent element
+            newel=output.addelement(tagpatheval,tagname)
+            # recurse dictionary value
+            applyresultdict(output,prxdoc,steptag,newel,resultvalue)
+            pass
+        else:
             if prxdoc is not None and steptag is not None:
                 raise ValueError("step %s gave unknown result type %s for %s" % (prxdoc.tostring(steptag),unicode(resultvalue.__class__),resultname))
             else: 

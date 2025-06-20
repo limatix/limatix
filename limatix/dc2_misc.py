@@ -68,17 +68,6 @@ class dummy(object):
     pass
 thisdir=os.path.split(sys.modules[dummy.__module__].__file__)[0]
 
-try: 
-    __install_prefix__=resource_string(__name__, 'install_prefix.txt').decode('utf-8')
-    pass
-except (IOError,NameError): 
-    sys.stderr.write("dc2_misc: error reading install_prefix.txt. Assuming /usr/local.\n")
-    __install_prefix__="/usr/local"
-    pass
-
-#def getconfigurlpath():
-#    return [ pathname2url(os.path.join(__install_prefix__,"share","limatix","conf")) ]
-
 
 
 def run_config(href,config_globals):

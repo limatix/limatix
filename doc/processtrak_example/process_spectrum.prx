@@ -8,6 +8,12 @@
     xmlns:ls="http://limatix.org/spreadsheet"
     xmlns:pt="http://limatix.org/processtrak">
   
+  
+  <units_configuration unit_engine = "pint">
+      <param name="case_sensitive">False</param>
+  </units_configuration>
+  
+
   <inputfiles>
     <!-- Uncomment this <inputfile> tag to use spreadsheet input,
 	 along with the spreadsheet_like_datacollect.xsl converter

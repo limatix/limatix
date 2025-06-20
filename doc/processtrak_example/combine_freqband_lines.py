@@ -6,8 +6,6 @@ import ast
 from limatix import processtrak_procstep
 
 def run(_xmldoc,_tag,frequencyerrorthreshold_numericunits):
-
-    frequencyerrorthreshold_float=frequencyerrorthreshold_numericunits.value('Hz')
     datetimestr=_xmldoc.getattr(_tag,"datetime")
 
     # print("datetime=%s\n" % (datetimestr))
@@ -17,16 +15,16 @@ def run(_xmldoc,_tag,frequencyerrorthreshold_numericunits):
 
     # print("\ndatetime=%s; len(spectrumtags)=%d\n" % (datetimestr,len(spectrumtags)))
 
-    hznext=_xmldoc.xpathsinglecontextfloat(_tag,"hzlow")
+    hznext=_xmldoc.xpathsinglecontextfloat(_tag,"hzlow",units="Hz")
     combined_hzlow=hznext
-    combined_step=_xmldoc.xpathsinglecontextfloat(_tag,"hzstep")
+    combined_step=_xmldoc.xpathsinglecontextfloat(_tag,"hzstep",units="Hz")
     dbs=[]
     for spectrumtag in spectrumtags:
-        hzlow=_xmldoc.xpathsinglecontextfloat(spectrumtag,"hzlow")
-        if abs(hzlow-hznext) > frequencyerrorthreshold_float:
-            raise ValueError("Frequency mismatch: hzlow=%f, hznext=%f, threshold=%f" % (hzlow,hznext,frequencyerrorthreshold_float))
-        hzhigh=_xmldoc.xpathsinglecontextfloat(spectrumtag,"hzhigh")
-        hzstep=_xmldoc.xpathsinglecontextfloat(spectrumtag,"hzstep")
+        hzlow=_xmldoc.xpathsinglecontextfloat(spectrumtag,"hzlow",units="Hz")
+        if abs(hzlow-hznext) > frequencyerrorthreshold_numericunits:
+            raise ValueError("Frequency mismatch: hzlow=%f, hznext=%f, threshold=%f" % (hzlow,hznext,frequencyerrorthreshold_numericunits))
+        hzhigh=_xmldoc.xpathsinglecontextfloat(spectrumtag,"hzhigh",units="Hz")
+        hzstep=_xmldoc.xpathsinglecontextfloat(spectrumtag,"hzstep",units="Hz")
         assert(hzstep==combined_step)
         combined_hzhigh=hzhigh
 

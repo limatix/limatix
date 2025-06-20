@@ -48,10 +48,12 @@ Basic_Units =  ( # ***!!! IMPORTANT: Change in parallel withcopy in lm_units.py
 	    "measurement='voltage'\n"
 	    "units[voltage,si]='Volt','Volts'\n"
 	    "abbrev[Volts]='V'\n"
+            "abbrev[Volts]='volts'\n"
 
 	    "measurement='current'\n"
 	    "units[current,si]='Amp', 'Amps'\n"
 	    "abbrev[Amps]='A'\n"
+            "abbrev[Amps]='amperes'\n"
 
 	    "measurement='length'\n"
 	    "units[length,si]='meter','meters'\n"
@@ -68,8 +70,8 @@ Basic_Units =  ( # ***!!! IMPORTANT: Change in parallel withcopy in lm_units.py
 	    "abbrev[seconds]='s'\n"
 
             "measurement='frequency'\n"
-	    "units[frequency,si]='Hertz','Hertz'\n"
-	    "abbrev[Hertz]='Hz'\n"
+	    "units[frequency,si]='hertz','hertz'\n"
+	    "abbrev[hertz]='Hz'\n"
 
 	    "measurement='velocity'\n"
 	    "units[velocity,si]='meter/second','meters/second'\n"
@@ -106,10 +108,15 @@ Basic_Units =  ( # ***!!! IMPORTANT: Change in parallel withcopy in lm_units.py
 	    "measurement='temperature'\n"
 	    "units[temperature,si]='Kelvin','Kelvin'\n"
 	    "abbrev[Kelvin]='K'\n"
+            "abbrev[Kelvin]='kelvin'\n"
 
             "measurement='arbitrary'\n"
             "units[arbitrary,si]='arbitrary','arbitrary'\n"
             "abbrev[arbitrary]='Arb'\n"
+
+            "measurement='capacitance'\n"
+            "units[capacitance,si]='farad','farads'\n"
+            
 
 
             "equivalence[meters]='inches/25.4e-3'\n" # Warning: counter-intuitive. Read this as "1 meter is equivalent to 1/25.4e-3 inch

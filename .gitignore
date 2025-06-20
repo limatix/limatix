@@ -1,8 +1,12 @@
 doc/processtrak_example/.*xlp.bak*
 doc/processtrak_example/*.xlp
+doc/processtrak_example/*.ods
+doc/processtrak_example/creston_jan2016_files/
 build/*
 dist/*
 *egg*
 __pycache__
 *.pyc
 *~
+venv/
+limatix/_version.py

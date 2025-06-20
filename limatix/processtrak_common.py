@@ -68,6 +68,7 @@ if not hasattr(builtins,"unicode"):
 
 
 # import lm_units
+from limatix import units
 
 from . import timestamp
 from . import canonicalize_path
@@ -87,28 +88,10 @@ except ImportError:
     sys.stderr.write("processtrak_common: Warning: unable to import dc_lxml_treesync -- mergeinput step will not be not supported\n")
     pass
 
+limatix_dir = os.path.split(inspect.getfile(xmldoc))[0]
 
 
-
-try:
-    from pkg_resources import resource_string
-    pass
-except TypeError:
-    # mask lack of pkg_resources when we are running under pychecker
-    def resource_string(x,y):
-        raise IOError("Could not import pkg_resources")
-    pass
-
-
-try: 
-    __install_prefix__=resource_string(__name__, 'install_prefix.txt').decode('utf-8')
-    pass
-except IOError: 
-    sys.stderr.write("processtrak: error reading install_prefix.txt. Assuming /usr/local.\n")
-    __install_prefix__="/usr/local"
-    pass
-
-xsltpath=[os.path.join(__install_prefix__,"share","limatix","xslt")]
+xsltpath=[os.path.join(limatix_dir,"share","limatix","xslt")]
 
 
 
@@ -349,6 +332,8 @@ def create_outputfile(prxdoc,inputfiles_element,inputfilehref,nominal_outputfile
                         continue
                     
                     cellel=outdoc.addelement(rowel,"ls:"+tagnames[col])
+                    
+                        
                     outdoc.setattr(cellel,"ls:celltype",cell_type)
                     hyperlink=sheet.hyperlink_map.get((row,col))
                     if cell_type=="text" and hyperlink is None:
@@ -358,7 +343,11 @@ def create_outputfile(prxdoc,inputfiles_element,inputfilehref,nominal_outputfile
                         # Do we need to do some kind of conversion on
                         # hyperlink.url_or_path()
                         outdoc.settext(cellel,cell.value)
-                        hyperlink_href=dcv.hrefvalue(hyperlink.url_or_path,contexthref=inputfilehref)
+                        hyperlink_url=hyperlink.url_or_path
+                        if hyperlink_url is None:
+                            hyperlink_url=hyperlink.desc
+                            pass
+                        hyperlink_href=dcv.hrefvalue(hyperlink_url,contexthref=inputfilehref)
                         hyperlink_href.xmlrepr(outdoc,cellel)
                         pass
                     elif cell_type=="number":
@@ -896,7 +885,25 @@ def getinputfiles(prxdoc):
     return (inputfiles_element,inputfiles_with_hrefs)
 
 
-def build_outputdict(prxdoc,useinputfiles_with_hrefs,ignore_locking):
+def setup_unit_configuration(prxdoc, debug=False):
+    units_configuration_element = prxdoc.xpathsinglecontext(prxdoc.getroot(), "prx:units_configuration", default = None)
+
+    if units_configuration_element is not None:
+        
+        units_lib_to_use = units_configuration_element.attrib.get("unit_engine", "lm_units")
+
+    
+        kwargs = { param.attrib["name"]: ast.literal_eval(param.text) for param in units_configuration_element.getchildren() if param.tag == "{%s}param" % prx_nsmap["prx"] }
+        units.configure_units(units_lib_to_use,filename_context_href = prxdoc.getcontexthref(), debug=debug, **kwargs)
+        pass
+    else:
+        print("processtrak: Units not configured; defaulting to lm_units\nConsider adding a unit configuration, e.g.:\n  <prx:units_configuration unit_engine = \"lm_units\">\n    <param name = \"configstring\">insert_basic_units</param>\n  </prx:units_configuration>",file = sys.stderr)
+        units.configure_units("lm_units",debug = debug)
+        pass
+    pass
+
+
+def build_outputdict(prxdoc,useinputfiles_with_hrefs,ignore_locking=False):
     outputdict=collections.OrderedDict()
     
     

@@ -1,0 +1,12 @@
+; DO NOT EDIT (unless you know what you are doing)
+;
+; This subdirectory is a git "subrepo", and this file is maintained by the
+; git-subrepo command. See https://github.com/ingydotnet/git-subrepo#readme
+;
+[subrepo]
+	remote = git@github.com:limatix/canonicalize_path.git
+	branch = master
+	commit = 9d156e4e699c60056c6299996d27bd371e6cb75b
+	parent = df117ea06793b1d08ecf78b2cd568887c22c63ae
+	method = merge
+	cmdver = 0.4.9

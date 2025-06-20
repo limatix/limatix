@@ -154,7 +154,7 @@ def write_timestamp(doc,process_el,tagname,timestamp=None):
 def write_process_log(doc,process_el,status,stdoutstderrlog):
     # "status" shoudl be "success" or "exception" 
     log_el=doc.addelement(process_el,"lip:log")
-    log_el.text=stdoutstderrlog
+    log_el.text=stdoutstderrlog#.decode("utf-8")
     log_el.attrib["status"]=status
     pass
 

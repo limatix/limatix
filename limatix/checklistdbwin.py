@@ -4,10 +4,10 @@ import copy
 import collections
 
 try: 
-    Counter=collections.Counter
+    Counter=collections.abc.Counter
     pass
 except AttributeError:
-    # python 2.6 and earlier don't have collections.Counter. 
+    # python 2.6 and earlier don't have collections.abc.Counter. 
     # Use local version py26counter.py instead
     import py26counter
     Counter=py26counter.Counter
@@ -76,7 +76,7 @@ def attemptuniqify(entry,instructions):
     return entryresolved
 
 def resolveuniqifyconflict(conflictlist):
-    # idxaccumulator=collections.Counter()
+    # idxaccumulator=collections.abc.Counter()
     
     maxlen=0
     for entry in conflictlist:

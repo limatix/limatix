@@ -24,6 +24,10 @@ else:
     int_or_long=int  # python3
     pass
 
+if not hasattr(builtins,"basestring"):
+    basestring=str  # python3
+    pass
+
 
 def evaluate_from_number(number,typename,paramname):
     if typename=="float":
@@ -32,6 +36,8 @@ def evaluate_from_number(number,typename,paramname):
         return complex(number)
     elif typename=="int":
         return int(number)
+    elif typename=="bool":
+        return bool(number)
     else:
         raise ValueError("processtrak_stepparam: Error evaluating parameter %s: evaluate_from_number cannot convert number to %s" % (paramname,typename))
     
