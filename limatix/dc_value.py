@@ -493,7 +493,7 @@ class xmltreevalue(value):
         return cls(element,nsmap=nsmap,contexthref=xmldocu.getcontexthref())
     
     @classmethod
-    def merge(cls,parent,descendentlist,contexthref=None,maxmergedepth=np.Inf,tag_index_paths_override=None):
+    def merge(cls,parent,descendentlist,contexthref=None,maxmergedepth=np.inf,tag_index_paths_override=None):
         # merge: Used to merge multiple, possibly inconsistent, values
         # If parent is None, merge semantics are to overwrite blanks but 
         # otherwise error out
@@ -2044,7 +2044,7 @@ class imagevalue(value):
         pass
 
     @classmethod
-    def merge(cls,parent,descendentlist,contexthref=None,maxmergedepth=np.Inf,tag_index_paths_override=None):
+    def merge(cls,parent,descendentlist,contexthref=None,maxmergedepth=np.inf,tag_index_paths_override=None):
         
         for cnt in range(1,len(descendentlist)):
             if descendentlist[0] != descendentlist[cnt]:
@@ -2157,7 +2157,7 @@ class photosvalue(value):
         return
 
     @classmethod
-    def merge(cls,parent,descendentlist,contexthref=None,maxmergedepth=np.Inf,tag_index_paths_override=None):
+    def merge(cls,parent,descendentlist,contexthref=None,maxmergedepth=np.inf,tag_index_paths_override=None):
         #import pdb as pd
         #pd.set_trace()
         added=set([])
