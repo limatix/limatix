@@ -117,15 +117,6 @@ except TypeError:
     pass
 
 
-try: 
-    __install_prefix__=resource_string(__name__, 'install_prefix.txt').decode('utf-8')
-    pass
-except IOError: 
-    sys.stderr.write("processtrak: error reading install_prefix.txt. Assuming /usr/local.\n")
-    __install_prefix__="/usr/local"
-    pass
-
-
 def check_importability(py_module_name):
     try:
         import pkgutil

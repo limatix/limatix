@@ -88,28 +88,10 @@ except ImportError:
     sys.stderr.write("processtrak_common: Warning: unable to import dc_lxml_treesync -- mergeinput step will not be not supported\n")
     pass
 
+limatix_dir = os.path.split(inspect.getfile(xmldoc))[0]
 
 
-
-try:
-    from pkg_resources import resource_string
-    pass
-except TypeError:
-    # mask lack of pkg_resources when we are running under pychecker
-    def resource_string(x,y):
-        raise IOError("Could not import pkg_resources")
-    pass
-
-
-try: 
-    __install_prefix__=resource_string(__name__, 'install_prefix.txt').decode('utf-8')
-    pass
-except IOError: 
-    sys.stderr.write("processtrak: error reading install_prefix.txt. Assuming /usr/local.\n")
-    __install_prefix__="/usr/local"
-    pass
-
-xsltpath=[os.path.join(__install_prefix__,"share","limatix","xslt")]
+xsltpath=[os.path.join(limatix_dir,"share","limatix","xslt")]
 
 
 
