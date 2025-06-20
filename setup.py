@@ -82,7 +82,7 @@ setup(name="limatix",
                 "limatix.widgets", 
                 "limatix.canonicalize_path", 
                 "limatix.dc_lxml_treesync"],
-      package_dir={"limatix.canonicalize_path": "limatix/canonicalize_path/canonicalize_path"},
+      # package_dir=# {"limatix.canonicalize_path": "limatix/canonicalize_path/canonicalize_path"},
     
       package_data={"limatix.canonicalize_path": canonicalize_path_package_files, 
                     "limatix.widgets": limatix_widgets_package_files,
