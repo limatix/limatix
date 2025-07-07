@@ -27,7 +27,7 @@ else :
 
 from lxml import etree
 
-from . import widgets
+#from . import widgets
 
 __pychecker__="no-import"
 
@@ -115,7 +115,9 @@ class paramhandler(object):
 
 def build_from_file(gladefilename):
     # load specified glade file, build a set of objects, 
-
+    # make sure all widgets and steps are loaded
+    #from limatix import widgets
+    #from limatix import steps
     builder=gtk.Builder()
     #sys.stderr.write("gladefilename=%s\n" % (gladefilename))
     builder.add_from_file(gladefilename)
@@ -155,7 +157,6 @@ def import_widgets():
 
     # This way when we load in a .glade interface description 
     # that uses one of these widgets, it will load. 
-
     for entrypoint in pkg_resources.iter_entry_points("limatix.widget"):
         try:
             entrypoint.load()

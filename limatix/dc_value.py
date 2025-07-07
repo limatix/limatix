@@ -900,6 +900,10 @@ class complexunitsvalue(value) :
 
     def __init__(self,val,units=None,defunits=None) :
         self.manager = get_current_manager()
+
+        if defunits is not None:
+            self.defunit=self.manager.parseunits(defunits)
+            pass
         
         if isinstance(val,basestring):
             self.quantity = self.manager.parse(val, units, defunits,parse_complex=True)
@@ -908,12 +912,9 @@ class complexunitsvalue(value) :
             self.quantity = self.manager.from_numericunitsvalue(val, units=units)
             pass
         else:
-            self.quantity = self.manager.from_value(val, units=units)
+            self.quantity = self.manager.from_value(val, units=units,defunit=self.defunit)
             pass
 
-        if defunits is not None:
-            self.defunit=self.manager.parseunits(defunits)
-            pass
         
         self.final=True
         pass    
@@ -1146,6 +1147,10 @@ class numericunitsvalue(value) :
     def __init__(self,val,units=None,defunits=None) :
         # self.name=name;
         self.manager = get_current_manager()
+
+        if defunits is not None:
+            self.defunit=self.manager.parseunits(defunits)
+            pass
         
         if isinstance(val,basestring):
             self.quantity = self.manager.parse(val, units, defunits)
@@ -1154,12 +1159,9 @@ class numericunitsvalue(value) :
             self.quantity = self.manager.from_numericunitsvalue(val, units=units)
             pass
         else:
-            self.quantity = self.manager.from_value(val, units=units)
+            self.quantity = self.manager.from_value(val, units=units,defunit=self.defunit)
             pass
 
-        if defunits is not None:
-            self.defunit=self.manager.parseunits(defunits)
-            pass
         
         self.final=True
         pass

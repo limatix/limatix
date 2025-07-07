@@ -2,6 +2,7 @@ import re
 import builtins
 import numbers
 import math
+import copy
 from urllib.parse import quote
 
 from . import lm_units  # note: main program should call lm_units.units_config("insert_basic_units")
@@ -146,7 +147,7 @@ class LM_UnitsImplementation(LimatixUnitImplementation):
 
         return (val, unit)
 
-    def from_value(self, val, units=None):
+    def from_value(self, val, units=None, defunit=None): #defunit already parsed
         assert(self._initialized)
 
         if units is not None:
@@ -157,8 +158,21 @@ class LM_UnitsImplementation(LimatixUnitImplementation):
                 unit=lm_units.copyunits(units);
                 pass
             pass
-
+        else:
+            if defunit is None:
+                unit = lm_units.parseunits("unitless")
+                pass
+            else:
+                unit = copy.deepcopy(defunit)
+                pass
+            pass
+                
+        if val is None:
+            val = math.nan
+            pass
         return (val, unit)
+
+    
     def format(self,v):
        
        
@@ -469,7 +483,7 @@ class PintUnitImplementation(LimatixUnitImplementation):
         return v.quantity.to(units).m
 
     def convert_units_to(self,v,units):
-        return v.quantity.to(units)
+        return type(v)(v.quantity.to(units),units)
     
     def units(self,v):
         return v.quantity.units
@@ -492,11 +506,25 @@ class PintUnitImplementation(LimatixUnitImplementation):
             units=defunits
             pass
         if parse_complex:
-            quantity=complex(val)*self.registry.parse_expression(units)
+            if isinstance(val,str):
+                val_split = val.split()
+                if len(val_split) > 1:
+                    quantity = complex(val_split[0])*self.registry.parse_expression(val_split[1:])
+                    pass
+                else:
+                    quantity = complex(val)
+                    pass
+                pass
+            if not hasattr(quantity,"units"):
+                quantity = quantity*self.registry.parse_expression(units)
+                pass
             pass
         else:
         
-            quantity = self.registry.parse_expression("%s %s" % (val, units))
+            quantity = self.registry.parse_expression(val)
+            if not hasattr(quantity,"units"):
+                quantity = quantity*self.registry.parse_expression(units)
+                pass
             pass
             
       
@@ -511,9 +539,22 @@ class PintUnitImplementation(LimatixUnitImplementation):
         return self.Q(val.quantity).to(units)
      
 
-    def from_value(self, val, units=None):
+    def from_value(self, val, units=None,defunit=None): #defunit already parsed
         assert(self._initialized)
-        quantity = self.Q(val, str(units) if units is not None else None)
+        if val is None:
+            val = math.nan
+            pass
+        if units is not None:
+            quantity = self.Q(val,str(units))
+            pass
+        else:
+            if not hasattr(val,"units") and defunit is not None:
+                quantity = val*defunit
+                pass
+            else:
+                quantity = self.Q(val,None)
+                pass
+            pass
         return quantity
 
     def value_from_quantity(self,q):

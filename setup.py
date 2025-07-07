@@ -59,7 +59,7 @@ limatix_checklist_step_entrypoints = [ '%s = limatix.steps.%s' % (stepname,stepn
 limatix_widget_paths=glob.glob("limatix/widgets/*.py")
 limatix_widget_names=[ os.path.splitext(os.path.split(path)[1])[0] for path in limatix_widget_paths if not path.endswith("__init__.py")]
 limatix_widget_entrypoints = [ '%s = limatix.widgets.%s' % (widgetname,widgetname) for widgetname in limatix_widget_names]
-
+print("limatix_widget_entrypoints",limatix_widget_entrypoints)
 #package_files=["canonical_paths.conf","tag_index_paths.conf"]
 
 # NOTE ***: share files will be installed to prefix/share/limatix

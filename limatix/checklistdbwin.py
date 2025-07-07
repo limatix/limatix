@@ -4,7 +4,7 @@ import copy
 import collections
 
 try: 
-    Counter=collections.abc.Counter
+    Counter=collections.Counter
     pass
 except AttributeError:
     # python 2.6 and earlier don't have collections.abc.Counter. 

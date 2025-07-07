@@ -6,6 +6,9 @@
 
 include("imports.dcc")
 
+from limatix.units import configure_units
+configure_units("pint")
+
 paramdb.addparam("spclengthbefore",numericunitsv,defunits="mm",reset_with_meas_record=True)  # hide_from_meas because this is marked as <intermediate/> in the checklist and therefore stored in the checklist, not the experiment log 
 
 paramdb.addparam("breaktime",numericunitsv,defunits="s",reset_with_meas_record=True)

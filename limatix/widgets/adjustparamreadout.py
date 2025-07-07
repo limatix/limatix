@@ -277,10 +277,12 @@ class adjustparamreadout(gtk.Entry,paramhandler):
             self.requestident=None
             self.param.cancelrequest(requestident)
             pass
-
+        
+        #import pdb
+        #pdb.set_trace()
         self.assignedvalue=self.param.paramtype(self.get_text(),defunits=self.param.defunits)
         
-        # print "requestval; self.state=%d self.assignedvalue=%s" % (self.state,str(type(self.assignedvalue.val)))
+        #print( "requestval; self.state=%d self.assignedvalue=%s" % (self.state,str(self.assignedvalue)))
         self.requestident=self.param.requestval(self.assignedvalue,self.requestvalcallback)
         # print "requestident=%s" % (str(self.requestident))
         pass

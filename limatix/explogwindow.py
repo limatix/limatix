@@ -121,8 +121,7 @@ except TypeError:
     pass
 
 try: 
-    __install_prefix__=resource_string(__name__, 'install_prefix.txt').decode('utf-8')
-    __data_prefix__=os.path.join(__install_prefix__,'share','limatix')
+    __data_prefix__=os.path.split(__loader__.path)[0]
     pass
 except NameError:
     # work around problem running pychecker
@@ -1185,7 +1184,7 @@ class explogwindow(gtk.Window):
         else : 
             guichooser=gtk.FileChooserDialog(title="Open GUI",action=gtk.FILE_CHOOSER_ACTION_OPEN,buttons=(gtk.STOCK_CANCEL,gtk.RESPONSE_CANCEL,gtk.STOCK_OPEN,gtk.RESPONSE_OK))
             pass
-        guichooser.set_current_folder(os.path.abspath(os.path.join(__data_prefix__,"datacollect2", 'conf')))        
+        guichooser.set_current_folder(os.path.abspath(os.path.join(__data_prefix__,"limatix_conf")))        
         gladefilter=gtk.FileFilter()
         gladefilter.set_name("Glade files")
         gladefilter.add_pattern("*.glade")
