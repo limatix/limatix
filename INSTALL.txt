@@ -6,6 +6,8 @@ Prerequisites:
   pytz (Python timezone library; sometimes listed as 'python-tz')
   gtk3 and python bindings (on python3;  required to use datacollect2 GUI components)
   setuptools (often distributed with operating system or Python distribution)
+  setuptools_scm
+  platformdirs
   pint (optional, for advanced units support)
 
 
