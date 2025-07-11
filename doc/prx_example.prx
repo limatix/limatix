@@ -43,15 +43,31 @@
   <step name="pullparams" descr="Pull in parameters from other files">
     <!-- Note: if you don't provide a step name, it uses the script name, 
 	 with extension and path removed -->
+    <!-- You can set the ordering of execution of matched elements
+         with the <order> element:
+         * Provide random="true" attribute to randomize order
+         * Provide select="..." attribute to order based on sorting
+           the value of an xpath expression. In this case also provide
+           sort="string" or sort="numeric" attribute.
+         * In a future version of processtrak, provide parallel="true"
+           attribute to run multiple threads in parallel
+         * If none of the above are provided, execute in document order
+    -->
+    <order select="@paramindex" sort="numeric"/>
     <script xlink:href="pullparams.py" function="run">     <!-- Note: You can explicitly specify the function to run (default is "rununlocked" or "run". If the name ends with "unlocked" then the function will be run with the xlp file unlocked.  You can reference an explicit path, by specifying the script with xlink:href, or  ask processtrak to search its script path by using "name" to specify the script. -->
+      <!-- You can override the default elementmatch or filematch
+           on a per-step basis -->
       <elementmatch>xpath_condition_override</elementmatch>
+      
+      <!-- Providing parameters: You can pass a parameter explicitly
+           with the param element: -->
+      <param name="bar">BAR</param>
 	<!-- Can supply a condition. It is an xpath, evaluated in the context of the node 
              we are operating on. Two variables are supplied: $filepath:   path to .xlp file
              and $filename: filename portion of xlp file -->
         <!-- The way this works is you provide multiple value tags with different conditions
              and they are tested in order -->
       <param name="foo" condition="$filename='example_input_1.xlp'" dcv:units="kHz">34.5</param>
-      <param name="bar">BAR</param>
       <!-- in addition, if the Python or Matlab script has additional 
       named parameters beyond the ones listed here, those parameter
       names should start with a prefix (must be one of the xmlns 

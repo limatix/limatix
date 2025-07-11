@@ -18,7 +18,9 @@ import ast
 import hashlib
 import fnmatch
 import binascii
-from distutils.version import LooseVersion
+import random
+from packaging.version import Version
+#from distutils.version import LooseVersion
 
 from lxml import etree
 
@@ -504,7 +506,7 @@ def procstepmatlab_do_run(matlabcode_el_text,matpath,scriptname,diaryfilename,re
 
     return (resultdict,status,diarytext)
 
-def procstepmatlab_runelement(matlabcode_el_text,matpath,scriptname,output,prxdoc,prxnsmap,steptag,rootprocesspath,stepprocesspath,elementpath,uniquematches,argnames,params,inputfilehref,ipythonmodelist,paramdebug,action,scripthref,diaryfilename,retfilename,status,comsol=False):
+def procstepmatlab_runelement(matlabcode_el_text,matpath,scriptname,output,prxdoc,prxnsmap,steptag,rootprocesspath,stepprocesspath,index,elementpath,uniquematches,argnames,params,inputfilehref,ipythonmodelist,paramdebug,action,scripthref,diaryfilename,retfilename,status,comsol=False):
     # *** output should be rwlock'd exactly ONCE when this is called
     # *** Output will be rwlock'd exactly ONCE on return
     #     (but may have been unlocked in the interim)
@@ -523,7 +525,7 @@ def procstepmatlab_runelement(matlabcode_el_text,matpath,scriptname,output,prxdo
     provenance.starttrackprovenance()
     try : # try-catch-finally block for starttrackprovenance()
         
-        argkw = procstep_evalargs(output,prxdoc,prxnsmap,steptag,uniquematches,argnames,{},params,inputfilehref,element,paramdebug)    
+        argkw = procstep_evalargs(output,prxdoc,prxnsmap,steptag,uniquematches,argnames,{},params,index,inputfilehref,element,paramdebug)    
 
         
         # unlock XML file if "run_matlab_unlocked" so parallel processes can mess with it
@@ -575,7 +577,7 @@ def procstepmatlab_runelement(matlabcode_el_text,matpath,scriptname,output,prxdo
 
 
 
-def procstepmatlab_execfunc(scripthref,matlabcode_el_text,script_firstline,matpath,scriptname,prxdoc,prxnsmap,output,steptag,scripttag,rootprocesspath,stepprocesspath,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,inputfilehref,debugmode,ipythonmodelist,paramdebug,action,comsol=False):
+def procstepmatlab_execfunc(scripthref,matlabcode_el_text,script_firstline,matpath,scriptname,prxdoc,prxnsmap,output,steptag,scripttag,rootprocesspath,stepprocesspath,elementmatch,elementmatch_nsmap,uniquematchel,orderel,params,filters,inputfilehref,debugmode,ipythonmodelist,paramdebug,action,comsol=False):
 
     # Parse script_firstline
     # First line of matlab script is expected to be:
@@ -600,14 +602,16 @@ def procstepmatlab_execfunc(scripthref,matlabcode_el_text,script_firstline,matpa
     else:
         procstep_elementpath_generator = procstep_elementmatch_elementpath_generator
         pass
+
+    ordered_elementpath_generator = reorder_elements(procstep_elementpath_generator,orderel)
     
 
     # output.unlock_rw() # release output lock
 
-    matchcnt=0
+    index=0
 
     # Loop over each matching element
-    for (elementpath,uniquematches) in procstep_elementpath_generator(prxdoc,output,steptag,elementmatch,elementmatch_nsmap,uniquematchel,filters):
+    for (elementpath,uniquematches) in ordered_elementpath_generator(prxdoc,output,steptag,elementmatch,elementmatch_nsmap,uniquematchel,filters):
         # elementpath is the path to the element we have found that we are
         # supposed to be operating on
         # uniquematches, if it is not None, and for is a list of elements
@@ -615,7 +619,7 @@ def procstepmatlab_execfunc(scripthref,matlabcode_el_text,script_firstline,matpa
         # giving rise to this element. 
 
         
-        matchcnt+=1
+        index+=1
         modified_elements=set([])
         referenced_elements=set([])
 
@@ -633,7 +637,7 @@ def procstepmatlab_execfunc(scripthref,matlabcode_el_text,script_firstline,matpa
         output.should_be_rwlocked_once()
 
         try : 
-            (modified_elements,referenced_elements,status,diarytext)=procstepmatlab_runelement(matlabcode_el_text,matpath,scriptname,output,prxdoc,prxnsmap,steptag,rootprocesspath,stepprocesspath,elementpath,uniquematches,argnames,params,inputfilehref,ipythonmodelist,paramdebug,action,scripthref,diaryfilename,retfilename,status,comsol=comsol)
+            (modified_elements,referenced_elements,status,diarytext)=procstepmatlab_runelement(matlabcode_el_text,matpath,scriptname,output,prxdoc,prxnsmap,steptag,rootprocesspath,stepprocesspath,index,elementpath,uniquematches,argnames,params,inputfilehref,ipythonmodelist,paramdebug,action,scripthref,diaryfilename,retfilename,status,comsol=comsol)
             pass
         except KeyboardInterrupt: 
             # Don't want to hold off keyboard interrupts!
@@ -719,7 +723,7 @@ def procstepmatlab_execfunc(scripthref,matlabcode_el_text,script_firstline,matpa
 
         pass
     
-    if matchcnt==0:
+    if index==0:
         sys.stderr.write("Warning: step %s: no matching elements for output href %s\n" % (processtrak_prxdoc.getstepname(prxdoc,steptag),output.get_filehref().absurl()))
         pass
     
@@ -727,7 +731,7 @@ def procstepmatlab_execfunc(scripthref,matlabcode_el_text,script_firstline,matpa
     pass
 
 
-def procstepmatlab(scripthref,matlabcode_el,prxdoc,output,steptag,scripttag,rootprocesspath,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,inputfilehref,debugmode,ipythonmodelist,paramdebug,comsol=False):
+def procstepmatlab(scripthref,matlabcode_el,prxdoc,output,steptag,scripttag,rootprocesspath,elementmatch,elementmatch_nsmap,uniquematchel,orderel,params,filters,inputfilehref,debugmode,ipythonmodelist,paramdebug,comsol=False):
 
     # comsol parameter enables running Matlab through comsol server to run
     # COMSOL model creation scripts written in Matlab
@@ -827,7 +831,7 @@ def procstepmatlab(scripthref,matlabcode_el,prxdoc,output,steptag,scripttag,root
     #    pass
     
     
-    procstepmatlab_execfunc(scripthref,matlabcode_el_text,script_firstline,matpath,scriptname,prxdoc,prxnsmap,output,steptag,scripttag,rootprocesspath,stepprocesspath,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,inputfilehref,debugmode,ipythonmodelist,paramdebug,action,comsol=comsol)
+    procstepmatlab_execfunc(scripthref,matlabcode_el_text,script_firstline,matpath,scriptname,prxdoc,prxnsmap,output,steptag,scripttag,rootprocesspath,stepprocesspath,elementmatch,elementmatch_nsmap,uniquematchel,orderel,params,filters,inputfilehref,debugmode,ipythonmodelist,paramdebug,action,comsol=comsol)
 
     print("") # add newline
 
@@ -893,7 +897,7 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
                 import IPython
                 from IPython.core.interactiveshell import DummyMod
 
-                if LooseVersion(IPython.__version__) >= LooseVersion('4.0.0'):
+                if Version(IPython.__version__) >= Version('4.0.0'):
                     # Recent Jupyter/ipython: Import from qtconsole
                     
                     # Just get what ever is already imported if present:
@@ -1482,7 +1486,8 @@ def applyresultdict(output,prxdoc,steptag,element,resultdict):
     pass
 
 
-def procstep_evalargs(output,prxdoc,prxnsmap,steptag,uniquematches,argnames,argsdefaults,params,inputfilehref,element,paramdebug):
+def procstep_evalargs(output,prxdoc,prxnsmap,steptag,uniquematches,argnames,argsdefaults,params,index,inputfilehref,element,paramdebug):
+    # index is our index into the elements currently being executed
     argkw={}
         
     #sys.stderr.write("argnames=%s\n" % (str(argnames)))
@@ -1540,6 +1545,12 @@ def procstep_evalargs(output,prxdoc,prxnsmap,steptag,uniquematches,argnames,args
                 print("    Matches _step: supplying .prx step element")
                 pass
             argkw[argname]=steptag         # supply output XML document
+            pass
+        elif argname=="_index":  # _xmldoc parameter gets output XML document
+            if paramdebug:
+                print("    Matches _index: supplying element iteration number")
+                pass
+            argkw[argname]=index
             pass
         elif argname=="_uniquematches":  # _uniquematches parameter gets list of elements matching the key of the <prx:uniquematch> and corresponding to this particular element
             if paramdebug:
@@ -1618,7 +1629,7 @@ def procstep_evalargs(output,prxdoc,prxnsmap,steptag,uniquematches,argnames,args
     
     return argkw
 
-def procsteppython_runelement(output,prxdoc,prxnsmap,steptag,rootprocesspath,stepprocesspath,elementpath,uniquematches,stepglobals,argnames,argsdefaults,params,inputfilehref,ipythonmodelist,paramdebug,execfunc,action,scripthref,pycode_text,pycode_lineno):
+def procsteppython_runelement(output,prxdoc,prxnsmap,steptag,rootprocesspath,stepprocesspath,index,elementpath,uniquematches,stepglobals,argnames,argsdefaults,params,inputfilehref,ipythonmodelist,paramdebug,execfunc,action,scripthref,pycode_text,pycode_lineno):
     # *** output should be rwlock'd exactly ONCE when this is called
     # *** Output will be rwlock'd exactly ONCE on return
     #     (but may have been unlocked in the interim)
@@ -1635,7 +1646,7 @@ def procsteppython_runelement(output,prxdoc,prxnsmap,steptag,rootprocesspath,ste
     provenance.starttrackprovenance()
     try : # try-catch-finally block for starttrackprovenance()
         
-        argkw = procstep_evalargs(output,prxdoc,prxnsmap,steptag,uniquematches,argnames,argsdefaults,params,inputfilehref,element,paramdebug)    
+        argkw = procstep_evalargs(output,prxdoc,prxnsmap,steptag,uniquematches,argnames,argsdefaults,params,index,inputfilehref,element,paramdebug)    
 
         
         
@@ -1730,6 +1741,48 @@ def procstep_elementmatch_elementpath_generator(prxdoc,output,steptag,elementmat
         yield (elementpath,None)  # return element paths one-by-one
 
     pass
+
+def reorder_elements(original_generator,orderel):
+    """Return a generator that sorts the output of the original generator according to the specification in orderel"""
+    def reordered_generator(prxdoc,output,steptag,elementmatch,elementmatch_nsmap,uniquematchel,filters):
+        # Iterate over the original generator and store result in a list
+        elementmatches_uniquematches = list(original_generator(prxdoc,output,steptag,elementmatch,elementmatch_nsmap,uniquematchel,filters))
+        if orderel is not None and "random" in orderel.attrib:
+            if orderel.attrib["random"] != "1" and orderel.attrib["random"].lower() != "true":
+                raise ValueError(f"Invalid value for random attribute of <order> element: {orderel.attrib['random']:s}. Must be '1' or 'true'. Otherwise attribute should be omitted.")
+            #random ordering
+            random.shuffle(elementmatches_uniquematches)
+            for (elementmatch,uniquematches) in elementmatches_uniquematches:
+                yield (elementmatch,uniquematches)
+                pass
+            pass
+        elif orderel is not None and "select" in orderel.attrib:
+            if not "sort" in orderel.attrib or (orderel.attrib["sort"] != "string" and orderel.attrib["sort"] != "numeric"):
+                raise ValueError(f"Invalid or missing sort attribute for order element with select attribute. Sort must be 'string' or 'numeric'")
+            sortkeys_elementmatches_uniquematches = [(output.xpathsinglecontext(elementmatch, orderel.attrib["select"]), elementmatch,uniquematches) for (elementmatch,uniquematches) in elementmatches_uniquematches]
+            if orderel.attrib["sort"] == "string":
+                sortkeys_elementmatches_uniquematches.sort(key=lambda sortkey_elementmatch_uniquematches: str(sortkey_elementmatch_uniquematches[0]))
+                pass
+            elif orderel.attrib["sort"] == "numeric":
+                sortkeys_elementmatches_uniquematches.sort(key=lambda sortkey_elementmatch_uniquematches: float(sortkey_elementmatch_uniquematches[0]))
+                pass
+            else:
+                assert(0)
+                pass
+            for (sortkey,elementmatch,uniquematches) in sortkeys_elementmatches_uniquematches:
+                yield (elementmatch,uniquematches)
+                pass
+            pass
+        elif orderel is not None and "parallel" in orderel.attrib:
+            raise NotImplementedError("<order parallel='true'/> not yet implemented")
+        else:
+            # Document order by default
+            for (elementmatch,uniquematches) in elementmatches_uniquematches:
+                yield (elementmatch,uniquematches)
+                pass
+            pass
+        pass
+    return reordered_generator
 
 def canonxmlrepr(element):
     """Return copy of element tree and canonicalized 
@@ -1887,7 +1940,7 @@ def procstep_uniquematch_elementpath_generator(prxdoc,output,steptag,elementmatc
 
 
 
-def procsteppython_execfunc(scripthref,pycode_text,pycode_lineno,prxdoc,prxnsmap,output,steptag,scripttag,rootprocesspath,stepprocesspath,stepglobals,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist,paramdebug,execfunc,action):
+def procsteppython_execfunc(scripthref,pycode_text,pycode_lineno,prxdoc,prxnsmap,output,steptag,scripttag,rootprocesspath,stepprocesspath,stepglobals,elementmatch,elementmatch_nsmap,uniquematchel,orderel,params,filters,inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist,paramdebug,execfunc,action):
     
     if hasattr(inspect,"getfullargspec"):
         # python3
@@ -1913,15 +1966,16 @@ def procsteppython_execfunc(scripthref,pycode_text,pycode_lineno,prxdoc,prxnsmap
     else:
         procstep_elementpath_generator = procstep_elementmatch_elementpath_generator
         pass
-    
+
+    ordered_elementpath_generator = reorder_elements(procstep_elementpath_generator,orderel)
 
     # output.unlock_rw() # release output lock
 
-    matchcnt=0
+    index=0
 
 
     # Loop over each matching element
-    for (elementpath,uniquematches) in procstep_elementpath_generator(prxdoc,output,steptag,elementmatch,elementmatch_nsmap,uniquematchel,filters):
+    for (elementpath,uniquematches) in ordered_elementpath_generator(prxdoc,output,steptag,elementmatch,elementmatch_nsmap,uniquematchel,filters):
         # elementpath is the path to the element we have found that we are
         # supposed to be operating on
         # uniquematches, if it is not None, and for is a list of elements
@@ -1929,7 +1983,7 @@ def procsteppython_execfunc(scripthref,pycode_text,pycode_lineno,prxdoc,prxnsmap
         # giving rise to this element. 
 
         
-        matchcnt+=1
+        index+=1
         modified_elements=set([])
         referenced_elements=set([])
 
@@ -1945,7 +1999,7 @@ def procsteppython_execfunc(scripthref,pycode_text,pycode_lineno,prxdoc,prxnsmap
         output.should_be_rwlocked_once()
 
         try : 
-            (modified_elements,referenced_elements)=procsteppython_runelement(output,prxdoc,prxnsmap,steptag,rootprocesspath,stepprocesspath,elementpath,uniquematches,stepglobals,argnames,argsdefaults,params,inputfilehref,ipythonmodelist,paramdebug,execfunc,action,scripthref,pycode_text,pycode_lineno)
+            (modified_elements,referenced_elements)=procsteppython_runelement(output,prxdoc,prxnsmap,steptag,rootprocesspath,stepprocesspath,index,elementpath,uniquematches,stepglobals,argnames,argsdefaults,params,inputfilehref,ipythonmodelist,paramdebug,execfunc,action,scripthref,pycode_text,pycode_lineno)
             pass
         except KeyboardInterrupt: 
             # Don't want to hold off keyboard interrupts!
@@ -2039,14 +2093,14 @@ def procsteppython_execfunc(scripthref,pycode_text,pycode_lineno,prxdoc,prxnsmap
 
         pass
     
-    if matchcnt==0:
+    if index==0:
         sys.stderr.write("Warning: step %s: no matching elements for output href %s\n" % (processtrak_prxdoc.getstepname(prxdoc,steptag),output.get_filehref().absurl()))
         pass
     
 
     pass
 
-def procsteppython(scripthref,module_version,pycode_el,prxdoc,output,steptag,scripttag,rootprocesspath,initelementmatch,initelementmatch_nsmap,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist,paramdebug):
+def procsteppython(scripthref,module_version,pycode_el,prxdoc,output,steptag,scripttag,rootprocesspath,initelementmatch,initelementmatch_nsmap,elementmatch,elementmatch_nsmap,uniquematchel,orderel,params,filters,inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist,paramdebug):
     # *** output should be rwlock'd exactly ONCE when this is called
     # *** Output will be rwlock'd exactly ONCE on return
     #     (but may have been unlocked in the interim)
@@ -2157,7 +2211,7 @@ def procsteppython(scripthref,module_version,pycode_el,prxdoc,output,steptag,scr
         pass
 
     if initfunc is not None:
-        procsteppython_execfunc(scripthref,pycode_text,pycode_lineno,prxdoc,prxnsmap,output,steptag,scripttag,rootprocesspath,stepprocesspath,stepglobals,initelementmatch,initelementmatch_nsmap,uniquematchel,params,[],inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist,paramdebug,initfunc,action)
+        procsteppython_execfunc(scripthref,pycode_text,pycode_lineno,prxdoc,prxnsmap,output,steptag,scripttag,rootprocesspath,stepprocesspath,stepglobals,initelementmatch,initelementmatch_nsmap,uniquematchel,None,params,[],inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist,paramdebug,initfunc,action)
         pass
     
     
@@ -2173,7 +2227,7 @@ def procsteppython(scripthref,module_version,pycode_el,prxdoc,output,steptag,scr
         pass
 
 
-    procsteppython_execfunc(scripthref,pycode_text,pycode_lineno,prxdoc,prxnsmap,output,steptag,scripttag,rootprocesspath,stepprocesspath,stepglobals,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist,paramdebug,runfunc,action)
+    procsteppython_execfunc(scripthref,pycode_text,pycode_lineno,prxdoc,prxnsmap,output,steptag,scripttag,rootprocesspath,stepprocesspath,stepglobals,elementmatch,elementmatch_nsmap,uniquematchel,orderel,params,filters,inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist,paramdebug,runfunc,action)
 
     print("") # add newline
 
@@ -2276,19 +2330,15 @@ def procstep(prxdoc,out,steptag,filters,overall_starttime,debugmode,stdouthandle
 
     if uniquematchel is not None and elementmatch is not defaultelementmatch: 
         raise ValueError("Both prx:uniquematch and prx:element match specified for step %s" % (processtrak_prxdoc.getstepname(prxdoc,steptag)))
-    
-    
-    
-    ## try for <prx:inputfilematch> in <script> 
-    #try: 
-    #    inputfilematchel=prxdoc.xpathsinglecontext(scripttag,"prx:inputfilematch")
-    #    inputfilematch=inputfilematchel.text
-    #    # sys.stderr.write("overrideinputfilematch=%s\n" % (inputfilematch))
-    #    pass
-    #except NameError:
-    #    pass
 
-
+    #search for <order> element
+    orderel=None
+    try:
+        orderel=prxdoc.xpathsinglecontext(steptag,"prx:order")
+        pass
+    except NameError:
+        pass
+    
     # return if we don't pass filename matching
     if not check_inputfilematch(prxdoc,steptag,scripttag,out.inputfilehref):    
         return
@@ -2355,13 +2405,13 @@ def procstep(prxdoc,out,steptag,filters,overall_starttime,debugmode,stdouthandle
         # procsteppython/procstepmatlab are called with output locked exactly once
         
         if pycode_el is not None or scripthref.get_bare_unquoted_filename().endswith(".py"):
-            procsteppython(scripthref,module_version,pycode_el,prxdoc,out.output,steptag,scripttag,out.processpath,initelementmatch,initelementmatch_nsmap,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,out.inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist,paramdebug)
+            procsteppython(scripthref,module_version,pycode_el,prxdoc,out.output,steptag,scripttag,out.processpath,initelementmatch,initelementmatch_nsmap,elementmatch,elementmatch_nsmap,uniquematchel,orderel,params,filters,out.inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist,paramdebug)
             pass
         elif comsolmatlabcode_el is not None or scripthref.get_bare_unquoted_filename().endswith("_comsol.m"):
-            procstepmatlab(scripthref,comsolmatlabcode_el,prxdoc,out.output,steptag,scripttag,out.processpath,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,out.inputfilehref,debugmode,ipythonmodelist,paramdebug,comsol=True)
+            procstepmatlab(scripthref,comsolmatlabcode_el,prxdoc,out.output,steptag,scripttag,out.processpath,elementmatch,elementmatch_nsmap,uniquematchel,orderel,params,filters,out.inputfilehref,debugmode,ipythonmodelist,paramdebug,comsol=True)
             pass
         elif matlabcode_el is not None or scripthref.get_bare_unquoted_filename().endswith(".m"):
-            procstepmatlab(scripthref,matlabcode_el,prxdoc,out.output,steptag,scripttag,out.processpath,elementmatch,elementmatch_nsmap,uniquematchel,params,filters,out.inputfilehref,debugmode,ipythonmodelist,paramdebug)
+            procstepmatlab(scripthref,matlabcode_el,prxdoc,out.output,steptag,scripttag,out.processpath,elementmatch,elementmatch_nsmap,uniquematchel,orderel,params,filters,out.inputfilehref,debugmode,ipythonmodelist,paramdebug)
             pass
         pass
     except: 
