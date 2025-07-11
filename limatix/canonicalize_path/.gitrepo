@@ -6,7 +6,7 @@
 [subrepo]
 	remote = git@github.com:limatix/canonicalize_path.git
 	branch = master
-	commit = 9d156e4e699c60056c6299996d27bd371e6cb75b
-	parent = df117ea06793b1d08ecf78b2cd568887c22c63ae
+	commit = 328cf4485e5ec4f58aef10007658f852a1a1fba0
+	parent = 2d5845177b0e791208222a648f5755d8e0066b4f
 	method = merge
 	cmdver = 0.4.9
