@@ -1759,7 +1759,7 @@ def reorder_elements(original_generator,orderel):
         elif orderel is not None and "select" in orderel.attrib:
             if not "sort" in orderel.attrib or (orderel.attrib["sort"] != "string" and orderel.attrib["sort"] != "numeric"):
                 raise ValueError(f"Invalid or missing sort attribute for order element with select attribute. Sort must be 'string' or 'numeric'")
-            sortkeys_elementmatches_uniquematches = [(output.xpathsinglecontext(elementmatch, orderel.attrib["select"]), elementmatch,uniquematches) for (elementmatch,uniquematches) in elementmatches_uniquematches]
+            sortkeys_elementmatches_uniquematches = [(output.xpathsinglecontextstr(output.restorepath(elementmatch), orderel.attrib["select"]), elementmatch,uniquematches) for (elementmatch,uniquematches) in elementmatches_uniquematches]
             if orderel.attrib["sort"] == "string":
                 sortkeys_elementmatches_uniquematches.sort(key=lambda sortkey_elementmatch_uniquematches: str(sortkey_elementmatch_uniquematches[0]))
                 pass
