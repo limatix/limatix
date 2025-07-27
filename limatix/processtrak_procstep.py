@@ -20,7 +20,7 @@ import fnmatch
 import binascii
 import random
 from packaging.version import Version
-#from distutils.version import LooseVersion
+#from distutils.version import Version
 
 from lxml import etree
 
@@ -967,7 +967,7 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
                     pass
             
 
-                if LooseVersion(IPython.__version__) >= LooseVersion('4.0.0'):
+                if Version(IPython.__version__) >= Version('4.0.0'):
                     # Recent Jupyter/ipython: Import from qtconsole            
                     try:
                         from qtconsole.qt import QtGui
@@ -1019,11 +1019,11 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
             kernel.gui = kernel_gui
             
         
-            if LooseVersion(IPython.__version__) >= LooseVersion('7.0.0'):
+            if Version(IPython.__version__) >= Version('7.0.0'):
                 kernel.start()
 
                 import ipykernel
-                if (not hasattr(kernel,"io_loop")) and (LooseVersion(ipykernel.__version__) < LooseVersion('6.4.2')):
+                if (not hasattr(kernel,"io_loop")) and (Version(ipykernel.__version__) < Version('6.4.2')):
                     # Some versions of ipykernel (e.g. 5.1.4 )
                     # the InProcessKernel start() method
                     # doesn't call its superclass to (apparently)
@@ -1107,7 +1107,7 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
             sys.stdout.write("Set cont=True to disable interactive mode\n")
             # sys.stdout.write("call abort() to exit\n")
 
-            if LooseVersion(IPython.__version__) >= LooseVersion('4.0.0'):
+            if Version(IPython.__version__) >= Version('4.0.0'):
             # Recent Jupyter/ipython: Import from qtconsole
                 from qtconsole.rich_jupyter_widget import RichJupyterWidget as RichIPythonWidget
                 pass
@@ -1224,7 +1224,7 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
                 runfunc_lines=code_container.body
 
                 shell_vars = {"runfunc_lines": runfunc_lines,"scripthref": scripthref}
-                if LooseVersion(IPython.__version__) >= LooseVersion('7.0.0'):
+                if Version(IPython.__version__) >= Version('7.0.0'):
                     # provide _ipycompiler for run_ast_nodes
                     import IPython.core.compilerop
                     _ipycompiler = IPython.core.compilerop.CachingCompiler()
@@ -1234,7 +1234,7 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
                 kernel.shell.push(shell_vars,interactive=False) # provide processed syntax tree for debugging purposes
             
                 # kernel.shell.run_code(compile("kernel.shell.run_ast_nodes(runfunc_lines,scriptpath,interactivity='all')","None","exec"))
-                if LooseVersion(IPython.__version__) >= LooseVersion('4.0.0'):
+                if Version(IPython.__version__) >= Version('4.0.0'):
                     # Recent Jupyter/ipython: Import from qtconsole
                     from qtconsole.inprocess import QtCore
                     pass
@@ -1249,7 +1249,7 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
                 
             
                 def runcode():
-                    if LooseVersion(IPython.__version__) >= LooseVersion('7.0.0'):
+                    if Version(IPython.__version__) >= Version('7.0.0'):
                         # IPython 7 and above use async/await
                         control.execute("await kernel.shell.run_ast_nodes(runfunc_lines,scripthref.getpath(),interactivity='none',compiler=_ipycompiler)")
                         pass
@@ -1276,7 +1276,7 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
 
 
 
-            if LooseVersion(IPython.__version__) >= LooseVersion('4.0.0'):
+            if Version(IPython.__version__) >= Version('4.0.0'):
                 # Recent Jupyter/ipython: Import from qtconsole
                 app.exec_()
                 pass
