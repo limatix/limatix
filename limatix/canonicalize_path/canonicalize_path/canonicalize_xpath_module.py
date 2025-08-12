@@ -78,6 +78,7 @@ try:
     pass
 except (IOError,TypeError):
     sys.stderr.write("canonicalize_path_module: Error reading internal config file %s.\n" % ( "tag_index_paths.conf"))
+    #raise
     pass
 
 try:
