@@ -897,7 +897,7 @@ def setup_unit_configuration(prxdoc, debug=False):
         units.configure_units(units_lib_to_use,filename_context_href = prxdoc.getcontexthref(), debug=debug, **kwargs)
         pass
     else:
-        print("processtrak: Units not configured; defaulting to lm_units\nConsider adding a unit configuration, e.g.:\n  <prx:units_configuration unit_engine = \"lm_units\">\n    <param name = \"configstring\">insert_basic_units</param>\n  </prx:units_configuration>",file = sys.stderr)
+        print("processtrak: Units not configured; defaulting to lm_units\nConsider adding a unit configuration, e.g.:\n  <prx:units_configuration unit_engine = \"lm_units\">\n    <prx:param name = \"configstring\">\"insert_basic_units\"</prx:param>\n  </prx:units_configuration>",file = sys.stderr)
         units.configure_units("lm_units",debug = debug)
         pass
     pass

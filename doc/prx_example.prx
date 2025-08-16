@@ -31,7 +31,7 @@
   <inputfilematch>*.xlg</inputfilematch> <!-- can do wildard restriction of which input files to operate on, here or can be overridden in the <step> or <script> tags. -->
 
   <units_configuration unit_engine = "lm_units">
-    <param name = "configstring">insert_basic_units</param>
+    <param name = "configstring">"insert_basic_units"</param>
   </units_configuration>
 
   <!-- example configuration for pint: 
