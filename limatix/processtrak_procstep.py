@@ -895,7 +895,7 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
                 # Under more recent OS's: Make matplotlib use PySide
                 # http://stackoverflow.com/questions/6723527/getting-pyside-to-work-with-matplotlib
                 import IPython
-                from IPython.core.interactiveshell import DummyMod
+                from IPython.core.interactiveshell import InteractiveShell
 
                 if Version(IPython.__version__) >= Version('4.0.0'):
                     # Recent Jupyter/ipython: Import from qtconsole
