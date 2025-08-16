@@ -153,8 +153,9 @@ def write_timestamp(doc,process_el,tagname,timestamp=None):
 
 def write_process_log(doc,process_el,status,stdoutstderrlog):
     # "status" shoudl be "success" or "exception" 
+    strip_control_mapping = " "*32 #32 spaces, mapping every control character to a space
     log_el=doc.addelement(process_el,"lip:log")
-    log_el.text=stdoutstderrlog#.decode("utf-8")
+    log_el.text=stdoutstderrlog.translate(strip_control_mapping) #remove control characters because xml doesn't allow them. We replace them with spaces.
     log_el.attrib["status"]=status
     pass
 
