@@ -506,7 +506,7 @@ def procstepmatlab_do_run(matlabcode_el_text,matpath,scriptname,diaryfilename,re
 
     return (resultdict,status,diarytext)
 
-def procstepmatlab_runelement(matlabcode_el_text,matpath,scriptname,output,prxdoc,prxnsmap,steptag,rootprocesspath,stepprocesspath,index,elementpath,uniquematches,argnames,params,inputfilehref,ipythonmodelist,paramdebug,action,scripthref,diaryfilename,retfilename,status,comsol=False):
+def procstepmatlab_runelement(matlabcode_el_text,matpath,scriptname,output,prxdoc,prxnsmap,steptag,rootprocesspath,stepprocesspath,index,elementpath,uniquematches,argnames,element_descr_xpath,params,inputfilehref,ipythonmodelist,paramdebug,action,scripthref,diaryfilename,retfilename,status,comsol=False):
     # *** output should be rwlock'd exactly ONCE when this is called
     # *** Output will be rwlock'd exactly ONCE on return
     #     (but may have been unlocked in the interim)
@@ -516,7 +516,14 @@ def procstepmatlab_runelement(matlabcode_el_text,matpath,scriptname,output,prxdo
 
     element=output.restorepath(elementpath)
 
-    print("Element %s\r" % (dcv.hrefvalue.fromelement(output,element).humanurl()),end="\r")
+    if element_descr_xpath is not None:
+        descr_value=output.xpathsinglecontextstr(element,element_descr_xpath)
+        print(f"Element {descr_value:s}\r")
+        pass
+    else:
+
+        print("Element %s\r" % (dcv.hrefvalue.fromelement(output,element).humanurl()),end="\r")
+        pass
     #print("Element %s\r" % (canonicalize_path.getelementhumanxpath(output,element,nsmap=prxnsmap)),end="\r")
     sys.stdout.flush()
 
@@ -577,7 +584,7 @@ def procstepmatlab_runelement(matlabcode_el_text,matpath,scriptname,output,prxdo
 
 
 
-def procstepmatlab_execfunc(scripthref,matlabcode_el_text,script_firstline,matpath,scriptname,prxdoc,prxnsmap,output,steptag,scripttag,rootprocesspath,stepprocesspath,elementmatch,elementmatch_nsmap,uniquematchel,orderel,params,filters,inputfilehref,debugmode,ipythonmodelist,paramdebug,action,comsol=False):
+def procstepmatlab_execfunc(scripthref,matlabcode_el_text,script_firstline,matpath,scriptname,prxdoc,prxnsmap,output,steptag,scripttag,rootprocesspath,stepprocesspath,elementmatch,elementmatch_nsmap,uniquematchel,orderel,element_descr_xpath,params,filters,inputfilehref,debugmode,ipythonmodelist,paramdebug,action,comsol=False):
 
     # Parse script_firstline
     # First line of matlab script is expected to be:
@@ -637,7 +644,7 @@ def procstepmatlab_execfunc(scripthref,matlabcode_el_text,script_firstline,matpa
         output.should_be_rwlocked_once()
 
         try : 
-            (modified_elements,referenced_elements,status,diarytext)=procstepmatlab_runelement(matlabcode_el_text,matpath,scriptname,output,prxdoc,prxnsmap,steptag,rootprocesspath,stepprocesspath,index,elementpath,uniquematches,argnames,params,inputfilehref,ipythonmodelist,paramdebug,action,scripthref,diaryfilename,retfilename,status,comsol=comsol)
+            (modified_elements,referenced_elements,status,diarytext)=procstepmatlab_runelement(matlabcode_el_text,matpath,scriptname,output,prxdoc,prxnsmap,steptag,rootprocesspath,stepprocesspath,index,elementpath,uniquematches,argnames,element_descr_xpath,params,inputfilehref,ipythonmodelist,paramdebug,action,scripthref,diaryfilename,retfilename,status,comsol=comsol)
             pass
         except KeyboardInterrupt: 
             # Don't want to hold off keyboard interrupts!
@@ -731,7 +738,7 @@ def procstepmatlab_execfunc(scripthref,matlabcode_el_text,script_firstline,matpa
     pass
 
 
-def procstepmatlab(scripthref,matlabcode_el,prxdoc,output,steptag,scripttag,rootprocesspath,elementmatch,elementmatch_nsmap,uniquematchel,orderel,params,filters,inputfilehref,debugmode,ipythonmodelist,paramdebug,comsol=False):
+def procstepmatlab(scripthref,matlabcode_el,prxdoc,output,steptag,scripttag,rootprocesspath,elementmatch,elementmatch_nsmap,uniquematchel,orderel,element_descr_xpath,params,filters,inputfilehref,debugmode,ipythonmodelist,paramdebug,comsol=False):
 
     # comsol parameter enables running Matlab through comsol server to run
     # COMSOL model creation scripts written in Matlab
@@ -831,7 +838,7 @@ def procstepmatlab(scripthref,matlabcode_el,prxdoc,output,steptag,scripttag,root
     #    pass
     
     
-    procstepmatlab_execfunc(scripthref,matlabcode_el_text,script_firstline,matpath,scriptname,prxdoc,prxnsmap,output,steptag,scripttag,rootprocesspath,stepprocesspath,elementmatch,elementmatch_nsmap,uniquematchel,orderel,params,filters,inputfilehref,debugmode,ipythonmodelist,paramdebug,action,comsol=comsol)
+    procstepmatlab_execfunc(scripthref,matlabcode_el_text,script_firstline,matpath,scriptname,prxdoc,prxnsmap,output,steptag,scripttag,rootprocesspath,stepprocesspath,elementmatch,elementmatch_nsmap,uniquematchel,orderel,element_descr_xpath,params,filters,inputfilehref,debugmode,ipythonmodelist,paramdebug,action,comsol=comsol)
 
     print("") # add newline
 
@@ -1629,15 +1636,20 @@ def procstep_evalargs(output,prxdoc,prxnsmap,steptag,uniquematches,argnames,args
     
     return argkw
 
-def procsteppython_runelement(output,prxdoc,prxnsmap,steptag,rootprocesspath,stepprocesspath,index,elementpath,uniquematches,stepglobals,argnames,argsdefaults,params,inputfilehref,ipythonmodelist,paramdebug,execfunc,action,scripthref,pycode_text,pycode_lineno):
+def procsteppython_runelement(output,prxdoc,prxnsmap,steptag,rootprocesspath,stepprocesspath,index,elementpath,uniquematches,stepglobals,argnames,argsdefaults,element_descr_xpath,params,inputfilehref,ipythonmodelist,paramdebug,execfunc,action,scripthref,pycode_text,pycode_lineno):
     # *** output should be rwlock'd exactly ONCE when this is called
     # *** Output will be rwlock'd exactly ONCE on return
     #     (but may have been unlocked in the interim)
 
     element=output.restorepath(elementpath)
 
-
-    print("Element %s\r" % (dcv.hrefvalue.fromelement(output,element).humanurl()),end="\r")
+    if element_descr_xpath is not None:
+        descr_value=output.xpathsinglecontextstr(element,element_descr_xpath)
+        print(f"Element {descr_value:s}\r")
+        pass
+    else:
+        print("Element %s\r" % (dcv.hrefvalue.fromelement(output,element).humanurl()),end="\r")
+        pass
     #print("Element %s\r" % (canonicalize_path.getelementhumanxpath(output,element,nsmap=prxnsmap)),end="\r")
     sys.stdout.flush()
 
@@ -1940,7 +1952,7 @@ def procstep_uniquematch_elementpath_generator(prxdoc,output,steptag,elementmatc
 
 
 
-def procsteppython_execfunc(scripthref,pycode_text,pycode_lineno,prxdoc,prxnsmap,output,steptag,scripttag,rootprocesspath,stepprocesspath,stepglobals,elementmatch,elementmatch_nsmap,uniquematchel,orderel,params,filters,inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist,paramdebug,execfunc,action):
+def procsteppython_execfunc(scripthref,pycode_text,pycode_lineno,prxdoc,prxnsmap,output,steptag,scripttag,rootprocesspath,stepprocesspath,stepglobals,elementmatch,elementmatch_nsmap,uniquematchel,orderel,element_descr_xpath,params,filters,inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist,paramdebug,execfunc,action):
     
     if hasattr(inspect,"getfullargspec"):
         # python3
@@ -1999,7 +2011,7 @@ def procsteppython_execfunc(scripthref,pycode_text,pycode_lineno,prxdoc,prxnsmap
         output.should_be_rwlocked_once()
 
         try : 
-            (modified_elements,referenced_elements)=procsteppython_runelement(output,prxdoc,prxnsmap,steptag,rootprocesspath,stepprocesspath,index,elementpath,uniquematches,stepglobals,argnames,argsdefaults,params,inputfilehref,ipythonmodelist,paramdebug,execfunc,action,scripthref,pycode_text,pycode_lineno)
+            (modified_elements,referenced_elements)=procsteppython_runelement(output,prxdoc,prxnsmap,steptag,rootprocesspath,stepprocesspath,index,elementpath,uniquematches,stepglobals,argnames,argsdefaults,element_descr_xpath,params,inputfilehref,ipythonmodelist,paramdebug,execfunc,action,scripthref,pycode_text,pycode_lineno)
             pass
         except KeyboardInterrupt: 
             # Don't want to hold off keyboard interrupts!
@@ -2100,7 +2112,7 @@ def procsteppython_execfunc(scripthref,pycode_text,pycode_lineno,prxdoc,prxnsmap
 
     pass
 
-def procsteppython(scripthref,module_version,pycode_el,prxdoc,output,steptag,scripttag,rootprocesspath,initelementmatch,initelementmatch_nsmap,elementmatch,elementmatch_nsmap,uniquematchel,orderel,params,filters,inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist,paramdebug):
+def procsteppython(scripthref,module_version,pycode_el,prxdoc,output,steptag,scripttag,rootprocesspath,initelementmatch,initelementmatch_nsmap,elementmatch,elementmatch_nsmap,uniquematchel,orderel,element_descr_xpath,params,filters,inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist,paramdebug):
     # *** output should be rwlock'd exactly ONCE when this is called
     # *** Output will be rwlock'd exactly ONCE on return
     #     (but may have been unlocked in the interim)
@@ -2227,7 +2239,7 @@ def procsteppython(scripthref,module_version,pycode_el,prxdoc,output,steptag,scr
         pass
 
 
-    procsteppython_execfunc(scripthref,pycode_text,pycode_lineno,prxdoc,prxnsmap,output,steptag,scripttag,rootprocesspath,stepprocesspath,stepglobals,elementmatch,elementmatch_nsmap,uniquematchel,orderel,params,filters,inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist,paramdebug,runfunc,action)
+    procsteppython_execfunc(scripthref,pycode_text,pycode_lineno,prxdoc,prxnsmap,output,steptag,scripttag,rootprocesspath,stepprocesspath,stepglobals,elementmatch,elementmatch_nsmap,uniquematchel,orderel,element_descr_xpath,params,filters,inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist,paramdebug,runfunc,action)
 
     print("") # add newline
 
@@ -2261,7 +2273,7 @@ def check_inputfilematch(prxdoc,steptag,scripttag,inputfilehref):
     return True
     
 
-def procstep(prxdoc,out,steptag,filters,overall_starttime,debugmode,stdouthandler,stderrhandler,ipythonmodelist,paramdebug):
+def procstep(prxdoc,out,steptag,filters,overall_starttime,instructionslist,debugmode,stdouthandler,stderrhandler,ipythonmodelist,paramdebug):
     # *** output should be unlocked when this is called
 
     defaultelementmatch="*" # defaults to all child elements of main tag
@@ -2395,7 +2407,30 @@ def procstep(prxdoc,out,steptag,filters,overall_starttime,debugmode,stdouthandle
         params[param.name].append(param)
         
         pass
-
+    for instructions in instructionslist:
+        instr_wait=False
+        if "context" in instructions.attrib and instructions.attrib["context"]=="xlg":
+            if "wait" in instructions.attrib and instructions.attrib["wait"].lower()=="true":
+                instr_wait=True
+                pass
+            # If there is a "select" attribute, treat this as an xpath relative to the main element of the xlg
+            if "select" in instructions.attrib:
+                value=out.xpathsinglestr(instructions.attrib["select"])
+                print(value)
+                pass
+            else:
+                print(instructions.text)
+                pass
+        
+            if instr_wait:
+                input("press enter to continue")
+                pass
+            pass
+        pass
+    
+    element_descr_xpath=prxdoc.xpathsinglecontextstr(steptag,"prx:element_descr_xpath",default=None)
+    
+    
     processtrak_common.open_or_lock_output(prxdoc,out)
     
     try: 
@@ -2405,13 +2440,13 @@ def procstep(prxdoc,out,steptag,filters,overall_starttime,debugmode,stdouthandle
         # procsteppython/procstepmatlab are called with output locked exactly once
         
         if pycode_el is not None or scripthref.get_bare_unquoted_filename().endswith(".py"):
-            procsteppython(scripthref,module_version,pycode_el,prxdoc,out.output,steptag,scripttag,out.processpath,initelementmatch,initelementmatch_nsmap,elementmatch,elementmatch_nsmap,uniquematchel,orderel,params,filters,out.inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist,paramdebug)
+            procsteppython(scripthref,module_version,pycode_el,prxdoc,out.output,steptag,scripttag,out.processpath,initelementmatch,initelementmatch_nsmap,elementmatch,elementmatch_nsmap,uniquematchel,orderel,element_descr_xpath,params,filters,out.inputfilehref,debugmode,stdouthandler,stderrhandler,ipythonmodelist,paramdebug)
             pass
         elif comsolmatlabcode_el is not None or scripthref.get_bare_unquoted_filename().endswith("_comsol.m"):
-            procstepmatlab(scripthref,comsolmatlabcode_el,prxdoc,out.output,steptag,scripttag,out.processpath,elementmatch,elementmatch_nsmap,uniquematchel,orderel,params,filters,out.inputfilehref,debugmode,ipythonmodelist,paramdebug,comsol=True)
+            procstepmatlab(scripthref,comsolmatlabcode_el,prxdoc,out.output,steptag,scripttag,out.processpath,elementmatch,elementmatch_nsmap,uniquematchel,orderel,element_descr_xpath,params,filters,out.inputfilehref,debugmode,ipythonmodelist,paramdebug,comsol=True)
             pass
         elif matlabcode_el is not None or scripthref.get_bare_unquoted_filename().endswith(".m"):
-            procstepmatlab(scripthref,matlabcode_el,prxdoc,out.output,steptag,scripttag,out.processpath,elementmatch,elementmatch_nsmap,uniquematchel,orderel,params,filters,out.inputfilehref,debugmode,ipythonmodelist,paramdebug)
+            procstepmatlab(scripthref,matlabcode_el,prxdoc,out.output,steptag,scripttag,out.processpath,elementmatch,elementmatch_nsmap,uniquematchel,orderel,element_descr_xpath,params,filters,out.inputfilehref,debugmode,ipythonmodelist,paramdebug)
             pass
         pass
     except: 

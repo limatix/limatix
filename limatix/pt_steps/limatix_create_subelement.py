@@ -13,7 +13,7 @@ from limatix.xmldoc import xmldoc
 from limatix.dc_value import xmltreevalue
 
 def run(_xmldoc,_element,tagname_str,measident_xpath_str=None,attributename_str=None, attributevalue_xpath_str=None):
-    new_doc = xmldoc.newdoc(tagname_str,nsmap=_xmldoc.nsmap)
+    new_doc = xmldoc.newdoc(tagname_str,nsmap=_xmldoc.nsmap,contexthref=_xmldoc.getcontexthref())
     if measident_xpath_str is not None:
         measident_el = new_doc.addelement(new_doc.getroot(),"dc:measident")
         new_doc.settext(measident_el,_xmldoc.xpathsinglecontextstr(_element,measident_xpath_str))
@@ -22,5 +22,5 @@ def run(_xmldoc,_element,tagname_str,measident_xpath_str=None,attributename_str=
     if attributename_str is not None and attributevalue_xpath_str is not None:
         new_attr_dict[attributename_str] = _xmldoc.xpathsinglecontextstr(_element,attributevalue_xpath_str)
         pass
-    new_element = xmltreevalue(new_tree)
+    new_element = xmltreevalue(new_doc)
     return [ ((tagname_str,new_attr_dict), new_element) ]

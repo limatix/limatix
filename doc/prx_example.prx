@@ -54,6 +54,8 @@
          * If none of the above are provided, execute in document order
     -->
     <order select="@paramindex" sort="numeric"/>
+    <instructions wait="true">These instructions will be printed to the user when the step is executed. If wait="true" is given it will wait for the user to press enter before continuing. By default the context of the instructions is the .prx file, meaning that the instruction will be displayed once regardless of how many input files are being run. You can also add a context="xlg" attribute that will make the instructions display once per input file. Either way, you can provide a select= attribute with an xpath that will override inline text such as this. For the prx context, the xpath is relative to the inputfiles element. For the xlg context, the xpath is relative to the main element in the file.</instructions>
+    <element_descr_xpath>dc:measident</element_descr_xpath> <!-- An xpath expression given here will override the element identity that is printed by default when each element is executed -->
     <script xlink:href="pullparams.py" function="run">     <!-- Note: You can explicitly specify the function to run (default is "rununlocked" or "run". If the name ends with "unlocked" then the function will be run with the xlp file unlocked.  You can reference an explicit path, by specifying the script with xlink:href, or  ask processtrak to search its script path by using "name" to specify the script. -->
       <!-- You can override the default elementmatch or filematch
            on a per-step basis -->

@@ -91,7 +91,7 @@ except ImportError:
 limatix_dir = os.path.split(inspect.getfile(xmldoc))[0]
 
 
-xsltpath=[os.path.join(limatix_dir,"share","limatix","xslt")]
+xsltpath=[os.path.join(limatix_dir,"limatix_xslt")]
 
 
 
@@ -939,7 +939,38 @@ def build_outputdict(prxdoc,useinputfiles_with_hrefs,ignore_locking=False):
         outputdict[inputfilehref]=outputdoc(inputfilehref=inputfilehref,inputfileelement=inputfileelement,outputfilehref=outputfilehref,ignore_locking=ignore_locking)
         pass
     return outputdict
+def show_instructions(prxdoc,step_el,inputfiles_element):
+    if (isinstance(step_el,str)):
+         return [] # mergeinput
+    instructionslist=prxdoc.xpathcontext(step_el,"prx:instructions")
+    for instructions in instructionslist:
+        instr_wait=False
+        if "context" in instructions.attrib:
+            if instructions.attrib["context"]=="xlg":
+                # Handled by procstep
+                continue
+            elif instructions.attrib["context"]!="prx":
+                raise ValueError(f"invalid context {instructions.attrib['context']:s} in prx:instructions element")
+            pass
 
+        if "wait" in instructions.attrib and instructions.attrib["wait"].lower()=="true":
+            instr_wait=True
+            pass
+        # If there is a "select" attribute, treat this as an xpath relative to the <inputfiles> element of the prx
+        if "select" in instructions.attrib:
+            value=prxdoc.xpathsinglecontextstr(inputfiles_element,instructions.attrib["select"])
+            print(value)
+            pass
+        else:
+            print(instructions.text)
+            pass
+        
+        if instr_wait:
+            input("press enter to continue")
+            pass
+        pass
+    return instructionslist
+    
 def outputdict_run_steps(prxdoc,outputdict,inputfiles_element,useinputfiles_with_hrefs,steps,filters,overall_starttime,debugmode,stdouthandler,stderrhandler,ipythonmodelist,paramdebug):
     # delayed import to avoid circular reference
     from . import processtrak_procstep
@@ -956,7 +987,7 @@ def outputdict_run_steps(prxdoc,outputdict,inputfiles_element,useinputfiles_with
     # Run each step on each input file 
     for step in steps:
         
-        
+        instructionslist = show_instructions(prxdoc,step,inputfiles_element)   
         
         for (inputfile,inputfilehref) in useinputfiles_with_hrefs:
             
@@ -972,7 +1003,7 @@ def outputdict_run_steps(prxdoc,outputdict,inputfiles_element,useinputfiles_with
             else: 
                 # print("\nProcessing step %s on URL %s." % (processtrak_prxdoc.getstepname(prxdoc,step),output.get_filehref().absurl())) 
 
-                processtrak_procstep.procstep(prxdoc,outputdict[inputfilehref],step,filters,overall_starttime,debugmode,stdouthandler,stderrhandler,ipythonmodelist,paramdebug)
+                processtrak_procstep.procstep(prxdoc,outputdict[inputfilehref],step,filters,overall_starttime,instructionslist,debugmode,stdouthandler,stderrhandler,ipythonmodelist,paramdebug)
                 pass
 
             
@@ -1020,6 +1051,7 @@ def outputdict_run_needed_steps(prxdoc,prxfilehref,outputdict,inputfiles_element
         
     # Run each step on each input file 
     for step_el in steps:
+        instructionslist=None
         if step_el is None:   # "None" means the copyinput step
             stepname="copyinput"
             pass
@@ -1052,8 +1084,11 @@ def outputdict_run_needed_steps(prxdoc,prxfilehref,outputdict,inputfiles_element
                         pass
                     else: 
                         # print("\nProcessing step %s on URL %s." % (processtrak_prxdoc.getstepname(prxdoc,step_el),output.get_filehref().absurl())) 
-
-                        processtrak_procstep.procstep(prxdoc,outputdict[inputfilehref],step_el,filters,overall_starttime,debugmode,stdouthandler,stderrhandler,ipythonmodelist,paramdebug)
+                        if instructionslist is None:
+                            instructionslist = show_instructions(prxdoc,step_el,inputfiles_element)
+                            pass
+                        
+                        processtrak_procstep.procstep(prxdoc,outputdict[inputfilehref],step_el,filters,overall_starttime,instructionslist,debugmode,stdouthandler,stderrhandler,ipythonmodelist,paramdebug)
                         pass
                     for inputfilehref in outputdict:
                         finalize_output_file(prxdoc,outputdict,inputfilehref)
