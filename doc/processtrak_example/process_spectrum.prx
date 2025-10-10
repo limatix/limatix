@@ -15,23 +15,35 @@
   
 
   <inputfiles>
-    <!-- Uncomment this <inputfile> tag to use spreadsheet input,
+    <!-- Uncomment this <inputfile> tag to use .xls spreadsheet input,
 	 along with the spreadsheet_like_datacollect.xsl converter
          to make the spreadsheet experiment log look like a datacollect
 	 experiment log 
     <inputfile xlink:href="creston_jan2016.xls" titlerow="2">
       <xslt name="spreadsheet_like_datacollect.xsl"/>
-      <dc:dest xlink:type="simple" xlink:href="creston_jan2016/"/>
+      <dc:dest xlink:type="simple" xlink:href="creston_jan2016_files/"/>
       <outputfile xlink:href="creston_jan2016.xlp"/>      
     </inputfile>
     -->
 
+    <!-- Uncomment this <inputfile> tag to use .xlsx spreadsheet input,
+	 along with the spreadsheet_like_datacollect.xsl converter
+         to make the spreadsheet experiment log look like a datacollect
+	 experiment log -->
+    <inputfile xlink:href="creston_jan2016.xlsx" titlerow="2">
+      <xslt name="spreadsheet_like_datacollect.xsl"/>
+      <dc:dest xlink:type="simple" xlink:href="creston_jan2016_files/"/>
+      <outputfile xlink:href="creston_jan2016.xlp"/>      
+    </inputfile>
+   
+
     <!-- Uncomment this <inputfile> tag to use datacollect2-style
 	 experiment log input -->
+    <!--
     <inputfile xlink:href="creston_jan2016.xlg">
       <outputfile xlink:href="creston_jan2016.xlp"/>      
     </inputfile>
-    
+    -->
   </inputfiles>
 
   <elementmatch>dc:measurement[dc:rflog]</elementmatch>

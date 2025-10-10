@@ -472,9 +472,31 @@ def create_outputfile(prxdoc,inputfiles_element,inputfilehref,nominal_outputfile
                     # hyperlink.url_or_path()
                     outdoc.settext(cellel,cell.value)
                     hyperlink_url=cell.hyperlink.location
+                    #import pdb
+                    #pdb.set_trace()
                     if hyperlink_url is None:
                         hyperlink_url=cell.hyperlink.display
                         pass
+                    if hyperlink_url is None:
+                        hyperlink_url = cell.value
+                        pass
+                    hyperlink_href=dcv.hrefvalue(hyperlink_url,contexthref=inputfilehref)
+                    hyperlink_href.xmlrepr(outdoc,cellel)
+                    pass
+                elif cell_type=="f" and cell.hyperlink is not None:
+                    # Do we need to do some kind of conversion on
+                    # hyperlink.url_or_path()
+                    hyperlink_url=cell.hyperlink.location
+                    #import pdb
+                    #pdb.set_trace()
+                    if hyperlink_url is None:
+                        hyperlink_url=cell.hyperlink.display
+                        pass
+                    if hyperlink_url is None:
+                        hyperlink_url = cell.value
+                        pass
+                    outdoc.settext(cellel,hyperlink_url)
+                    
                     hyperlink_href=dcv.hrefvalue(hyperlink_url,contexthref=inputfilehref)
                     hyperlink_href.xmlrepr(outdoc,cellel)
                     pass
