@@ -268,7 +268,7 @@ def create_outputfile(prxdoc,inputfiles_element,inputfilehref,nominal_outputfile
     but the actual file written will be outputfilehref"""
     
     # print("inputfilehref=%s" % (inputfilehref.humanurl()))
-    if inputfilehref.get_bare_unquoted_filename().lower().endswith(".xls") or inputfilehref.get_bare_unquoted_filename().lower().endswith(".xlsx"):
+    if inputfilehref.get_bare_unquoted_filename().lower().endswith(".xls"):
         try:
             import xlrd
             import xlrd.sheet
@@ -388,8 +388,130 @@ def create_outputfile(prxdoc,inputfiles_element,inputfilehref,nominal_outputfile
             pass
         except ImportError:
 
-            raise(ImportError("Need to install xlrd package in order to import .xls or .xlsx files"))
+            raise(ImportError("Need to install xlrd package in order to import .xls files"))
         
+        pass
+    elif inputfilehref.get_bare_unquoted_filename().lower().endswith(".xlsx"):
+        try:
+            from openpyxl import load_workbook
+            pass
+        except ImportError:
+
+            raise(ImportError("Need to install openpyxl package in order to import .xlsx files"))
+
+        inputfileelement=outputdict[inputfilehref].inputfileelement
+        # Any dc: namespace elements within the inputfileelement
+        # will get placed in a dc:summary tag
+                 
+            
+        timestamp=datetime.datetime.fromtimestamp(os.path.getmtime(inputfilehref.getpath()),lm_timestamp.UTC()).isoformat()
+        spreadsheet=load_workbook(inputfilehref.getpath())
+        sheetname=prxdoc.getattr(inputfileelement,"sheetname",spreadsheet.sheetnames[0])
+
+        sheet = spreadsheet[sheetname]
+        titlerow=int(prxdoc.getattr(inputfileelement,"titlerow","1"))
+
+        nrows = sheet.max_row 
+        ncols = sheet.max_column
+
+        rawtitles = [ str(sheet.cell(row=titlerow,column=colnum).value).strip() for colnum in range(1,ncols+1) ]
+
+        tagnames = [ convert_to_tagname(splitunits(rawtitle)[0]) if rawtitle is not None and len(rawtitle) > 0 else "blank" for rawtitle in rawtitles ]
+        unitnames = [ convert_to_tagname(splitunits(rawtitle)[1]) if rawtitle is not None and len(rawtitle) > 0 else None for rawtitle in rawtitles ]
+
+
+
+        nsmap=copy.deepcopy(prx_nsmap)
+        nsmap["ls"] = "http://limatix.org/spreadsheet"
+
+        outdoc=xmldoc.xmldoc.newdoc("ls:sheet",nsmap=nsmap,contexthref=outputfilehref)
+
+        # Copy dc: namespace elements within inputfileelement
+        # into a dc:summary tag
+        inputfileel_children=prxdoc.children(inputfileelement)
+        summarydoc=None
+        for inputfileel_child in inputfileel_children:
+            if prxdoc.gettag(inputfileel_child).startswith("dc:"):
+                if summarydoc is None:
+                    summarydoc=xmldoc.xmldoc.newdoc("dc:summary",nsmap=nsmap,contexthref=prxdoc.getcontexthref())
+                    pass
+                # place in document with same context as where it came from
+                summarydoc.getroot().append(copy.deepcopy(inputfileel_child))
+                pass
+            pass
+        if summarydoc is not None:
+            # shift summary context and then copy it into outdoc
+            summarydoc.setcontexthref(outdoc.getcontexthref())
+            outdoc.getroot().append(copy.deepcopy(summarydoc.getroot()))
+            pass
+
+
+        # Copy spreadsheet table
+        for rownum in range(titlerow+1,nrows+1):
+            rowel=outdoc.addelement(outdoc.getroot(),"ls:row")
+            rownumel=outdoc.addelement(rowel,"ls:rownum")
+            outdoc.settext(rownumel,str(rownum-1)) # Rownum-1 because traditionally we indexed the rows starting from zero
+            for colnum in range(1,ncols+1):
+                cell=sheet.cell(row=rownum,column=colnum)
+                cell_type=cell.data_type
+                
+                if cell.value is None: # None
+                    continue
+
+                cellel=outdoc.addelement(rowel,"ls:"+tagnames[colnum-1])
+                    
+                        
+                outdoc.setattr(cellel,"ls:celltype",cell_type)
+ 
+                if cell_type=="s" and cell.hyperlink is None:
+                    outdoc.settext(cellel,cell.value)
+                    pass
+
+                elif cell_type=="s" and cell.hyperlink is not None:
+                    # Do we need to do some kind of conversion on
+                    # hyperlink.url_or_path()
+                    outdoc.settext(cellel,cell.value)
+                    hyperlink_url=cell.hyperlink.location
+                    if hyperlink_url is None:
+                        hyperlink_url=cell.hyperlink.display
+                        pass
+                    hyperlink_href=dcv.hrefvalue(hyperlink_url,contexthref=inputfilehref)
+                    hyperlink_href.xmlrepr(outdoc,cellel)
+                    pass
+                elif cell_type=="n":
+                    if unitnames[colnum-1] is not None:
+                        outdoc.setattr(cellel,"dcv:units",unitnames[colnum-1])
+                        pass
+                    outdoc.settext(cellel,str(cell.value)) 
+                    pass
+                elif cell_type=="d":
+                    outdoc.settext(cellel,cell.value.isoformat())
+                    pass
+                elif cell_type=="b":
+                    outdoc.settext(cellel,str(bool(cell.value)))            
+                    pass
+                elif cell_type=="e":
+                    outdoc.settext(cellel,"ERROR %s" % (str(cell.value)))
+                    pass
+                else:
+                    raise ValueError("Unknown cell type %s" %(cell_type))
+                pass
+            pass
+        # Did the user provide a prx:xslt href indicating 
+        # a transformation to apply? 
+        xslttag=prxdoc.xpathsinglecontext(outputdict[inputfilehref].inputfileelement,"prx:xslt",default=None)
+        if xslttag is not None:
+            # Replace outdoc with transformed copy
+            outdoc = create_outputfile_process_xslt(prxdoc,xslttag,inputfiles_element,outputdict[inputfilehref].inputfileelement,outdoc)
+            pass
+
+            
+        # Write out under new file name outputfilehref
+        assert(outputfilehref != inputfilehref)
+        outdoc.set_href(outputfilehref,readonly=False)
+        outdoc.close()
+        canonhash=None  # could hash entire input file...
+            
         pass
     elif inputfilehref.has_fragment():
         # input file url has a fragment... we're only supposed
