@@ -3,6 +3,7 @@
 import sys
 import os
 import os.path
+import glob
 
 from lxml import etree
 
@@ -29,7 +30,7 @@ move_namespace_decls_to_root=r"""<?xml version="1.0" encoding="UTF-8"?>
   </xsl:template>
 
   <!-- Match root node, inserting namespace declarations -->
-  <xsl:template match="/*"> 
+  <xsl:template match="/*">
      <xsl:element name="{name()}" namespace="{namespace-uri()}">
        <xsl:copy-of select="//namespace::*"/>
        <xsl:apply-templates select="@*|node()" mode="body"/>
@@ -44,7 +45,7 @@ move_namespace_decls_to_root=r"""<?xml version="1.0" encoding="UTF-8"?>
   </xsl:template>
 </xsl:stylesheet>
 """
-  
+
 
 
 convert_namespaces=r"""<?xml version="1.0" encoding="UTF-8"?>
@@ -54,7 +55,7 @@ new-style http://limatix.org
 
 ... Note that it doesn't put all namespace declarations in the
 root node on its output, so we have to run it through another
-converter to put those back in. 
+converter to put those back in.
 
 -->
 
@@ -67,10 +68,10 @@ converter to put those back in.
 
 		xmlns:dcp="http://thermal.cnde.iastate.edu/datacollect/provenance"
 		xmlns:lip="http://limatix.org/provenance"
-		
+
 		xmlns:odc="http://thermal.cnde.iastate.edu/datacollect"
 		xmlns:dc="http://limatix.org/datacollect"
-		
+
 		xmlns:odcv="http://thermal.cnde.iastate.edu/dcvalue"
 		xmlns:dcv="http://limatix.org/dcvalue"
 
@@ -86,16 +87,16 @@ converter to put those back in.
 
 		xmlns:odbvar="http://thermal.cnde.iastate.edu/databrowse/variable"
 		xmlns:dbvar="http://limatix.org/databrowse/variable"
-		
+
 		xmlns:odbdir="http://thermal.cnde.iastate.edu/databrowse/dir"
 		xmlns:dbdir="http://limatix.org/databrowse/dir"
 		>
-                <!-- *** SEE XMLNS declarations above AND LIST OF 
+                <!-- *** SEE XMLNS declarations above AND LIST OF
                          OVERRIDES BELOW -->
   <xsl:output method="xml" encoding="utf-8"/>
 
   <xsl:variable name="overrides">
-    <override name="http://thermal.cnde.iastate.edu/datacollect">http://limatix.org/datacollect</override> 
+    <override name="http://thermal.cnde.iastate.edu/datacollect">http://limatix.org/datacollect</override>
     <override name="http://thermal.cnde.iastate.edu/datacollect/provenance">http://limatix.org/provenance</override>
 
     <override name="http://thermal.cnde.iastate.edu/dcvalue">http://limatix.org/dcvalue</override>
@@ -108,10 +109,10 @@ converter to put those back in.
 
 
     <override name="http://thermal.cnde.iastate.edu/databrowse/variable">http://limatix.org/databrowse/variable</override>
-		
+
     <override name="http://thermal.cnde.iastate.edu/databrowse/dir">http://limatix.org/databrowse/dir</override>
 
-  </xsl:variable>  
+  </xsl:variable>
 
 
 
@@ -124,26 +125,26 @@ converter to put those back in.
       <xsl:choose>
         <!-- with prefix, and no override -->
         <xsl:when test="string-length(local-name()) &gt; 0 and not(exsl:node-set($overrides)/override[@name=$nsuri])">
-          <xsl:element name="{ local-name() }:dummy" namespace="{ string() }"/> 
+          <xsl:element name="{ local-name() }:dummy" namespace="{ string() }"/>
         </xsl:when>
         <!-- with prefix, and with override -->
         <xsl:when test="string-length(local-name()) &gt; 0 and exsl:node-set($overrides)/override[@name=$nsuri]">
-          <xsl:element name="{ local-name() }:dummy" namespace="{ exsl:node-set($overrides)/override[@name=$nsuri] }"/> 
+          <xsl:element name="{ local-name() }:dummy" namespace="{ exsl:node-set($overrides)/override[@name=$nsuri] }"/>
         </xsl:when>
         <!-- without prefix, and no override -->
         <xsl:when test="string-length(local-name()) = 0 and not(exsl:node-set($overrides)/override[@name=$nsuri])">
-          <xsl:element name="dummy" namespace="{ string() }"/> 
+          <xsl:element name="dummy" namespace="{ string() }"/>
         </xsl:when>
         <!-- without prefix, and with override -->
         <xsl:otherwise>
-          <xsl:element name="dummy" namespace="{ exsl:node-set($overrides)/override[@name=$nsuri] }"/> 
+          <xsl:element name="dummy" namespace="{ exsl:node-set($overrides)/override[@name=$nsuri] }"/>
         </xsl:otherwise>
       </xsl:choose>
     </xsl:for-each>
     <xsl:if test="/*/namespace::*[string(.)='http://thermal.cnde.iastate.edu/datacollect']">
       <!-- <dummy xmlns:dcfoo="http://limatix.org/datacollect"/> -->
     </xsl:if>
-    
+
   </xsl:variable>
 
 
@@ -237,14 +238,14 @@ converter to put those back in.
   </xsl:template>
 
 
- 
+
   <xsl:template match="*" priority="-2">
     <xsl:element name="{name()}" namespace="{namespace-uri()}">
       <xsl:copy-of select="exsl:node-set($converted_namespaces)/*/namespace::*"/>
       <xsl:apply-templates select="@*|*|text()|comment()|processing-instruction()"/>
     </xsl:element>
   </xsl:template>
-  
+
   <xsl:template match="@*" priority="-2">
     <xsl:attribute name="{name()}" namespace="{namespace-uri()}"><xsl:value-of select="."/></xsl:attribute>
   </xsl:template>
@@ -264,59 +265,79 @@ def usage():
     pass
 
 def main(args=None):
-    if args is None:
-        args=sys.argv
-        pass
-    
 
-    
-    inputfile=None
-    
-    cnt=1
-    
+    if args is None:
+        args = sys.argv
+
+    # Initialize inputfiles as an empty list instead of None
+    inputfiles = []
+
+    cnt = 1
+
     while cnt < len(args):
-        if args[cnt].startswith("-"):
-            if args[cnt]=="-h" or args[cnt]=="--help":
+        arg = args[cnt]
+
+        if arg.startswith("-"):
+            if arg == "-h" or arg == "--help":
                 usage()
                 sys.exit(0)
-                pass
             else:
-                raise NameError("Unknown switch %s" % (args[cnt]))
-            pass
+                raise NameError("Unknown switch %s" % arg)
         else:
-            if inputfile is not None:
-                raise ValueError("Only one positional parameter permitted")
-            inputfile=args[cnt]
-            pass
-        cnt+=1
-        pass
-    
-    if inputfile is None:
+            # Windows doesn't expand globs automatically at the shell
+            # So we'll do it here instead
+            expanded_list = glob.glob(arg)
+
+            if expanded_list:
+                inputfiles.extend(expanded_list)
+            else:
+                # If glob returns nothing, append the raw argument and
+                # fail later if needed
+                inputfiles.append(arg)
+
+        cnt += 1
+
+    # Check if the list is empty
+    if not inputfiles:
         usage()
         sys.exit(1)
-        
-        pass
-    
-    inputfh=file(inputfile)
-    inputetree=etree.parse(inputfh)
-    inputfh.close()
 
-    convert_namespaces_transform=etree.XSLT(etree.XML(convert_namespaces))
-    #move_namespace_decls_to_root_transform=etree.XSLT(etree.XML(move_namespace_decls_to_root))
+    for inputfile in inputfiles:
+        # Let's make sure the file exists so that we can convert what does
+        if not os.path.exists(inputfile):
+            print("Unable to Locate File %s" % inputfile)
+        # Let's check quick to make sure the file hasn't already been converted
+        if os.path.exists(inputfile+'.thns'):
+            print("Skipping Conversion of Already Converted File %s" % inputfile)
+            continue
+
+        inputfh=open(inputfile)
+        inputetree=etree.parse(inputfh)
+        inputfh.close()
+
+        convert_namespaces_xml = convert_namespaces
+        if not isinstance(convert_namespaces_xml, bytes):
+            convert_namespaces_xml = convert_namespaces_xml.encode('utf-8')
 
 
-    namespaces_transformed=convert_namespaces_transform(inputetree)
-    
-    #print(etree.tostring(namespaces_transformed))
-    
-    result_tree=namespaces_transformed #move_namespace_decls_to_root_transform(namespaces_transformed)
-    
-    backupfile=inputfile+".thns"
+        convert_namespaces_transform=etree.XSLT(etree.XML(convert_namespaces_xml))
+        #move_namespace_decls_to_root_transform=etree.XSLT(etree.XML(move_namespace_decls_to_root))
 
-    os.rename(inputfile,backupfile)
-    
-    outputfh=file(inputfile,"w")
-    result_tree.write(outputfh,encoding='utf-8',xml_declaration=True)
-    outputfh.close()
-    
+
+        namespaces_transformed=convert_namespaces_transform(inputetree)
+
+        #print(etree.tostring(namespaces_transformed))
+
+        result_tree=namespaces_transformed #move_namespace_decls_to_root_transform(namespaces_transformed)
+
+        backupfile=inputfile+".thns"
+
+        os.rename(inputfile,backupfile)
+
+        outputfh=open(inputfile,"wb")
+        result_tree.write(outputfh,encoding='utf-8',xml_declaration=True)
+        outputfh.close()
+
+        print("Saved %s" % inputfile)
+
     pass
