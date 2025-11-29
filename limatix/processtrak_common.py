@@ -14,6 +14,7 @@ import ast
 import hashlib
 import binascii
 import datetime
+import re
 
 from lxml import etree
 
@@ -406,9 +407,12 @@ def create_outputfile(prxdoc,inputfiles_element,inputfilehref,nominal_outputfile
             
         timestamp=datetime.datetime.fromtimestamp(os.path.getmtime(inputfilehref.getpath()),lm_timestamp.UTC()).isoformat()
         spreadsheet=load_workbook(inputfilehref.getpath())
+        spreadsheet_data_only=load_workbook(inputfilehref.getpath(),data_only=True)
+        
         sheetname=prxdoc.getattr(inputfileelement,"sheetname",spreadsheet.sheetnames[0])
 
         sheet = spreadsheet[sheetname]
+        sheet_data_only = spreadsheet_data_only[sheetname]
         titlerow=int(prxdoc.getattr(inputfileelement,"titlerow","1"))
 
         nrows = sheet.max_row 
@@ -453,7 +457,9 @@ def create_outputfile(prxdoc,inputfiles_element,inputfilehref,nominal_outputfile
             outdoc.settext(rownumel,str(rownum-1)) # Rownum-1 because traditionally we indexed the rows starting from zero
             for colnum in range(1,ncols+1):
                 cell=sheet.cell(row=rownum,column=colnum)
+                cell_data_only=sheet_data_only.cell(row=rownum,column=colnum)
                 cell_type=cell.data_type
+                cell_type_data_only=cell_data_only.data_type
                 
                 if cell.value is None: # None
                     continue
@@ -483,22 +489,52 @@ def create_outputfile(prxdoc,inputfiles_element,inputfilehref,nominal_outputfile
                     hyperlink_href=dcv.hrefvalue(hyperlink_url,contexthref=inputfilehref)
                     hyperlink_href.xmlrepr(outdoc,cellel)
                     pass
-                elif cell_type=="f" and cell.hyperlink is not None:
-                    # Do we need to do some kind of conversion on
-                    # hyperlink.url_or_path()
-                    hyperlink_url=cell.hyperlink.location
-                    #import pdb
-                    #pdb.set_trace()
-                    if hyperlink_url is None:
-                        hyperlink_url=cell.hyperlink.display
-                        pass
-                    if hyperlink_url is None:
-                        hyperlink_url = cell.value
-                        pass
-                    outdoc.settext(cellel,hyperlink_url)
+                elif cell_type=="f":
+                    if cell.hyperlink is not None:
+                        # Do we need to do some kind of conversion on
+                        # hyperlink.url_or_path()
+                        hyperlink_url=cell.hyperlink.location
+                        #import pdb
+                        #pdb.set_trace()
+                        if hyperlink_url is None:
+                            hyperlink_url=cell.hyperlink.display
+                            pass
+                        if hyperlink_url is None:
+                            hyperlink_url = cell.value
+                            pass
+                        outdoc.settext(cellel,hyperlink_url)
                     
-                    hyperlink_href=dcv.hrefvalue(hyperlink_url,contexthref=inputfilehref)
-                    hyperlink_href.xmlrepr(outdoc,cellel)
+                        hyperlink_href=dcv.hrefvalue(hyperlink_url,contexthref=inputfilehref)
+                        hyperlink_href.xmlrepr(outdoc,cellel)
+                        pass
+                    elif re.match(r"""=\s*HYPERLINK""",cell.value,flags=re.IGNORECASE) is not None:
+                        # Libre office generated xlsx files seem not to show up with cell.hyperlink even if they are HYPERLINK formulas
+                        hyperlink_url=cell_data_only.value
+                        outdoc.settext(cellel,hyperlink_url)
+                        hyperlink_href=dcv.hrefvalue(hyperlink_url,contexthref=inputfilehref)
+                        hyperlink_href.xmlrepr(outdoc,cellel)
+                        pass
+                    #elif re.match(r"""=\s*HYPERLINK""",cell.value,flags=re.IGNORECASE) is None:
+                     #   import pdb
+                      #  pdb.set_trace()
+                    elif cell_type_data_only=="s":
+                        outdoc.settext(cellel,cell_data_only.value)
+                        pass
+                    elif cell_type_data_only=="n":
+                        if unitnames[colnum-1] is not None:
+                            outdoc.setattr(cellel,"dcv:units",unitnames[colnum-1])
+                            pass
+                        outdoc.settext(cellel,str(cell_data_only.value)) 
+                        pass
+                    elif cell_type_data_only=="d":
+                        outdoc.settext(cellel,cell_data_only.value.isoformat())
+                        pass
+                    elif cell_type_data_only=="b":
+                        outdoc.settext(cellel,str(bool(cell_data_only.value)))            
+                        pass
+                    elif cell_type_data_only=="e":
+                        outdoc.settext(cellel,"ERROR %s" % (str(cell_data_only.value)))
+                        pass    
                     pass
                 elif cell_type=="n":
                     if unitnames[colnum-1] is not None:
