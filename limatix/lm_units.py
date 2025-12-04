@@ -70,8 +70,9 @@ Basic_Units =  ( # ***!!! IMPORTANT: Change in parallel withcopy in lm_units.py
 	    "abbrev[seconds]='s'\n"
 
             "measurement='frequency'\n"
-	    "units[frequency,si]='hertz','hertz'\n"
-	    "abbrev[hertz]='Hz'\n"
+	    "units[frequency,si]='Hertz','Hertz'\n"
+	    "abbrev[Hertz]='Hz'\n"
+            "abbrev[Hertz]='hertz'\n"
 
 	    "measurement='velocity'\n"
 	    "units[velocity,si]='meter/second','meters/second'\n"
