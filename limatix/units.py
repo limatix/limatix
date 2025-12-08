@@ -470,7 +470,15 @@ class PintUnitImplementation(LimatixUnitImplementation):
                 
                 kwargs = { arg: self.dcv.hrefvalue(quote(kwargs[arg]),contexthref = filename_context_href).getpath() if arg == "filename" or arg == "cache_folder" else kwargs[arg] for arg in kwargs }
                 pass
+            extra_definitions = None
+            if 'extra_definitions' in kwargs:
+                extra_definitions = kwargs['extra_definitions']
+                del  kwargs['extra_definitions']
+                pass
             self._registry = pint.UnitRegistry(**kwargs)
+            if extra_definitions is not None:
+                self._registry.load_definitions(extra_definitions)
+                pass
             pint.set_application_registry(self._registry)
             pass
         else:
