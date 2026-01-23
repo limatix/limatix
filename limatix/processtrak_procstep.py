@@ -121,8 +121,10 @@ except TypeError:
 
 def check_importability(py_module_name):
     try:
-        import pkgutil
-        return pkgutil.find_loader(py_module_name) is not None
+        #import pkgutil
+        #return pkgutil.find_loader(py_module_name) is not None
+        import importlib
+        return importlib.util.find_spec(py_module_name) is not None
     except ModuleNotFoundError:
         return False
     return False
