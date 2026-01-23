@@ -66,7 +66,7 @@ Stage modified and new raw data/script files for commit
                      current directory to add
    --dry-run         Do not actually perform the changes
    --ignore-locking  Do not lock the input files when reading them
-   
+
 NOTE: This is intended for raw data, experiment logs, scripts and instructions,
       and will only stage files for a branch that does NOT contain "processed"
       in its name
@@ -104,7 +104,7 @@ def get_processed(input_file_hrefs_unprocessed,input_file_hrefs,cdup,ignore_lock
     input_files_up=processtrak_cleanup.infiledicts.fromhreflist(input_file_hrefs_unprocessed,repository_root=repository_root,ignore_locking=ignore_locking)
 
 
-    
+
     (unprocessed_completed_set,unprocessed_desthref_set,unprocessed_href_set)=processtrak_cleanup.traverse(input_files_up,recursive=True,need_href_set=True,include_processed=False,repository_root=repository_root,ignore_locking=ignore_locking)
 
     input_files_pr=processtrak_cleanup.infiledicts.fromhreflist(input_file_hrefs,repository_root=repository_root,ignore_locking=ignore_locking)
@@ -113,7 +113,7 @@ def get_processed(input_file_hrefs_unprocessed,input_file_hrefs,cdup,ignore_lock
 
     #import pdb
     #pdb.set_trace()
-    
+
     processed_href_set = (completed_set | href_set) - (unprocessed_completed_set | unprocessed_href_set) - desthref_set
     allhrefs_no_dest = [ href for href in processed_href_set if not href.isabs() ]
 
@@ -146,37 +146,37 @@ def find_recursive(pathlist,rootpath,gitignore_lines,curpath):
             pass
         else:
             if filename_is_xlg_prx_py(name) and passes_gitignore(gitignore_lines,name) and passes_gitignore(gitignore_lines,newpath):
-                pathlist.append(name)
+                pathlist.append(newpath)
                 pass
             pass
 
         pass
 
-    
+
     pass
 
 
 def find_recursive_xlg_prx_py(rootpath):
     pathlist=[]
-    
+
     gitignore_lines = []
     gitignore_path = os.path.join(rootpath,".gitignore")
-    if os.path.exists(gitignore_path): 
+    if os.path.exists(gitignore_path):
         gitignore_fh = open(gitignore_path,"r")
         gitignore = gitignore_fh.read()
         gitignore_lines_raw = gitignore.split("\n")
         gitignore_lines = [ line.strip() for line in gitignore_lines_raw if len(line.strip()) > 0 and not line.strip()[0]=='#' ]
         pass
-    
-        
+
+
     find_recursive(pathlist,rootpath,gitignore_lines,rootpath)
     return pathlist
     #for (dirpath,dirnames,filenames) in os.walk(rootpath):
     #    pathlist.extend([ os.path.join(dirpath,filename) for filename in filenames if filename_is_xlg_prx_py(filename) and passes_gitignore(gitignore_lines,filename)])
     #    pass
-    
+
     return pathlist
-        
+
 
 
 def add(args):
@@ -185,7 +185,7 @@ def add(args):
     all=False
     dryrun=False
     ignore_locking=False
-    
+
     while argc < len(args):
         arg=args[argc]
 
@@ -208,13 +208,13 @@ def add(args):
             pass
         argc+=1
         pass
-        
-        
+
+
     repo=Repo(".",search_parent_directories=True)
 
     (rootpath,cdup,prefix)=git_dir_context(repo)
-    
-    
+
+
 
     if "processed" in repo.active_branch.name:
         sys.stderr.write("Will not add raw input files/scripts/etc. to processed\nbranch.\nSwitch branches with \"git checkout\" first!\n")
@@ -222,21 +222,25 @@ def add(args):
         pass
 
     to_consider=[ os.path.join(prefix,positional) for positional in positionals ]
-    
+
     if all:
         autofound_files = find_recursive_xlg_prx_py(cdup)
 
         to_consider.extend(autofound_files)
-        
+
         pass
 
+    #import pdb
+    #pdb.set_trace()
+
     # fixup e.g. './filename.xlg' into 'filename.xlg' to avoid inconsistent references
-    pathname_fixup=[ input_file_name if os.path.split(input_file_name)[0]!='.' else os.path.split(input_file_name)[1] for input_file_name in to_consider ]
+    #pathname_fixup=[ input_file_name if os.path.split(input_file_name)[0]!='.' else os.path.split(input_file_name)[1] for input_file_name in to_consider ]
+    pathname_fixup = [os.path.normpath(input_file_name) for input_file_name in
+                      to_consider]
+
+    #print(pathname_fixup)
 
     input_file_hrefs=[ dc_value.hrefvalue(pathname2url(input_file_name),contexthref=".") for input_file_name in pathname_fixup ]
-
-    #import pdb 
-    #pdb.set_trace()
 
     (unprocessedpaths,xlppaths)=get_unprocessed(input_file_hrefs,cdup,ignore_locking)
 
@@ -246,7 +250,7 @@ def add(args):
         pass
     print(" ")
     if not dryrun:
-        # If we add too many paths in one step, 
+        # If we add too many paths in one step,
         # we get an 'argument list too long'
         #repo.git.add(unprocessedpaths)
 
@@ -261,21 +265,21 @@ def add(args):
             print("   %s" % (xlppath))
             pass
         pass
-    
+
     print("\nNow run \"git commit\"")
     pass
 
 def add_processed_usage():
     print("""Usage: %s add-processed [-h] [-a] [--ignore-locking] <inputfiles...>
 Stage modified and new processing output files for commit.
-These should only be committed to a branch with "processed" in 
+These should only be committed to a branch with "processed" in
 the name.
    -h                This help
    -a                Search for .xlg, .prx, and .py files within
                      current directory to add
    --dry-run         Do not actually perform the changes
    --ignore-locking  Do not lock the input files when reading them
-   
+
 NOTE: This is intended for processing output only,
       and will only stage files for a branch that DOES contain "processed"
       in its name.
@@ -312,21 +316,21 @@ def add_processed(args):
             pass
         argc+=1
         pass
-        
-        
+
+
     repo=Repo(".",search_parent_directories=True)
 
     (rootpath,cdup,prefix)=git_dir_context(repo)
 
     to_consider=[ os.path.join(prefix,positional) for positional in positionals ]
-    
+
     autofound_files = find_recursive_xlg_prx_py(cdup)
     to_consider_unprocessed = to_consider + autofound_files
-    
+
     if all:
         to_consider.extend(autofound_files)
         pass
-    
+
     # fixup e.g. './filename.xlg' into 'filename.xlg' to avoid inconsistent references
     to_consider_pathname_fixup=[ input_file_name if os.path.split(input_file_name)[0]!='.' else os.path.split(input_file_name)[1] for input_file_name in to_consider ]
     to_consider_unprocessed_pathname_fixup=[ input_file_name if os.path.split(input_file_name)[0]!='.' else os.path.split(input_file_name)[1] for input_file_name in to_consider_unprocessed ]
@@ -334,7 +338,7 @@ def add_processed(args):
     input_file_hrefs_unprocessed=[ dc_value.hrefvalue(pathname2url(input_file_name),contexthref=dc_value.hrefvalue(pathname2url(cdup)+'/')) for input_file_name in to_consider_unprocessed_pathname_fixup ]
 
     input_file_hrefs=[ dc_value.hrefvalue(pathname2url(input_file_name),contexthref=dc_value.hrefvalue(pathname2url(cdup)+'/')) for input_file_name in to_consider_pathname_fixup ]
-    
+
     (unprocessedpaths,xlppaths)=get_unprocessed(input_file_hrefs_unprocessed,cdup,ignore_locking)
 
     # Check that all unprocessedpaths are unmodified
@@ -363,8 +367,8 @@ def add_processed(args):
                 pass
             untracked_byname[untracked_fname].append((untracked,os.path.join(rootpath,untracked)))
             pass
-        
-            
+
+
         unprocessed_byname = { }
         for unprocessed in unprocessedpaths_fixup:
             unprocessed_fname=os.path.split(unprocessed)[1]
@@ -393,10 +397,10 @@ def add_processed(args):
         if len(untracked_unprocessed) > 0:
             sys.stderr.write("\nAdd these to non-processed branch with git checkout <unprocessed_branch>;limatix-git add -a;git commit\n")
             sys.exit(0)
-        
-        
+
+
         pass
-    
+
     if not "processed" in repo.active_branch.name:
         sys.stderr.write("Will not add processed output to\nbranch without \"processed\" in its name.\nSwitch to a different branch with \"git checkout\" or Create a\nnew branch with \"git checkout -b\" to store\nprocessed output first!\n")
         sys.exit(1)
@@ -429,7 +433,7 @@ def init(args):
     positionals=[]
     all=False
     dryrun=False
-    
+
     while argc < len(args):
         arg=args[argc]
 
@@ -446,7 +450,7 @@ def init(args):
             pass
         argc+=1
         pass
-        
+
     if len(positionals) > 0:
         raise ValueError("Unknown parameter: \"%s\"" % (positionals[0]))
 
@@ -471,14 +475,14 @@ def init(args):
         repo=Repo.init(".")
         with repo.config_writer() as config:
             # Disable "trustctime" so GIT doesn't waste a lot
-            # of time rereading huge repo files just due to 
-            # e.g. a backup system having read them or 
+            # of time rereading huge repo files just due to
+            # e.g. a backup system having read them or
             # a file mode permission change
             config.set_value("core","trustctime","false")
             config.release()
             pass
         pass
-        
+
 
     if not dryrun:
         gitignore=open(".gitignore","w")
@@ -502,44 +506,44 @@ def usage():
     print("""Usage: %s [-h] command <command args...>
    -h                This help
 Commands:
-   init              Init new repo in this directory. Automatically create 
+   init              Init new repo in this directory. Automatically create
                      .gitignore
    add               Add input, data, and/or script files to repo
    add-processed     Add processed output to repo branch
 
 ---
 
-Usual workflow: 
+Usual workflow:
    git init            # Create repository (master branch)
    limatix-git add -a  # Stage raw data, manual files
    git add ...         # Manually stage additional files
    git commit          # Commit raw data and manual files to master
-   # Now develop processing scripts (.prx file, etc.) 
+   # Now develop processing scripts (.prx file, etc.)
    # During development keep commiting script changes with
-   limatix-git add -a 
+   limatix-git add -a
    # As your code gets mature, you can clean up the output trees
    # with pt_cleanup -b -p -d <prxfile.prx>
-   # you should check provenance with 
+   # you should check provenance with
    pt_checkprovenance <explog.xlp>
    # When keepable/publishable output is ready, stage it with
-   git checkout -b processed_XXXXX 
-   # where XXXXX represents the purpose (particular presentation, 
-   # paper, etc.) 
-   # Then 
+   git checkout -b processed_XXXXX
+   # where XXXXX represents the purpose (particular presentation,
+   # paper, etc.)
+   # Then
    limatix-git add-processed
    # Make sure all files have been properly pulled in with
    git status
-   # (if not, your processing scripts are probably failing to add 
+   # (if not, your processing scripts are probably failing to add
    # hrefs to the processed experiment log, and you should switch back
    # to the data (master) branch and fix them and reprocess)
-   # Also you should verify that 
+   # Also you should verify that
    pt_cleanup -d <prxfile.prx>
-   # doesn't do anything 
-   # Once you are satisfied: 
+   # doesn't do anything
+   # Once you are satisfied:
    git commit
    # You can then switch back and forth between the clean tree
-   # and the processed output with git checkout. 
-   # Script development should generally go in the master branch, 
+   # and the processed output with git checkout.
+   # Script development should generally go in the master branch,
    # but master should be kept clean from processed output
 
 """ % (sys.argv[0]))
@@ -553,7 +557,7 @@ def main(args=None):
     add_inputfiles=set([])
 
     argc=1
-    
+
     while argc < len(args):
         arg=args[argc]
 
