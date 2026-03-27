@@ -70,8 +70,9 @@ Basic_Units =  ( # ***!!! IMPORTANT: Change in parallel withcopy in lm_units.py
 	    "abbrev[seconds]='s'\n"
 
             "measurement='frequency'\n"
-	    "units[frequency,si]='hertz','hertz'\n"
-	    "abbrev[hertz]='Hz'\n"
+	    "units[frequency,si]='Hertz','Hertz'\n"
+	    "abbrev[Hertz]='Hz'\n"
+            "abbrev[Hertz]='hertz'\n"
 
 	    "measurement='velocity'\n"
 	    "units[velocity,si]='meter/second','meters/second'\n"
@@ -422,7 +423,11 @@ class units(object):
 
         pos=0
         while pos < len(self.Factors)-1:
-            if self.Factors[pos]==self.Factors[pos+1]:
+            if self.Factors[pos].Unit is None:
+                # omit unitless
+                del self.Factors[pos]
+                pass
+            elif self.Factors[pos]==self.Factors[pos+1]:
                 self.Factors[pos].Power += self.Factors[pos+1].Power
                 del self.Factors[pos+1]
 
@@ -716,7 +721,7 @@ def copyunits(comb):
 def comparerawunits(CombA,CombB):
     # returns 0 for non-equal, When the unit combinations are equivalent, the coefficient of CombA relative
     #  to CombB is returned. 
-    # CombA and CombB MUST be already sorted sith wortunits() method
+    # CombA and CombB MUST be already sorted with sortunits() method
 
     if len(CombA.Factors) != len(CombB.Factors):
         return 0.0

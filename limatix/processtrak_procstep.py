@@ -121,8 +121,10 @@ except TypeError:
 
 def check_importability(py_module_name):
     try:
-        import pkgutil
-        return pkgutil.find_loader(py_module_name) is not None
+        #import pkgutil
+        #return pkgutil.find_loader(py_module_name) is not None
+        import importlib
+        return importlib.util.find_spec(py_module_name) is not None
     except ModuleNotFoundError:
         return False
     return False
@@ -921,12 +923,21 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
                             qt_version=5
                             using_pyside=True
                             pass
+                        elif "PySide6.QtCore" in sys.modules:
+                            import PySide6.QtCore
+                            qt_version=6
+                            using_pyside=True
+                            pass
                         elif "PyQt4.QtCore" in sys.modules:
                             import PyQt4.QtCore
                             pass
                         elif "PyQt5.QtCore" in sys.modules:
                             import PyQt5.QtCore
                             qt_version=5
+                            pass
+                        elif "PyQt6.QtCore" in sys.modules:
+                            import PyQt6.QtCore
+                            qt_version=6
                             pass
                         else:
                             qt_version=None
@@ -938,6 +949,12 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
                     if qt_version is None:
                         # Try new import
                         # Let matplotlib backend availability determine which version
+                        if check_importability("matplotlib.backends.backend_qt6agg"):
+                            if check_importability("PySide6") or check_importability("PyQt6"):
+                                from matplotlib.backends import backend_qt6agg
+                                pass
+                            pass
+
                         if check_importability("matplotlib.backends.backend_qt5agg"):
                             if check_importability("PySide2") or check_importability("PyQt5"):
                                 from matplotlib.backends import backend_qt5agg
@@ -968,17 +985,27 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
                         matplotlib.rcParams['backend.qt4']='PySide'
                         pass
                     pass
-                else:
+                elif qt_version==5: 
                     #print("Using qt5")
                     matplotlib.use('Qt5Agg')
                     pass
+                elif qt_version==6: 
+                    #print("Using qt5")
+                    matplotlib.use('Qt6Agg')
+                    pass
+                else:
+                    matplotlib.use('QtAgg')
+                    pass
+                    # raise ValueError(f'Unknown QT Version: {str(qt_version):s}')
             
 
                 if Version(IPython.__version__) >= Version('4.0.0'):
                     # Recent Jupyter/ipython: Import from qtconsole            
                     try:
-                        from qtconsole.qt import QtGui
-                        QApplication = QtGui.QApplication
+                        # from qtconsole.qt import QtGui
+                        # modern qtconsole uses qtpy
+                        from qtpy import QtWidgets
+                        QApplication = QtWidgets.QApplication
                     except ModuleNotFoundError:
                         # Recent qtconsole version does not contain qt module
                         if qt_version == 4:
@@ -986,6 +1013,9 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
                             QApplication = QtWidgets.QApplication
                         elif qt_version == 5:
                             from PyQt5 import QtGui, QtWidgets
+                            QApplication = QtWidgets.QApplication
+                        elif qt_version == 6:
+                            from PyQt6 import QtGui, QtWidgets
                             QApplication = QtWidgets.QApplication
                         else:
                             raise ModuleNotFoundError("Cannot find valid PyQt installation.")
@@ -1012,7 +1042,7 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
             if qt_version==4:
                 kernel_gui = 'qt4'
                 pass
-            elif qt_version==5:
+            elif qt_version is None or qt_version >= 5:
                 kernel_gui = 'qt'
                 pass
             else:

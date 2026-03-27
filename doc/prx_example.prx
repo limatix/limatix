@@ -36,7 +36,8 @@
 
   <!-- example configuration for pint: 
   <units_configuration unit_engine = "pint">
-    <param name="filename">path_to_units_definitionfile.pint</param>
+    <param name="filename">"path_to_units_definitionfile.pint"</param>
+    <prx:param name="extra_definitions">["@alias pascal = Pascal",]</prx:param>
     <param name="case_sensitive">False</param>
   </units_configuration>
     -->
