@@ -19,18 +19,23 @@ This module contains a class object to act as a storage container.
 """
 
 import sys
+
 if "gi" in sys.modules or (__name__ == "__main__" and "--gtk3" in sys.argv):  # gtk3
     import gi
     gi.require_version('Gtk','3.0')  # gtk3
     from gi.repository import GObject as gobject
     pass
-else : 
+else :
     # gtk2
     import gobject
     pass
 
 import subprocess
-import cPickle
+
+try:
+    import cPickle
+except:
+    import pickle as cPickle
 #import dg_units
 #dg_units.units_config('insert_basic_units')
 # sys.path.append('/usr/local/dataguzzler/gui2/lib')
@@ -68,11 +73,11 @@ class paramdb2_wrapper(object):
       >>> import paramdb2_wrapper as pdb2
       >>> pdbobj = pdb2.paramdb2_wrapper()
       >>> pdbobj.addcmd("paramdb.addparam('specimen', stringv)")
-      >>> pdbobj.addcmd(''' paramdb.addparam("spclength", numericunitsv, 
-      	defunits="mm", build=lambda param, 
-      	paramdb=paramdb: autocontroller_xmlfile(param, 
-      	'/databrowse/specimens/%s.sdb', ['specimen'], 
-      	"specimen:geometry/specimen:dimension[@direction='length'][1]/.", 
+      >>> pdbobj.addcmd(''' paramdb.addparam("spclength", numericunitsv,
+      	defunits="mm", build=lambda param,
+      	paramdb=paramdb: autocontroller_xmlfile(param,
+      	'/databrowse/specimens/%s.sdb', ['specimen'],
+      	"specimen:geometry/specimen:dimension[@direction='length'][1]/.",
       	[], namespaces={'specimen':'http://limatix.org/specimen'}),
 		non_settable=True) ''')
       >>> pdbobj.run()
@@ -122,15 +127,16 @@ class paramdb2_wrapper(object):
 
         # Start Process - Close File Descriptors As Well To Prevent Possible Issues
         subprocessargs=[sys.executable, thisfile]
-        if not "gtk" in sys.modules and not "gobject" in sys.modules:  # gtk3
+        if "gi" in sys.modules:  # gtk3
             subprocessargs.append("--gtk3")
             pass
-        
-        self._p = subprocess.Popen(subprocessargs, stdin=subprocess.PIPE, stdout=sys.stdout, stderr=sys.stderr, close_fds=True)
+
+        self._p = subprocess.Popen(subprocessargs, stdin=subprocess.PIPE, close_fds=True)
 
         # Pickle Paramdb and Send to Subprocess
-        data = cPickle.dumps(self.dcclist).replace("\n", "\\()")
-        self._p.stdin.write(data + "\n")
+        data = cPickle.dumps(self.dcclist).replace(b"\n", b"\\()")
+        self._p.stdin.write(data + b"\n")
+        self._p.stdin.flush()
         pass
 
     def stop(self):
@@ -158,16 +164,19 @@ if __name__ == "__main__":
     Subprocess Code - DO NOT RUN DIRECTLY
     """
 
+    from limatix.units import configure_units
+    configure_units("lm_units")
+
     # Read In Data From Pickle
-    data = sys.stdin.readline()
-    dcclist = cPickle.loads(data.replace("\\()", "\n"))
+    data = sys.stdin.buffer.readline()
+    dcclist = cPickle.loads(data.replace(b"\\()", b"\n"))
 
     # Create Paramdb
     paramdb = pdb2.paramdb(None)
 
     # Loop and Add
     for dccitem in dcclist:
-    	eval(dccitem)
+        eval(dccitem)
 
     # Start Param Server
     paramserver = dc_dbus_paramserver(paramdb, None)

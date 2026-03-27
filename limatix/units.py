@@ -19,7 +19,7 @@ class LimatixUnitImplementation():
     _backend = None
     _initialized = None
     dcv = None
-    
+
     def __init__(self) -> None:
 
         from . import dc_value as dcv
@@ -35,7 +35,7 @@ class LimatixUnitImplementation():
 class LM_UnitsImplementation(LimatixUnitImplementation):
     _backend = None
     _initialized = None
-    
+
     def __init__(self, debug=False,filename_context_href = None, **kwargs) -> None:
         super().__init__()
         self._backend = "lm_units"
@@ -45,22 +45,22 @@ class LM_UnitsImplementation(LimatixUnitImplementation):
             print("configuration parameters:")
             for p, v in kwargs.items(): print("%s=%s" % (p, v))
             pass
-        
+
         lm_units.units_config(kwargs.get("configstring", "insert_basic_units"))
         self._initialized=True
         pass
-    
+
     def value_in_units(self,v,units):
         if units is None:
             return v.val;
-        
+
         if isinstance(units,basestring):
             unitstruct=self.parseunits(units)
             pass
         else :
             unitstruct=units
             pass
-        
+
         # print type(self.unit)
         # print type(units)
         # print type(units) is str
@@ -69,16 +69,16 @@ class LM_UnitsImplementation(LimatixUnitImplementation):
         # print unitfactor
         if unitfactor==0.0:
             raise ValueError("Incompatible units: %s and %s" % (str(v.unit),str(unitstruct)))
-        
+
         return v.val*unitfactor
 
     def convert_units_to(self,v,unit):
         return type(v)(self.value_in_units(v,unit),unit)
-    
+
     def units(self,v):
-        
+
         return lm_units.copyunits(v.unit)
-    
+
     def get_application_registry_pint(self):
         return None
 
@@ -96,7 +96,7 @@ class LM_UnitsImplementation(LimatixUnitImplementation):
             goal_type=complex
             match_pattern=R""" *([\(]? *([-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?) *[+-] *([-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?[ij]?) *?[\)]?) *[\[]?([^\]\[]*)[\]]?"""
             pass
-        
+
         if units is None:
             matchobj=re.match(match_pattern,val);
             if matchobj is not None :
@@ -114,7 +114,7 @@ class LM_UnitsImplementation(LimatixUnitImplementation):
                 pass
             pass
         else :
-            val=goal_type(val)                
+            val=goal_type(val)
             if isinstance(units, basestring):
                 unit=lm_units.parseunits(units);
                 pass
@@ -130,17 +130,17 @@ class LM_UnitsImplementation(LimatixUnitImplementation):
 
         # val is already a dc_value object
         if units is None:
-            val=val.value()
             unit=val.units()
+            val=val.value()
             pass
-        else : 
+        else :
             if isinstance(units,basestring):
                 unitstruct=lm_units.parseunits(units)
                 pass
-            else: 
+            else:
                 unitstruct=units
                 pass
-            
+
             val=val.value(unitstruct)
             unit=lm_units.copyunits(unitstruct)
             pass
@@ -166,18 +166,18 @@ class LM_UnitsImplementation(LimatixUnitImplementation):
                 unit = copy.deepcopy(defunit)
                 pass
             pass
-                
+
         if val is None:
             val = math.nan
             pass
         return (val, unit)
 
-    
-    def format(self,v):
-       
-       
 
-      
+    def format(self,v):
+
+
+
+
         return "%s %s" % (repr(v.value(v.unit)),str(v.unit))
     def value_from_quantity(self,v):
         return v[0]
@@ -191,13 +191,13 @@ class LM_UnitsImplementation(LimatixUnitImplementation):
         coefficient=lm_units.extractcoefficient(unitcopy);
 
         return type(v)(v.val*coefficient,unitcopy)
-    
+
     def isnan(self,v):
         return math.isnan(v.val)
-    
+
     def equal(self, v1, v2):
         assert(self._initialized)
-      
+
         # print "NumericUnitsValue Eq called!"
         # print self.val==other.value(),self.unit==other.units()
         # print str(self.unit),str(other.units())
@@ -210,7 +210,7 @@ class LM_UnitsImplementation(LimatixUnitImplementation):
             otherval = v2
             otherunit = lm_units.createunits()
             pass
-        
+
         # print "self.val=%s, otherval=%s" % (str(self.val),str(otherval))
         # print "self.unit=%s, otherunit=%s" % (str(self.unit),str(otherunit))
         unitfactor=lm_units.compareunits(ourunit,otherunit)
@@ -228,11 +228,11 @@ class LM_UnitsImplementation(LimatixUnitImplementation):
 
     def equiv(self, v1, v2): #like equal, but nan is equivalent to NaN
         assert(self._initialized)
-      
+
         # print "NumericUnitsValue Eq called!"
         # print self.val==other.value(),self.unit==other.units()
         # print str(self.unit),str(other.units())
-        
+
         (ourval,ourunit)=v1.quantity
         if isinstance(v2,self.dcv.numericunitsvalue) or isinstance(v2,self.dcv.complexunitsvalue):
             (otherval,otherunit)=v2.quantity
@@ -241,7 +241,7 @@ class LM_UnitsImplementation(LimatixUnitImplementation):
             otherval = v2
             otherunit = lm_units.createunits()
             pass
-        
+
         # print "self.val=%s, otherval=%s" % (str(self.val),str(otherval))
         # print "self.unit=%s, otherunit=%s" % (str(self.unit),str(otherunit))
         unitfactor=lm_units.compareunits(ourunit,otherunit)
@@ -262,66 +262,66 @@ class LM_UnitsImplementation(LimatixUnitImplementation):
 
     def less_than(self, v1, v2):
         assert(self._initialized)
-       
+
         if isinstance(v2,numbers.Number):
-            unitfactor = lm_units.compareunits(v1.unit, lm_units.createunits())            
+            unitfactor = lm_units.compareunits(v1.unit, lm_units.createunits())
             value = v2
-            pass        
+            pass
         else:
             unitfactor = lm_units.compareunits(v1.unit, v2.units())
             value = v2.value()
             pass
         if unitfactor == 0.0:
             raise ValueError("Attempting to add values with incompatible units %s and %s" % (str(v1.unit), str(v2.units())))
-        
+
         return v1.val < (value / unitfactor)
 
     def less_than_equal(self, v1, v2):
         assert(self._initialized)
-       
+
         if isinstance(v2, numbers.Number):
-            unitfactor=lm_units.compareunits(v1.unit, lm_units.createunits())            
+            unitfactor=lm_units.compareunits(v1.unit, lm_units.createunits())
             value=v2
-            pass        
+            pass
         else:
             unitfactor=lm_units.compareunits(v1.unit, v2.units())
             value=v2.value()
             pass
         if unitfactor == 0.0:
             raise ValueError("Attempting to add values with incompatible units %s and %s" % (str(v1.unit), str(v2.units())))
-        
+
         return v1.val <= (value / unitfactor)
 
     def greater_than(self, v1, v2):
         assert(self._initialized)
-      
+
         if isinstance(v2,numbers.Number):
-            unitfactor=lm_units.compareunits(v1.unit, lm_units.createunits())            
+            unitfactor=lm_units.compareunits(v1.unit, lm_units.createunits())
             value=v2
-            pass        
+            pass
         else:
             unitfactor=lm_units.compareunits(v1.unit, v2.units())
             value=v2.value()
             pass
         if unitfactor == 0.0:
             raise ValueError("Attempting to add values with incompatible units %s and %s" % (str(v1.unit), str(v2.units())))
-            
+
         return v1.val > (value / unitfactor)
 
     def greater_than_equal(self, v1, v2):
         assert(self._initialized)
-       
+
         if isinstance(v2, numbers.Number):
-            unitfactor = lm_units.compareunits(v1.unit, lm_units.createunits())            
+            unitfactor = lm_units.compareunits(v1.unit, lm_units.createunits())
             value=v2
-            pass        
+            pass
         else:
             unitfactor = lm_units.compareunits(v1.unit, v2.units())
             value = v2.value()
             pass
         if unitfactor == 0.0:
             raise ValueError("Attempting to add values with incompatible units %s and %s" % (str(v1.unit), str(v2.units())))
-            
+
         return v1.val >= (value / unitfactor)
 
     def absolute_value(self, v):
@@ -334,53 +334,53 @@ class LM_UnitsImplementation(LimatixUnitImplementation):
 
     def power(self, v, p, modulo=None):
         assert(self._initialized)
-    
+
         if modulo is not None:
             raise ValueError("pow modulo not supported")
 
         if isinstance(p, type(v)):
             p=p.value("") # need unitless representation of exponent
             pass
-            
+
         return type(v)(v.val**p, lm_units.powerunits(v.unit, p))
 
-    
+
     def add(self, v1, v2):
         assert(self._initialized)
-    
+
         if isinstance(v2, numbers.Number):
-            unitfactor = lm_units.compareunits(v1.unit, lm_units.createunits())            
+            unitfactor = lm_units.compareunits(v1.unit, lm_units.createunits())
             value = v2
-            pass        
+            pass
         else:
             unitfactor = lm_units.compareunits(v1.unit, v2.units())
             value = v2.value()
             pass
         if unitfactor == 0.0:
             raise ValueError("Attempting to add values with incompatible units %s and %s" % (str(v1.unit), str(v2.units())))
-            
+
         return type(v1)(v1.val + value/unitfactor, v2.unit)
 
     def subtract(self, v1, v2):
         assert(self._initialized)
-        
+
         if isinstance(v2, numbers.Number):
             unitfactor = lm_units.compareunits(v1.unit, lm_units.createunits())
             value = v2
-            pass        
+            pass
         else:
             unitfactor = lm_units.compareunits(v1.unit, v2.units())
             value = v2.value()
             pass
-            
+
         if unitfactor == 0.0:
             raise ValueError("Attempting to add values with incompatible units %s and %s" % (str(v1.unit), str(v2.units())))
-            
+
         return type(v1)(v1.val - value/unitfactor, v2.unit)
-    
+
     def multiply(self, v1, v2):
         assert(self._initialized)
-    
+
         if not isinstance(v2, numbers.Number):
             newunits = lm_units.multiplyunits(v1.unit, v2.units())
             tomul = v2.value()
@@ -389,12 +389,12 @@ class LM_UnitsImplementation(LimatixUnitImplementation):
             newunits = v1.unit
             tomul = v2
             pass
-            
+
         return type(v1)(v1.val*tomul, newunits)
-    
+
     def divide(self, v1, v2):
         assert(self._initialized)
-     
+
         if not isinstance(v2,numbers.Number):
             newunits = lm_units.divideunits(v1.unit, v2.units())
             todiv = v2.value()
@@ -416,7 +416,7 @@ class LM_UnitsImplementation(LimatixUnitImplementation):
             newunits = v1.unit
             todiv = v2
             pass
-            
+
         return type(v1)(v1.val/todiv, newunits);
 
     def floor_divide(self, v1, v2):
@@ -432,7 +432,7 @@ class LM_UnitsImplementation(LimatixUnitImplementation):
 
         return type(v1)(v1.val//todiv, newunits);
     pass
-    
+
 
 class PintUnitImplementation(LimatixUnitImplementation):
     _registry = None
@@ -447,27 +447,27 @@ class PintUnitImplementation(LimatixUnitImplementation):
     @property
     def Q(self):
         return self._registry.Quantity
-    
+
     def __init__(self, debug=False,filename_context_href = None, **kwargs) -> None:
         super().__init__()
         self._backend = "pint"
-    
+
         try:
             import pint
             pass
         except ImportError:
             raise ValueError("pint unit library is not installed")
-        
+
         if debug:
             print("Debug: setting unit configuration for pint backend")
             print("configuration parameters:")
             for p, v in kwargs.items(): print("%s=%s" % (p, v))
             pass
-        
+
         if len(kwargs) > 0:
             if filename_context_href is not None:
                 #Update file name and cache folder args, adding context
-                
+
                 kwargs = { arg: self.dcv.hrefvalue(quote(kwargs[arg]),contexthref = filename_context_href).getpath() if arg == "filename" or arg == "cache_folder" else kwargs[arg] for arg in kwargs }
                 pass
             self._registry = pint.UnitRegistry(**kwargs)
@@ -484,7 +484,7 @@ class PintUnitImplementation(LimatixUnitImplementation):
 
     def convert_units_to(self,v,units):
         return type(v)(v.quantity.to(units),units)
-    
+
     def units(self,v):
         return v.quantity.units
 
@@ -499,7 +499,7 @@ class PintUnitImplementation(LimatixUnitImplementation):
         if u is None:
             return None
         return self.Q(u)
-    
+
     def parse(self, val, units, defunits,parse_complex=False):
         assert(self._initialized)
         if units is None:
@@ -520,14 +520,14 @@ class PintUnitImplementation(LimatixUnitImplementation):
                 pass
             pass
         else:
-        
+
             quantity = self.registry.parse_expression(val)
             if not hasattr(quantity,"units"):
                 quantity = quantity*self.registry.parse_expression(units)
                 pass
             pass
-            
-      
+
+
 
         return quantity
 
@@ -537,7 +537,7 @@ class PintUnitImplementation(LimatixUnitImplementation):
             return self.Q(val.quantity)
 
         return self.Q(val.quantity).to(units)
-     
+
 
     def from_value(self, val, units=None,defunit=None): #defunit already parsed
         assert(self._initialized)
@@ -565,17 +565,17 @@ class PintUnitImplementation(LimatixUnitImplementation):
 
     def simplifyunits(self,v):
         return type(v)(v.quantity.to_compact())
-    
+
     def isnan(self,v):
         return math.isnan(v.quantity.m)
-    
+
     def equal(self, v1, v2):
         assert(self._initialized)
         if isinstance(v2, self.dcv.numericunitsvalue) or isinstance(v2, self.dcv.complexunitsvalue):
             v2 = v2.quantity
             pass
         return v1.quantity == v2
-    
+
     def equiv(self, v1, v2): #like equal, but nan's count as matching
         assert(self._initialized)
         if isinstance(v2, self.dcv.numericunitsvalue) or isinstance(v2, self.dcv.complexunitsvalue):
@@ -583,7 +583,7 @@ class PintUnitImplementation(LimatixUnitImplementation):
             pass
         if math.isnan(v1.quantity.m) and math.isnan(v2.quantity.m):
             return True
-        
+
         return v1.quantity == v2
 
 
@@ -593,17 +593,17 @@ class PintUnitImplementation(LimatixUnitImplementation):
             v2 = v2.quantity
             pass
         return v1.quantity < v2
-       
+
     def less_than_equal(self, v1, v2):
         assert(self._initialized)
-       
+
         if isinstance(v2, type(v1)):
             v2 = v2.quantity
             pass
-        
+
         return v1.quantity <= v2
 
-         
+
     def greater_than(self, v1, v2):
         assert(self._initialized)
         if isinstance(v2, type(v1)):
@@ -636,8 +636,8 @@ class PintUnitImplementation(LimatixUnitImplementation):
 
         v_pow = v.quantity**p
         return type(v)(v_pow.m, v_pow.units)
-    
-    
+
+
     def add(self, v1, v2):
         assert(self._initialized)
         if isinstance(v2, self.dcv.numericunitsvalue) or isinstance(v2,self.dcv.complexunitsvalue):
@@ -653,8 +653,8 @@ class PintUnitImplementation(LimatixUnitImplementation):
             pass
         v1_diff = v1.quantity - v2
         return type(v1)(v1_diff.m, v1_diff.units)
-            
-    
+
+
     def multiply(self, v1, v2):
         assert(self._initialized)
         if isinstance(v2, self.dcv.numericunitsvalue) or isinstance(v2,self.dcv.complexunitsvalue):
@@ -662,7 +662,7 @@ class PintUnitImplementation(LimatixUnitImplementation):
             pass
         v1_prod = v1.quantity * v2
         return type(v1)(v1_prod.m, v1_prod.units)
-   
+
     def divide(self, v1, v2):
         assert(self._initialized)
         if isinstance(v2, self.dcv.numericunitsvalue) or isinstance(v2,self.dcv.complexunitsvalue):
@@ -670,7 +670,7 @@ class PintUnitImplementation(LimatixUnitImplementation):
             pass
         v1_quot = v1.quantity / v2
         return type(v1)(v1_quot.m, v1_quot.units)
-       
+
     def true_divide(self, v1, v2):
         assert(self._initialized)
         if isinstance(v2, self.dcv.numericunitsvalue) or isinstance(v2,self.dcv.complexunitsvalue):
@@ -678,7 +678,7 @@ class PintUnitImplementation(LimatixUnitImplementation):
             pass
         v1_quot = v1.quantity / v2
         return type(v1)(v1_quot.m, v1_quot.units)
-      
+
     def floor_divide(self, v1, v2):
         assert(self._initialized)
         if isinstance(v2, self.dcv.numericunitsvalue) or isinstance(v2,self.dcv.complexunitsvalue):
@@ -686,7 +686,7 @@ class PintUnitImplementation(LimatixUnitImplementation):
             pass
         v1_quot = v1.quantity // v2
         return type(v1)(v1_quot.m, v1_quot.units)
-      
+
     pass
 
 
@@ -702,7 +702,7 @@ def configure_units(unit_engine,debug = False,filename_context_href = None,**kwa
         pass
     elif unit_engine == "lm_units":
         manager=LM_UnitsImplementation(debug=debug,filename_context_href = filename_context_href,**kwargs)
-   
+
         pass
 
     pass
