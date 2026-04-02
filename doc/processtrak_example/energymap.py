@@ -27,9 +27,9 @@ def run(_xmldoc,_tag,_dest_href,frequency_float,leftlong_float,rightlong_float,b
     # sys.stderr.write("longbase=%s\n" % (str(longbase)))
 
 
-    hzlow=_xmldoc.xpathsinglefloat("(dc:measurement/spectrumlog/mergedspectrumlog)[1]/hzlow",units="Hz")
-    hzhigh=_xmldoc.xpathsinglefloat("(dc:measurement/spectrumlog/mergedspectrumlog)[1]/hzhigh",units="Hz")
-    hzstep=_xmldoc.xpathsinglefloat("(dc:measurement/spectrumlog/mergedspectrumlog)[1]/hzstep",units="Hz")
+    hzlow=_xmldoc.xpathsinglenuv("(dc:measurement/spectrumlog/mergedspectrumlog)[1]/hzlow",units="Hz")
+    hzhigh=_xmldoc.xpathsinglenuv("(dc:measurement/spectrumlog/mergedspectrumlog)[1]/hzhigh",units="Hz")
+    hzstep=_xmldoc.xpathsinglenuv("(dc:measurement/spectrumlog/mergedspectrumlog)[1]/hzstep",units="Hz")
 
     freqidx=int(round((frequency_float-hzlow)/hzstep).value(units=""))
     

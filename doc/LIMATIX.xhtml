@@ -1711,10 +1711,15 @@ No suffix means pass the element. A suffix of "_doc" means pass the xmldoc objec
     <h3>xpathsinglecontextint(self,contextnode,xpath,namespaces=None,extensions=None,variables=None,default=NameError("No result found for xpath"),noprovenance=False)</h3>
     <p>Alias for xpathsingleint(xpath,namespaces,contextnode)</p>
     <h3>xpathsinglefloat(self,xpath,units=None,namespaces=None,contextnode=None,extensions=None,variables=None,default=NameError("No result found for xpath"),noprovenance=False)</h3>
-    <p>Like xpathsingle, but converts result to a float</p>
+    <p>Like xpathsingle, but converts result to a float. For backward compatibility, if units are provided, it will generate a numeric units value.</p>
 
     <h3>xpathsinglecontextfloat(self,contextnode,xpath,units=None,namespaces=None,extensions=None,variables=None,default=NameError("No result found for xpath"),noprovenance=False)</h3>
     <p>Alias for xpathsinglefloat(xpath,namespaces,contextnode)</p>
+    <h3>xpathsinglenuv(self,xpath,units=None,namespaces=None,contextnode=None,extensions=None,variables=None,default=NameError("No result found for xpath"),noprovenance=False)</h3>
+    <p>Like xpathsingle, but converts result to a dc_value.numericunitsvalue  object.  </p>
+
+    <h3>xpathsinglecontextnuv(self,contextnode,xpath,units=None,namespaces=None,extensions=None,variables=None,default=NameError("No result found for xpath"),noprovenance=False)</h3>
+    <p>Alias for xpathsinglenuv(xpath,namespaces,contextnode)</p>
     <h3>xpathsinglestr(self,xpath,namespaces=None,contextnode=None,extensions=None,variables=None,default=NameError("No result found for xpath"),noprovenance=False)</h3>
     <p>Like xpathsingle, but converts result to unicode</p>
     <h3>xpathsinglecontextstr(self,contextnode,xpath,namespaces=None,extensions=None,variables=None,default=NameError("No result found for xpath"),noprovenance=False)</h3>

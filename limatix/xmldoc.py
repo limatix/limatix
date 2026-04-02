@@ -1246,11 +1246,39 @@ class xmldoc(object):
     def xpathsinglefloat(self,xpath,units=None,namespaces=None,contextnode=None,extensions=None,variables=None,default=NameError("No result found for xpath"),noprovenance=False):
         """Like xpathsingle, but converts result to a float"""
 
+        if units is not None:
+            #Backward compatibility with old version that sometimes returned a numeric units value
+            return self.xpathsinglefloat(xpath,units=units,namespaces=namespaces,contextnode=contextnode,extensions=extensions,variables=variables,default=default,noprovenance=noprovenance)
+
         resultnode=self.xpathsingle(xpath,namespaces=namespaces,contextnode=contextnode,extensions=extensions,variables=variables,default=default,noprovenance=noprovenance)
         
         if isinstance(resultnode,basestring) or isinstance(resultnode,numbers.Number):
             return float(resultnode)
             pass
+        else : 
+            # should be an etree.Element
+           
+            return float(resultnode.text)
+        pass
+
+
+    def xpathsinglecontextfloat(self,contextnode,xpath,units=None,namespaces=None,extensions=None,variables=None,default=NameError("No result found for xpath"),noprovenance=False):
+        """Alias for xpathsinglefloat(xpath,namespaces,contextnode)"""
+
+        return self.xpathsinglefloat(xpath,units=units,namespaces=namespaces,contextnode=contextnode,extensions=extensions,variables=variables,default=default,noprovenance=noprovenance)
+        
+
+
+    def xpathsinglenuv(self,xpath,units=None,namespaces=None,contextnode=None,extensions=None,variables=None,default=NameError("No result found for xpath"),noprovenance=False):
+        """Like xpathsingle, but converts result to a float"""
+
+        resultnode=self.xpathsingle(xpath,namespaces=namespaces,contextnode=contextnode,extensions=extensions,variables=variables,default=default,noprovenance=noprovenance)
+        
+        if isinstance(resultnode,basestring):
+            return dc_value.numericunitsvalue(float(resultnode))
+        elif isinstance(resultnode,numbers.Number):
+            return dc_value.numericunitsvalue(float(resultnode))
+            
         else : 
             # should be an etree.Element
             if (dc_value.DCV+"units" in resultnode.attrib) or ("units" in resultnode.attrib):
@@ -1259,14 +1287,14 @@ class xmldoc(object):
                 if units is not None:
                     return dc_value.numericunitsvalue(resultnode.text, units)
                 else:
-                    return float(resultnode.text)
+                    return dc_value.numericunitsvalue(float(resultnode.text))
         pass
 
 
-    def xpathsinglecontextfloat(self,contextnode,xpath,units=None,namespaces=None,extensions=None,variables=None,default=NameError("No result found for xpath"),noprovenance=False):
+    def xpathsinglecontextnuv(self,contextnode,xpath,units=None,namespaces=None,extensions=None,variables=None,default=NameError("No result found for xpath"),noprovenance=False):
         """Alias for xpathsinglefloat(xpath,namespaces,contextnode)"""
 
-        return self.xpathsinglefloat(xpath,units=units,namespaces=namespaces,contextnode=contextnode,extensions=extensions,variables=variables,default=default,noprovenance=noprovenance)
+        return self.xpathsinglenuv(xpath,units=units,namespaces=namespaces,contextnode=contextnode,extensions=extensions,variables=variables,default=default,noprovenance=noprovenance)
         
 
 

@@ -15,16 +15,16 @@ def run(_xmldoc,_tag,frequencyerrorthreshold_numericunits):
 
     # print("\ndatetime=%s; len(spectrumtags)=%d\n" % (datetimestr,len(spectrumtags)))
 
-    hznext=_xmldoc.xpathsinglecontextfloat(_tag,"hzlow",units="Hz")
+    hznext=_xmldoc.xpathsinglecontextnuv(_tag,"hzlow",units="Hz")
     combined_hzlow=hznext
-    combined_step=_xmldoc.xpathsinglecontextfloat(_tag,"hzstep",units="Hz")
+    combined_step=_xmldoc.xpathsinglecontextnuv(_tag,"hzstep",units="Hz")
     dbs=[]
     for spectrumtag in spectrumtags:
-        hzlow=_xmldoc.xpathsinglecontextfloat(spectrumtag,"hzlow",units="Hz")
+        hzlow=_xmldoc.xpathsinglecontextnuv(spectrumtag,"hzlow",units="Hz")
         if abs(hzlow-hznext) > frequencyerrorthreshold_numericunits:
             raise ValueError("Frequency mismatch: hzlow=%f, hznext=%f, threshold=%f" % (hzlow,hznext,frequencyerrorthreshold_numericunits))
-        hzhigh=_xmldoc.xpathsinglecontextfloat(spectrumtag,"hzhigh",units="Hz")
-        hzstep=_xmldoc.xpathsinglecontextfloat(spectrumtag,"hzstep",units="Hz")
+        hzhigh=_xmldoc.xpathsinglecontextnuv(spectrumtag,"hzhigh",units="Hz")
+        hzstep=_xmldoc.xpathsinglecontextnuv(spectrumtag,"hzstep",units="Hz")
         assert(hzstep==combined_step)
         combined_hzhigh=hzhigh
 
