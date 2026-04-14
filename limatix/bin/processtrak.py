@@ -29,7 +29,6 @@ import ast
 import hashlib
 import binascii
 
-from pkg_resources import resource_string
 from lxml import etree
 
 try:

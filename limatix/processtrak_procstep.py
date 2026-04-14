@@ -20,6 +20,7 @@ import fnmatch
 import binascii
 import random
 from packaging.version import Version
+from importlib.metadata import entry_points
 #from distutils.version import Version
 
 from lxml import etree
@@ -107,18 +108,6 @@ from . import processtrak_prxdoc
 from . import processtrak_stepparam
 from . import processtrak_common
 
-
-try:
-    from pkg_resources import resource_string
-    from pkg_resources import iter_entry_points
-    pass
-except TypeError:
-    # mask lack of pkg_resources when we are running under pychecker
-    def resource_string(x,y):
-        raise IOError("Could not import pkg_resources")
-    pass
-
-
 def check_importability(py_module_name):
     try:
         #import pkgutil
@@ -139,7 +128,7 @@ def get_stephrefpaths(primary=False):
     steppath = []
 
     module_version_map = {}
-    for entrypoint in iter_entry_points("limatix.processtrak.step_url_search_path"):
+    for entrypoint in entry_points(group="limatix.processtrak.step_url_search_path"):
         steppathfunc=entrypoint.load()
 
         module_version = (None, None)

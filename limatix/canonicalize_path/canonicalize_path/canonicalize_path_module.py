@@ -1,14 +1,8 @@
 import sys
 import os.path
 import platformdirs
-
-try: 
-    from pkg_resources import resource_string
-    pass
-except:
-    resource_string=None
-    sys.stderr.write("canonicalize_path_module: Error importing pkg_resources (is package properly installed?)\n")
-    pass
+import ast
+from importlib import resources
 
 canon_override={}
 
@@ -28,26 +22,27 @@ canon_override={}
 
 config_dir=os.path.join(platformdirs.site_config_dir(appname = "limatix", appauthor = False),"canonicalize_path")
 
-
-try: 
-    canonical_paths_conf=resource_string(__name__, 'canonical_paths.conf').decode('utf-8')
-    exec(u'canon_override='+canonical_paths_conf)
+try:
+    canonical_paths_conf_path=resources.files("limatix.canonicalize_path.canonicalize_path")/'canonical_paths.conf'
+    with resources.as_file(canonical_paths_conf_path) as path:
+        with open(path.absolute(), 'r') as cp_fh:
+            canonical_paths=ast.literal_eval(cp_fh.read())
+            pass
+        pass
     pass
 except (IOError,TypeError):
-    sys.stderr.write("canonicalize_path_module: Error reading internal config file %s.\n" % ( "canonical_paths.conf"))
+    #sys.stderr.write("canonicalize_path_module: Error reading internal config file %s.\n" % ( "canonical_paths.conf"))
+    raise
     pass
 
-try: 
-    canonical_paths=open(os.path.join(config_dir,"canonical_paths.conf"),"rb")
-    exec(u'canon_override.update('+canonical_paths.read().decode('utf-8')+')')
-    canonical_paths.close()
+try:
+    canonical_paths_conf=open(os.path.join(config_dir,"canonical_paths.conf"),"r")
+    canonical_paths.update(ast.literal_eval(canonical_paths_conf.read()))
+    canonical_paths_conf.close()
     pass
 except (IOError,NameError):
-    # No config file found
-    #sys.stderr.write("canonicalize_path_module: Error reading config file %s.\n" % ( os.path.join(config_dir,"canonical_paths.conf")))
-    pass
-
-    
+    #sys.stderr.write("canonicalize_xpath_module: Error reading config file %s.\n" % ( os.path.join(config_dir,"tag_index_paths.conf")))
+    pass    
 
 def canonicalize_relpath(contextdir,relpath):
     # given a path relpath, which may be relative to contextdir

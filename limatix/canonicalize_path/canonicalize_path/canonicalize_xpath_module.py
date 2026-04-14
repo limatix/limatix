@@ -4,6 +4,8 @@ import string
 import re
 import copy
 import platformdirs
+import ast
+from importlib import resources
 
 try: 
     import builtins  # python3
@@ -24,13 +26,13 @@ except ImportError:
     import collections as collections_abc # < python 3.3
     pass
 
-try:
-    from pkg_resources import resource_string
-    pass
-except:
-    resource_string=None
-    sys.stderr.write("canonicalize_xpath_module: Error importing pkg_resources (is package properly installed?)\n")
-    pass
+#try:
+#    from pkg_resources import resource_string
+#    pass
+#except:
+#    resource_string=None
+#    sys.stderr.write("canonicalize_xpath_module: Error importing pkg_resources (is package properly installed?)\n")
+#    pass
 
 
 
@@ -73,8 +75,12 @@ DBFILE="{http://limatix.org/databrowse/dir}file"
 
 
 try: 
-    tag_index_paths_conf_str=resource_string(__name__, 'tag_index_paths.conf').decode('utf-8')
-    exec(u'tag_index_paths='+tag_index_paths_conf_str)
+    tag_index_paths_conf_path=resources.files("limatix.canonicalize_path.canonicalize_path")/'tag_index_paths.conf'
+    with resources.as_file(tag_index_paths_conf_path) as path:
+        with open(path.absolute(), 'r') as tip_fh:
+            tag_index_paths=ast.literal_eval(tip_fh.read())
+            pass
+        pass
     pass
 except (IOError,TypeError):
     sys.stderr.write("canonicalize_path_module: Error reading internal config file %s.\n" % ( "tag_index_paths.conf"))
@@ -82,8 +88,8 @@ except (IOError,TypeError):
     pass
 
 try:
-    tag_index_paths_conf=open(os.path.join(config_dir,"tag_index_paths.conf"),"rb")
-    exec(u'tag_index_paths.update('+tag_index_paths_conf.read().decode('utf-8')+')')
+    tag_index_paths_conf=open(os.path.join(config_dir,"tag_index_paths.conf"),"r")
+    tag_index_paths.update(ast.literal_eval(tag_index_paths_conf.read()))
     tag_index_paths_conf.close()
     pass
 except (IOError,NameError):
