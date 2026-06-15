@@ -639,7 +639,7 @@ def xmldocelementaccessed(xmldocu,element):
 
             uuids=""
             uuidsname=LIP+"wasgeneratedby"
-            if uuidsname in element.attrib:
+            if uuidsname in element.attrib and element.attrib[uuidsname].startswith("uuid="):
                 uuids=element.attrib[uuidsname]
                 pass
                 
@@ -664,7 +664,7 @@ def elementaccessed(filehrefc,doc,element):
 
             uuids=""
             uuidsname=LIP+"wasgeneratedby"
-            if uuidsname in element.attrib:
+            if uuidsname in element.attrib and element.attrib[uuidsname].startswith("uuid="):
                 uuids=element.attrib[uuidsname]
                 pass
                 
