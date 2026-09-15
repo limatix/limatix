@@ -938,19 +938,23 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
                     if qt_version is None:
                         # Try new import
                         # Let matplotlib backend availability determine which version
-                        if check_importability("matplotlib.backends.backend_qt6agg"):
-                            if check_importability("PySide6") or check_importability("PyQt6"):
-                                from matplotlib.backends import backend_qt6agg
+                        import matplotlib
+                        mpl_version = matplotlib.__version__
+                        mpl_ver_parts = mpl_version.split(".")
+                        mpl_py6 = (int(mpl_ver_parts[0]) > 3)  or (int(mpl_ver_parts[0]) == 3 and int(mpl_ver_parts[1]) >= 5) # Does matplotlib support py6?
+                        if mpl_py6 and check_importability("matplotlib.backends.backend_qtagg"):
+                            if check_importability("PySide6") or check_importability("PyQt6") or check_importability("PySide5") or check_importability("PyQt5"):
+                                from matplotlib.backends import backend_qtagg
                                 pass
                             pass
 
-                        if check_importability("matplotlib.backends.backend_qt5agg"):
+                        if not(mpl_py6) and check_importability("matplotlib.backends.backend_qt5agg"):
                             if check_importability("PySide2") or check_importability("PyQt5"):
                                 from matplotlib.backends import backend_qt5agg
                                 pass
                             pass
 
-                        if check_importability("matplotlib.backends.backend_qt4agg"):
+                        if not(mpl_py6) and check_importability("matplotlib.backends.backend_qt4agg"):
                             if check_importability("PySide") or check_importability("PyQt4"):
                                 from matplotlib.backends import backend_qt4agg
                                 pass
@@ -980,10 +984,10 @@ def procsteppython_do_run(stepglobals,runfunc,argkw,ipythonmodelist,action,scrip
                     pass
                 elif qt_version==6: 
                     #print("Using qt5")
-                    matplotlib.use('Qt6Agg')
+                    matplotlib.use('qtagg')
                     pass
                 else:
-                    matplotlib.use('QtAgg')
+                    matplotlib.use('qtagg')
                     pass
                     # raise ValueError(f'Unknown QT Version: {str(qt_version):s}')
             
