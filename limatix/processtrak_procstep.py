@@ -1604,13 +1604,52 @@ def procstep_evalargs(output,prxdoc,prxnsmap,steptag,uniquematches,argnames,args
         elif argname=="_dest_href":
             # Get hrefvalue pointing at destination directory, where
             # files should be written
+            # first searches in the element or parents for a dc:dest element
+            # or failing that looks in /dc:summary for the dc:dest element
+            # and interprets as an href value
             if paramdebug:
-                print("    Matches _dest_href: supplying element href value of dc:summary/dc:dest")
+                print("    Matches _dest_href: supplying element href value of dc:dest or dc:summary/dc:dest")
                 pass
-            destlist=output.xpath("dc:summary/dc:dest",namespaces=processtrak_common.prx_nsmap)
+           
+
             argkw[argname]=None
-            if len(destlist)==1:
-                argkw[argname]=dcv.hrefvalue.fromxml(output,destlist[0])
+
+            # Try to extract dc:dest from a document tag... ours or cascade down through our ancestors
+            testelement=element
+            gotvalue= False
+            # Iterate through element and ancestors
+            while testelement is not None and not(gotvalue):
+                try : 
+                    argkw[argname]=processtrak_stepparam.findparam(prxnsmap,output,testelement,"dc:dest",paramdebug)
+                    gotvalue = True
+                    pass
+                except NameError:
+                    pass
+
+                testelement = testelement.getparent()
+                pass
+
+            if not gotvalue:
+                # Failed to find a value, even after searching
+                # through ancestors...
+                
+           
+           
+                if paramdebug:
+                    print(f"    No match found; dropping back to /dc:summary/dc:dest.")
+                    pass
+                destlist=output.xpath("dc:summary/dc:dest",namespaces=processtrak_common.prx_nsmap)
+            
+                if len(destlist)==1:
+                    argkw[argname]=dcv.hrefvalue.fromxml(output,destlist[0])
+                    pass
+                else:
+                    # using a default if present
+                    if argname in argsdefaults:
+                        argkw[argname]=argsdefaults[argname]
+                        pass
+                    # otherwise None falls through
+                    pass
                 pass
             pass
         else :
