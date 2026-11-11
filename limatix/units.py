@@ -4,7 +4,7 @@ import numbers
 import math
 import copy
 from urllib.parse import quote
-
+import numpy as np
 from . import lm_units  # note: main program should call lm_units.units_config("insert_basic_units")
 #from . import dc_value
 
@@ -145,6 +145,7 @@ class LM_UnitsImplementation(LimatixUnitImplementation):
             unit=lm_units.copyunits(unitstruct)
             pass
 
+
         return (val, unit)
 
     def from_value(self, val, units=None, defunit=None): #defunit already parsed
@@ -170,6 +171,11 @@ class LM_UnitsImplementation(LimatixUnitImplementation):
         if val is None:
             val = math.nan
             pass
+
+        if isinstance(val,np.floating) or  isinstance(val,np.complexfloating):
+            val=val.item()
+            pass
+        
         return (val, unit)
 
 
