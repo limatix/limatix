@@ -1058,8 +1058,8 @@ def getinputfiles(prxdoc):
         # got an output file for the .prx file
         # This means we have to define the inputfiles segment as
         # an inputfile... via a hypertext reference with fragment
-        inputfiles.insert(0,inputfiles_element)
-        inputfiles_with_hrefs.insert(0,(inputfiles_element,dcv.hrefvalue.fromelement(prxdoc,inputfiles_element)))
+        inputfiles.append(inputfiles_element)
+        inputfiles_with_hrefs.append((inputfiles_element,dcv.hrefvalue.fromelement(prxdoc,inputfiles_element)))
         pass
 
     return (inputfiles_element,inputfiles_with_hrefs)
