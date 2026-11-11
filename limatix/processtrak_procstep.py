@@ -1620,7 +1620,7 @@ def procstep_evalargs(output,prxdoc,prxnsmap,steptag,uniquematches,argnames,args
             # Iterate through element and ancestors
             while testelement is not None and not(gotvalue):
                 try : 
-                    argkw[argname]=processtrak_stepparam.findparam(prxnsmap,output,testelement,"dc:dest",paramdebug)
+                    argkw[argname]=processtrak_stepparam.findparam(prxnsmap,output,testelement,"dc:dest_href",paramdebug)
                     gotvalue = True
                     pass
                 except NameError:
@@ -1649,6 +1649,11 @@ def procstep_evalargs(output,prxdoc,prxnsmap,steptag,uniquematches,argnames,args
                         argkw[argname]=argsdefaults[argname]
                         pass
                     # otherwise None falls through
+                    pass
+                pass
+            else:
+                if paramdebug:
+                    print(f"    Found match: result = {str(argkw[argname]):s}")
                     pass
                 pass
             pass
